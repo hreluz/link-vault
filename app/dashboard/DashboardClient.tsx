@@ -1,11 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { MOCK_LINKS } from '@/lib/mock-data'
-import type { ContentType } from '@/lib/types/database'
+import { MOCK_LINKS, type MockLink } from '@/lib/mock-data'
+import type { ContentType, LinkStatus } from '@/lib/types/database'
 import { CONTENT_TYPE_FILTERS } from './config'
 import LinkCard from './LinkCard'
 import AddLinkModal from './AddLinkModal'
+import BottomSheet from './BottomSheet'
 import LogoutButton from './LogoutButton'
 
 type Filter = ContentType | 'all'
@@ -15,6 +16,10 @@ export default function DashboardClient({ userEmail }: { userEmail: string }) {
   const [modalOpen, setModalOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [activeLink, setActiveLink] = useState<MockLink | null>(null)
+  const [statuses, setStatuses] = useState<Record<string, LinkStatus>>(
+    () => Object.fromEntries(MOCK_LINKS.map(l => [l.id, l.status]))
+  )
 
   function toggleSearch() {
     if (searchOpen) {
@@ -25,9 +30,12 @@ export default function DashboardClient({ userEmail }: { userEmail: string }) {
     }
   }
 
-  const byCategory = filter === 'all'
-    ? MOCK_LINKS
-    : MOCK_LINKS.filter(l => l.content_type === filter)
+  function handleStatusChange(id: string, status: LinkStatus) {
+    setStatuses(prev => ({ ...prev, [id]: status }))
+  }
+
+  const byCategory = (filter === 'all' ? MOCK_LINKS : MOCK_LINKS.filter(l => l.content_type === filter))
+    .map(l => ({ ...l, status: statuses[l.id] }))
 
   const query = searchQuery.trim().toLowerCase()
   const results = query
@@ -126,7 +134,7 @@ export default function DashboardClient({ userEmail }: { userEmail: string }) {
         {results.length > 0 ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {results.map(link => (
-              <LinkCard key={link.id} link={link} />
+              <LinkCard key={link.id} link={link} onMenuOpen={() => setActiveLink(link)} />
             ))}
           </div>
         ) : (
@@ -148,6 +156,13 @@ export default function DashboardClient({ userEmail }: { userEmail: string }) {
       </main>
 
       <AddLinkModal isOpen={modalOpen} onClose={() => setModalOpen(false)} />
+
+      <BottomSheet
+        link={activeLink}
+        currentStatus={activeLink ? statuses[activeLink.id] : 'unread'}
+        onStatusChange={handleStatusChange}
+        onClose={() => setActiveLink(null)}
+      />
     </>
   )
 }
