@@ -62,5 +62,69 @@ The app should recognize and visually differentiate these source types:
 - All pages and routes live under `app/`
 - Shared UI components go in `components/`
 - Domain logic (types, helpers, data access) goes in `lib/`
+- Business logic (Supabase calls, no Next.js deps) goes in `lib/services/`
 - Keep components small and focused; co-locate styles with Tailwind classes
 - Prefer server components by default; use `"use client"` only when needed
+
+## Design system
+
+Mobile-first. All UI must follow these Tailwind conventions — no exceptions.
+
+### Color palette
+- **Primary:** `indigo-600` (hover: `indigo-500`)
+- **Background:** `slate-50` (page), `white` (cards/inputs)
+- **Text:** `slate-900` (headings), `slate-700` (labels), `slate-500` (secondary/muted)
+- **Border:** `slate-200`
+- **Error:** `red-600` text on `red-50` background
+- **Placeholder:** `slate-400`
+
+### Radius & shape
+- Cards and containers: `rounded-2xl`
+- Inputs and buttons: `rounded-xl`
+
+### Inputs
+```
+w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900
+placeholder-slate-400 outline-none transition
+focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20
+```
+
+### Primary button
+```
+w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-sm
+transition hover:bg-indigo-500
+focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600
+disabled:cursor-not-allowed disabled:opacity-60
+```
+
+### Secondary / ghost button
+```
+rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600
+shadow-sm transition hover:bg-slate-50 hover:text-slate-900
+disabled:cursor-not-allowed disabled:opacity-60
+```
+
+### Error message
+```
+rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600
+```
+
+### Labels
+```
+block text-sm font-medium text-slate-700
+```
+
+### Links
+```
+font-medium text-indigo-600 hover:text-indigo-500
+```
+
+### Card shell
+```
+rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200
+```
+
+### Page wrapper (centered auth / empty-state layouts)
+```
+flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4 py-12
+```
