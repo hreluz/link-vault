@@ -1,7 +1,12 @@
 import type { MockLink } from '@/lib/mock-data'
 import { CONTENT_TYPE_CONFIG, STATUS_CONFIG } from './config'
 
-export default function LinkCard({ link }: { link: MockLink }) {
+interface Props {
+  link: MockLink
+  onMenuOpen: () => void
+}
+
+export default function LinkCard({ link, onMenuOpen }: Props) {
   const type = CONTENT_TYPE_CONFIG[link.content_type]
   const status = STATUS_CONFIG[link.status]
 
@@ -12,9 +17,13 @@ export default function LinkCard({ link }: { link: MockLink }) {
           <span aria-hidden="true">{type.icon}</span>
           {type.label}
         </span>
-        <span className={`inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-xs font-medium ${status.badge}`}>
-          {status.label}
-        </span>
+        <button
+          onClick={onMenuOpen}
+          aria-label="Link options"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 transition hover:bg-slate-200 hover:text-slate-700 active:bg-slate-200"
+        >
+          ▾
+        </button>
       </div>
 
       <div>
@@ -24,15 +33,16 @@ export default function LinkCard({ link }: { link: MockLink }) {
 
       <p className="line-clamp-2 flex-1 text-sm text-slate-500">{link.description}</p>
 
-      {link.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {link.tags.map(tag => (
-            <span key={tag} className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-500">
-              {tag}
-            </span>
-          ))}
-        </div>
-      )}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${status.badge}`}>
+          {status.label}
+        </span>
+        {link.tags.map(tag => (
+          <span key={tag} className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-500">
+            {tag}
+          </span>
+        ))}
+      </div>
     </div>
   )
 }
