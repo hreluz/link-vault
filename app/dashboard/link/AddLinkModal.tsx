@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import type { ContentType, LinkStatus } from '@/lib/types/database'
-import { CONTENT_TYPE_CONFIG, STATUS_CONFIG } from './config'
+import { CONTENT_TYPE_CONFIG, STATUS_CONFIG } from '../config'
 
 interface Props {
   isOpen: boolean

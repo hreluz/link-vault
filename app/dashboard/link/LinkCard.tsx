@@ -1,5 +1,5 @@
 import type { MockLink } from '@/lib/mock-data'
-import { CONTENT_TYPE_CONFIG, STATUS_CONFIG } from './config'
+import { CONTENT_TYPE_CONFIG, STATUS_CONFIG } from '../config'
 
 interface Props {
   link: MockLink
