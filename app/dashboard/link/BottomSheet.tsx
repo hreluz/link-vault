@@ -2,7 +2,7 @@
 
 import type { MockLink } from '@/lib/mock-data'
 import type { LinkStatus } from '@/lib/types/database'
-import { STATUS_CONFIG } from './config'
+import { STATUS_CONFIG } from '../config'
 
 const STATUS_ICONS: Record<LinkStatus, string> = {
   unread:   '📥',
