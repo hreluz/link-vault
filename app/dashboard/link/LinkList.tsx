@@ -6,12 +6,14 @@ import type { ContentType, LinkStatus } from '@/lib/types/database'
 import { CONTENT_TYPE_CONFIG, STATUS_CONFIG } from '../config'
 import LinkCard from './LinkCard'
 import AddLinkModal from './AddLinkModal'
+import EditLinkModal from './EditLinkModal'
 import BottomSheet from './BottomSheet'
 import FilterSheet from './FilterSheet'
 
 type Filter = ContentType | 'all'
 
 export default function LinkList() {
+  const [links, setLinks] = useState<MockLink[]>(MOCK_LINKS)
   const [category, setCategory] = useState<Filter>('all')
   const [modalOpen, setModalOpen] = useState(false)
   const [filterOpen, setFilterOpen] = useState(false)
@@ -20,12 +22,22 @@ export default function LinkList() {
   const [tagMode, setTagMode] = useState<'any' | 'all'>('any')
   const [selectedStatuses, setSelectedStatuses] = useState<LinkStatus[]>([])
   const [activeLink, setActiveLink] = useState<MockLink | null>(null)
-  const [statuses, setStatuses] = useState<Record<string, LinkStatus>>(
-    () => Object.fromEntries(MOCK_LINKS.map(l => [l.id, l.status]))
-  )
+  const [editingLink, setEditingLink] = useState<MockLink | null>(null)
 
   function handleStatusChange(id: string, status: LinkStatus) {
-    setStatuses(prev => ({ ...prev, [id]: status }))
+    setLinks(prev => prev.map(l => l.id === id ? { ...l, status } : l))
+    setActiveLink(prev => prev?.id === id ? { ...prev, status } : prev)
+  }
+
+  function handleEdit(updated: MockLink) {
+    setLinks(prev => prev.map(l => l.id === updated.id ? updated : l))
+    setEditingLink(null)
+  }
+
+  function handleDelete() {
+    if (!activeLink) return
+    setLinks(prev => prev.filter(l => l.id !== activeLink.id))
+    setActiveLink(null)
   }
 
   function resetFilters() {
@@ -36,8 +48,7 @@ export default function LinkList() {
     setSearchQuery('')
   }
 
-  const byCategory = (category === 'all' ? MOCK_LINKS : MOCK_LINKS.filter(l => l.content_type === category))
-    .map(l => ({ ...l, status: statuses[l.id] }))
+  const byCategory = category === 'all' ? links : links.filter(l => l.content_type === category)
 
   const query = searchQuery.trim().toLowerCase()
   const bySearch = query
@@ -169,6 +180,12 @@ export default function LinkList() {
 
       <AddLinkModal isOpen={modalOpen} onClose={() => setModalOpen(false)} />
 
+      <EditLinkModal
+        link={editingLink}
+        onSave={handleEdit}
+        onClose={() => setEditingLink(null)}
+      />
+
       <FilterSheet
         isOpen={filterOpen}
         category={category}
@@ -186,8 +203,9 @@ export default function LinkList() {
 
       <BottomSheet
         link={activeLink}
-        currentStatus={activeLink ? statuses[activeLink.id] : 'unread'}
         onStatusChange={handleStatusChange}
+        onEdit={() => setEditingLink(activeLink)}
+        onDelete={handleDelete}
         onClose={() => setActiveLink(null)}
       />
     </main>
