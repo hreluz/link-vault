@@ -16,12 +16,13 @@ const STATUS_ICONS: Record<LinkStatus, string> = {
 interface Props {
   link: MockLink | null
   onStatusChange: (id: string, status: LinkStatus) => void
+  onFavoriteToggle: () => void
   onEdit: () => void
   onDelete: () => void
   onClose: () => void
 }
 
-export default function BottomSheet({ link, onStatusChange, onEdit, onDelete, onClose }: Props) {
+export default function BottomSheet({ link, onStatusChange, onFavoriteToggle, onEdit, onDelete, onClose }: Props) {
   const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   if (!link) return null
@@ -51,21 +52,32 @@ export default function BottomSheet({ link, onStatusChange, onEdit, onDelete, on
         </div>
 
         {/* quick actions */}
-        <div className="grid grid-cols-2 gap-2 border-b border-slate-100 p-4">
+        <div className="grid grid-cols-3 gap-2 border-b border-slate-100 p-4">
           <a
             href={link.url}
             target="_blank"
             rel="noopener noreferrer"
             onClick={handleClose}
-            className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
+            className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
           >
             <span aria-hidden="true">↗</span> Open
           </a>
           <button
             onClick={() => { onEdit(); handleClose() }}
-            className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
+            className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
           >
             <span aria-hidden="true">✏️</span> Edit
+          </button>
+          <button
+            onClick={() => { onFavoriteToggle(); handleClose() }}
+            className={`flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-sm font-medium transition ${
+              link.is_favorite
+                ? 'border-amber-200 bg-amber-50 text-amber-600 hover:bg-amber-100'
+                : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            <span aria-hidden="true">{link.is_favorite ? '⭐' : '☆'}</span>
+            {link.is_favorite ? 'Unstar' : 'Star'}
           </button>
         </div>
 

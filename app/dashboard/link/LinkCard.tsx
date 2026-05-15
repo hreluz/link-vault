@@ -4,9 +4,10 @@ import { CONTENT_TYPE_CONFIG, STATUS_CONFIG } from '../config'
 interface Props {
   link: MockLink
   onMenuOpen: () => void
+  onFavoriteToggle: () => void
 }
 
-export default function LinkCard({ link, onMenuOpen }: Props) {
+export default function LinkCard({ link, onMenuOpen, onFavoriteToggle }: Props) {
   const type = CONTENT_TYPE_CONFIG[link.content_type]
   const status = STATUS_CONFIG[link.status]
 
@@ -17,13 +18,26 @@ export default function LinkCard({ link, onMenuOpen }: Props) {
           <span aria-hidden="true">{type.icon}</span>
           {type.label}
         </span>
-        <button
-          onClick={onMenuOpen}
-          aria-label="Link options"
-          className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 transition hover:bg-slate-200 hover:text-slate-700 active:bg-slate-200"
-        >
-          ···
-        </button>
+        <div className="relative z-10 flex items-center gap-1">
+          <button
+            onClick={onFavoriteToggle}
+            aria-label={link.is_favorite ? 'Remove from favorites' : 'Add to favorites'}
+            className={`flex h-8 w-8 items-center justify-center rounded-lg text-lg transition ${
+              link.is_favorite
+                ? 'text-amber-400 hover:text-amber-500'
+                : 'text-slate-300 hover:text-amber-400 hover:bg-slate-100'
+            }`}
+          >
+            {link.is_favorite ? '⭐' : '☆'}
+          </button>
+          <button
+            onClick={onMenuOpen}
+            aria-label="Link options"
+            className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500 transition hover:bg-slate-200 hover:text-slate-700 active:bg-slate-200"
+          >
+            ···
+          </button>
+        </div>
       </div>
 
       <div>
