@@ -1,8 +1,8 @@
 'use client'
 
 import { MOCK_LINKS } from '@/lib/mock-data'
-import { CONTENT_TYPE_FILTERS } from '../config'
-import type { ContentType } from '@/lib/types/database'
+import { CONTENT_TYPE_FILTERS, STATUS_CONFIG } from '../config'
+import type { ContentType, LinkStatus } from '@/lib/types/database'
 
 type Filter = ContentType | 'all'
 
@@ -13,10 +13,12 @@ type TagMode = 'any' | 'all'
 interface Props {
   isOpen: boolean
   category: Filter
+  selectedStatuses: LinkStatus[]
   selectedTags: string[]
   tagMode: TagMode
   resultCount: number
   onCategoryChange: (c: Filter) => void
+  onStatusesChange: (statuses: LinkStatus[]) => void
   onTagsChange: (tags: string[]) => void
   onTagModeChange: (mode: TagMode) => void
   onReset: () => void
@@ -24,8 +26,8 @@ interface Props {
 }
 
 export default function FilterSheet({
-  isOpen, category, selectedTags, tagMode, resultCount,
-  onCategoryChange, onTagsChange, onTagModeChange, onReset, onClose,
+  isOpen, category, selectedStatuses, selectedTags, tagMode, resultCount,
+  onCategoryChange, onStatusesChange, onTagsChange, onTagModeChange, onReset, onClose,
 }: Props) {
   if (!isOpen) return null
 
@@ -37,7 +39,15 @@ export default function FilterSheet({
     )
   }
 
-  const hasFilters = category !== 'all' || selectedTags.length > 0
+  function toggleStatus(s: LinkStatus) {
+    onStatusesChange(
+      selectedStatuses.includes(s)
+        ? selectedStatuses.filter(x => x !== s)
+        : [...selectedStatuses, s]
+    )
+  }
+
+  const hasFilters = category !== 'all' || selectedStatuses.length > 0 || selectedTags.length > 0
 
   return (
     <div
@@ -78,6 +88,28 @@ export default function FilterSheet({
                     }`}
                   >
                     {tab.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <div>
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Status</p>
+            <div className="flex flex-wrap gap-2">
+              {(Object.keys(STATUS_CONFIG) as LinkStatus[]).map(s => {
+                const active = selectedStatuses.includes(s)
+                return (
+                  <button
+                    key={s}
+                    onClick={() => toggleStatus(s)}
+                    className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                      active
+                        ? `${STATUS_CONFIG[s].badge} ring-2 ring-indigo-500 ring-offset-1`
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    {STATUS_CONFIG[s].label}
                   </button>
                 )
               })}

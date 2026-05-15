@@ -11,7 +11,7 @@ export default function LinkCard({ link, onMenuOpen }: Props) {
   const status = STATUS_CONFIG[link.status]
 
   return (
-    <div className="flex flex-col gap-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+    <article className="relative flex flex-col gap-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 transition hover:shadow-md hover:ring-slate-300">
       <div className="flex items-start justify-between gap-2">
         <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${type.badge}`}>
           <span aria-hidden="true">{type.icon}</span>
@@ -20,20 +20,29 @@ export default function LinkCard({ link, onMenuOpen }: Props) {
         <button
           onClick={onMenuOpen}
           aria-label="Link options"
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 transition hover:bg-slate-200 hover:text-slate-700 active:bg-slate-200"
+          className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 transition hover:bg-slate-200 hover:text-slate-700 active:bg-slate-200"
         >
-          ▾
+          ···
         </button>
       </div>
 
       <div>
-        <h3 className="line-clamp-2 font-semibold leading-snug text-slate-900">{link.title}</h3>
-        <p className="mt-0.5 text-xs text-slate-400">{link.site_name}</p>
+        <h3 className="line-clamp-2 font-semibold leading-snug text-slate-900">
+          <a
+            href={link.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="after:absolute after:inset-0 after:rounded-2xl after:content-[''] focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-indigo-500"
+          >
+            {link.title}
+          </a>
+        </h3>
+        <p className="mt-0.5 text-xs text-slate-400">{link.site_name} ↗</p>
       </div>
 
       <p className="line-clamp-2 flex-1 text-sm text-slate-500">{link.description}</p>
 
-      <div className="flex flex-wrap items-center gap-1.5">
+      <div className="relative z-10 flex flex-wrap items-center gap-1.5">
         <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${status.badge}`}>
           {status.label}
         </span>
@@ -43,6 +52,6 @@ export default function LinkCard({ link, onMenuOpen }: Props) {
           </span>
         ))}
       </div>
-    </div>
+    </article>
   )
 }
