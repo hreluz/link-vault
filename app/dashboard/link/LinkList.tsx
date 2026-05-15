@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { MOCK_LINKS, type MockLink } from '@/lib/mock-data'
 import type { ContentType, LinkStatus } from '@/lib/types/database'
 import { CONTENT_TYPE_CONFIG, STATUS_CONFIG } from '../config'
+import { useToast } from '@/components/ToastProvider'
 import LinkCard from './LinkCard'
 import AddLinkModal from './AddLinkModal'
 import EditLinkModal from './EditLinkModal'
@@ -23,21 +24,32 @@ export default function LinkList() {
   const [selectedStatuses, setSelectedStatuses] = useState<LinkStatus[]>([])
   const [activeLink, setActiveLink] = useState<MockLink | null>(null)
   const [editingLink, setEditingLink] = useState<MockLink | null>(null)
+  const { addToast } = useToast()
 
   function handleStatusChange(id: string, status: LinkStatus) {
     setLinks(prev => prev.map(l => l.id === id ? { ...l, status } : l))
     setActiveLink(prev => prev?.id === id ? { ...prev, status } : prev)
+    addToast(`Moved to ${STATUS_CONFIG[status].label}`)
   }
 
   function handleEdit(updated: MockLink) {
     setLinks(prev => prev.map(l => l.id === updated.id ? updated : l))
     setEditingLink(null)
+    addToast('Changes saved')
   }
 
   function handleDelete() {
     if (!activeLink) return
     setLinks(prev => prev.filter(l => l.id !== activeLink.id))
     setActiveLink(null)
+    addToast('Link deleted', 'destructive')
+  }
+
+  function handleFavoriteToggle(id: string) {
+    const isFav = links.find(l => l.id === id)?.is_favorite
+    setLinks(prev => prev.map(l => l.id === id ? { ...l, is_favorite: !l.is_favorite } : l))
+    setActiveLink(prev => prev?.id === id ? { ...prev, is_favorite: !prev.is_favorite } : prev)
+    addToast(isFav ? 'Removed from favorites' : 'Added to favorites')
   }
 
   function resetFilters() {
@@ -160,7 +172,7 @@ export default function LinkList() {
       {results.length > 0 ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {results.map(link => (
-            <LinkCard key={link.id} link={link} onMenuOpen={() => setActiveLink(link)} />
+            <LinkCard key={link.id} link={link} onMenuOpen={() => setActiveLink(link)} onFavoriteToggle={() => handleFavoriteToggle(link.id)} />
           ))}
         </div>
       ) : (
@@ -178,7 +190,7 @@ export default function LinkList() {
         </div>
       )}
 
-      <AddLinkModal isOpen={modalOpen} onClose={() => setModalOpen(false)} />
+      <AddLinkModal isOpen={modalOpen} onSave={() => addToast('Link saved')} onClose={() => setModalOpen(false)} />
 
       <EditLinkModal
         link={editingLink}
@@ -204,6 +216,7 @@ export default function LinkList() {
       <BottomSheet
         link={activeLink}
         onStatusChange={handleStatusChange}
+        onFavoriteToggle={() => activeLink && handleFavoriteToggle(activeLink.id)}
         onEdit={() => setEditingLink(activeLink)}
         onDelete={handleDelete}
         onClose={() => setActiveLink(null)}

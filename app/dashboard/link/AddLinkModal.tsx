@@ -6,13 +6,14 @@ import { CONTENT_TYPE_CONFIG, STATUS_CONFIG } from '../config'
 
 interface Props {
   isOpen: boolean
+  onSave?: () => void
   onClose: () => void
 }
 
 const INPUT = 'w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20'
 const LABEL = 'block text-sm font-medium text-slate-700 mb-1.5'
 
-export default function AddLinkModal({ isOpen, onClose }: Props) {
+export default function AddLinkModal({ isOpen, onSave, onClose }: Props) {
   const [url, setUrl] = useState('')
   const [title, setTitle] = useState('')
   const [contentType, setContentType] = useState<ContentType>('other')
@@ -23,6 +24,7 @@ export default function AddLinkModal({ isOpen, onClose }: Props) {
   if (!isOpen) return null
 
   function handleSave() {
+    onSave?.()
     onClose()
     setUrl('')
     setTitle('')
