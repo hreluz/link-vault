@@ -1,21 +1,21 @@
 'use client'
 
+import { useState } from 'react'
 import { MOCK_LINKS } from '@/lib/mock-data'
 import { CONTENT_TYPE_FILTERS, STATUS_CONFIG } from '../config'
 import type { ContentType, LinkStatus } from '@/lib/types/database'
 
 type Filter = ContentType | 'all'
-
-const ALL_TAGS = Array.from(new Set(MOCK_LINKS.flatMap(l => l.tags))).sort()
-
 type TagMode = 'any' | 'all'
 export type SortBy = 'newest' | 'oldest' | 'alphabetical' | 'status'
 
+const ALL_TAGS = Array.from(new Set(MOCK_LINKS.flatMap(l => l.tags))).sort()
+
 const SORT_OPTIONS: { value: SortBy; label: string }[] = [
-  { value: 'newest',      label: 'Newest first' },
-  { value: 'oldest',      label: 'Oldest first' },
+  { value: 'newest',       label: 'Newest first' },
+  { value: 'oldest',       label: 'Oldest first' },
   { value: 'alphabetical', label: 'A → Z' },
-  { value: 'status',      label: 'By status' },
+  { value: 'status',       label: 'By status' },
 ]
 
 interface Props {
@@ -35,11 +35,68 @@ interface Props {
   onClose: () => void
 }
 
+type SectionKey = 'sort' | 'category' | 'status' | 'tags'
+
+function initOpen(props: Pick<Props, 'sortBy' | 'category' | 'selectedStatuses' | 'selectedTags'>): Set<SectionKey> {
+  const open = new Set<SectionKey>()
+  if (props.sortBy !== 'newest') open.add('sort')
+  if (props.category !== 'all') open.add('category')
+  if (props.selectedStatuses.length > 0) open.add('status')
+  if (props.selectedTags.length > 0) open.add('tags')
+  return open
+}
+
+function AccordionSection({
+  label, badge, open, onToggle, children,
+}: {
+  label: string
+  badge?: React.ReactNode
+  open: boolean
+  onToggle: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <div className="border-b border-slate-100 last:border-0">
+      <button
+        onClick={onToggle}
+        className="flex w-full items-center justify-between py-4 text-left"
+      >
+        <span className="text-sm font-semibold text-slate-700">{label}</span>
+        <div className="flex items-center gap-2">
+          {badge}
+          <span className={`text-slate-400 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}>
+            ▾
+          </span>
+        </div>
+      </button>
+      <div className={`grid transition-all duration-200 ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
+        <div className="overflow-hidden">
+          <div className="pb-4">
+            {children}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function FilterSheet({
   isOpen, sortBy, category, selectedStatuses, selectedTags, tagMode, resultCount,
   onSortChange, onCategoryChange, onStatusesChange, onTagsChange, onTagModeChange, onReset, onClose,
 }: Props) {
+  const [openSections, setOpenSections] = useState<Set<SectionKey>>(
+    () => initOpen({ sortBy, category, selectedStatuses, selectedTags })
+  )
+
   if (!isOpen) return null
+
+  function toggle(section: SectionKey) {
+    setOpenSections(prev => {
+      const next = new Set(prev)
+      next.has(section) ? next.delete(section) : next.add(section)
+      return next
+    })
+  }
 
   function toggleTag(tag: string) {
     onTagsChange(
@@ -59,6 +116,9 @@ export default function FilterSheet({
 
   const hasFilters = sortBy !== 'newest' || category !== 'all' || selectedStatuses.length > 0 || selectedTags.length > 0
 
+  const sortLabel = SORT_OPTIONS.find(o => o.value === sortBy)?.label
+  const categoryLabel = CONTENT_TYPE_FILTERS.find(f => f.value === category)?.label
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:px-4"
@@ -70,20 +130,128 @@ export default function FilterSheet({
         </div>
 
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-          <h2 className="text-base font-semibold text-slate-900">Filters</h2>
+          <h2 className="text-base font-semibold text-slate-900">Filters & Sort</h2>
           {hasFilters && (
             <button
               onClick={onReset}
               className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
             >
-              Reset
+              Reset all
             </button>
           )}
         </div>
 
-        <div className="max-h-[55vh] space-y-6 overflow-y-auto px-5 py-5">
-          <div>
-            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Sort by</p>
+        <div className="max-h-[60vh] overflow-y-auto px-5">
+          <AccordionSection
+            label="Category"
+            open={openSections.has('category')}
+            onToggle={() => toggle('category')}
+            badge={
+              category !== 'all'
+                ? <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">{categoryLabel}</span>
+                : undefined
+            }
+          >
+            <div className="flex flex-wrap gap-2">
+              {CONTENT_TYPE_FILTERS.map(tab => (
+                <button
+                  key={tab.value}
+                  onClick={() => onCategoryChange(tab.value as Filter)}
+                  className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                    category === tab.value
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </AccordionSection>
+
+          <AccordionSection
+            label="Status"
+            open={openSections.has('status')}
+            onToggle={() => toggle('status')}
+            badge={
+              selectedStatuses.length > 0
+                ? <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">{selectedStatuses.length}</span>
+                : undefined
+            }
+          >
+            <div className="flex flex-wrap gap-2">
+              {(Object.keys(STATUS_CONFIG) as LinkStatus[]).map(s => (
+                <button
+                  key={s}
+                  onClick={() => toggleStatus(s)}
+                  className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                    selectedStatuses.includes(s)
+                      ? `${STATUS_CONFIG[s].badge} ring-2 ring-indigo-500 ring-offset-1`
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {STATUS_CONFIG[s].label}
+                </button>
+              ))}
+            </div>
+          </AccordionSection>
+
+          <AccordionSection
+            label="Tags"
+            open={openSections.has('tags')}
+            onToggle={() => toggle('tags')}
+            badge={
+              selectedTags.length > 0
+                ? (
+                  <div className="flex items-center gap-1.5">
+                    <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">{selectedTags.length}</span>
+                    <div className="flex rounded-md border border-slate-200 p-0.5">
+                      {(['any', 'all'] as TagMode[]).map(mode => (
+                        <button
+                          key={mode}
+                          onClick={e => { e.stopPropagation(); onTagModeChange(mode) }}
+                          className={`rounded px-2 py-0.5 text-xs font-medium capitalize transition ${
+                            tagMode === mode
+                              ? 'bg-indigo-600 text-white'
+                              : 'text-slate-500 hover:text-slate-700'
+                          }`}
+                        >
+                          {mode}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )
+                : undefined
+            }
+          >
+            <div className="flex flex-wrap gap-2">
+              {ALL_TAGS.map(tag => (
+                <button
+                  key={tag}
+                  onClick={() => toggleTag(tag)}
+                  className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                    selectedTags.includes(tag)
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+          </AccordionSection>
+
+          <AccordionSection
+            label="Sort by"
+            open={openSections.has('sort')}
+            onToggle={() => toggle('sort')}
+            badge={
+              sortBy !== 'newest'
+                ? <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">{sortLabel}</span>
+                : undefined
+            }
+          >
             <div className="flex flex-wrap gap-2">
               {SORT_OPTIONS.map(opt => (
                 <button
@@ -99,92 +267,7 @@ export default function FilterSheet({
                 </button>
               ))}
             </div>
-          </div>
-
-          <div>
-            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Category</p>
-            <div className="flex flex-wrap gap-2">
-              {CONTENT_TYPE_FILTERS.map(tab => {
-                const active = category === tab.value
-                return (
-                  <button
-                    key={tab.value}
-                    onClick={() => onCategoryChange(tab.value as Filter)}
-                    className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
-                      active
-                        ? 'bg-indigo-600 text-white shadow-sm'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          <div>
-            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Status</p>
-            <div className="flex flex-wrap gap-2">
-              {(Object.keys(STATUS_CONFIG) as LinkStatus[]).map(s => {
-                const active = selectedStatuses.includes(s)
-                return (
-                  <button
-                    key={s}
-                    onClick={() => toggleStatus(s)}
-                    className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
-                      active
-                        ? `${STATUS_CONFIG[s].badge} ring-2 ring-indigo-500 ring-offset-1`
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    {STATUS_CONFIG[s].label}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          <div>
-            <div className="mb-3 flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Tags</p>
-              {selectedTags.length > 0 && (
-                <div className="flex rounded-lg border border-slate-200 p-0.5">
-                  {(['any', 'all'] as TagMode[]).map(mode => (
-                    <button
-                      key={mode}
-                      onClick={() => onTagModeChange(mode)}
-                      className={`rounded-md px-3 py-1 text-xs font-medium capitalize transition ${
-                        tagMode === mode
-                          ? 'bg-indigo-600 text-white shadow-sm'
-                          : 'text-slate-500 hover:text-slate-700'
-                      }`}
-                    >
-                      {mode}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {ALL_TAGS.map(tag => {
-                const active = selectedTags.includes(tag)
-                return (
-                  <button
-                    key={tag}
-                    onClick={() => toggleTag(tag)}
-                    className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
-                      active
-                        ? 'bg-indigo-600 text-white shadow-sm'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    {tag}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
+          </AccordionSection>
         </div>
 
         <div className="border-t border-slate-100 px-5 py-4">
