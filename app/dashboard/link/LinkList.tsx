@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { MOCK_LINKS, type MockLink } from '@/lib/mock-data'
 import type { ContentType, LinkStatus } from '@/lib/types/database'
-import { CONTENT_TYPE_CONFIG } from '../config'
+import { CONTENT_TYPE_CONFIG, STATUS_CONFIG } from '../config'
 import LinkCard from './LinkCard'
 import AddLinkModal from './AddLinkModal'
 import BottomSheet from './BottomSheet'
@@ -18,6 +18,7 @@ export default function LinkList() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [tagMode, setTagMode] = useState<'any' | 'all'>('any')
+  const [selectedStatuses, setSelectedStatuses] = useState<LinkStatus[]>([])
   const [activeLink, setActiveLink] = useState<MockLink | null>(null)
   const [statuses, setStatuses] = useState<Record<string, LinkStatus>>(
     () => Object.fromEntries(MOCK_LINKS.map(l => [l.id, l.status]))
@@ -29,6 +30,7 @@ export default function LinkList() {
 
   function resetFilters() {
     setCategory('all')
+    setSelectedStatuses([])
     setSelectedTags([])
     setTagMode('any')
     setSearchQuery('')
@@ -46,15 +48,19 @@ export default function LinkList() {
       )
     : byCategory
 
+  const byStatus = selectedStatuses.length > 0
+    ? bySearch.filter(l => selectedStatuses.includes(l.status))
+    : bySearch
+
   const results = selectedTags.length > 0
-    ? bySearch.filter(l =>
+    ? byStatus.filter(l =>
         tagMode === 'all'
           ? selectedTags.every(tag => l.tags.includes(tag))
           : selectedTags.some(tag => l.tags.includes(tag))
       )
-    : bySearch
+    : byStatus
 
-  const activeFilterCount = (category !== 'all' ? 1 : 0) + selectedTags.length
+  const activeFilterCount = (category !== 'all' ? 1 : 0) + selectedStatuses.length + selectedTags.length
   const hasActiveFilters = activeFilterCount > 0 || query.length > 0
 
   return (
@@ -111,6 +117,16 @@ export default function LinkList() {
               <span className="text-indigo-400" aria-hidden="true">✕</span>
             </button>
           )}
+          {selectedStatuses.map(s => (
+            <button
+              key={s}
+              onClick={() => setSelectedStatuses(prev => prev.filter(x => x !== s))}
+              className="flex items-center gap-1.5 rounded-full bg-indigo-100 px-3 py-1 text-sm font-medium text-indigo-700 transition hover:bg-indigo-200"
+            >
+              {STATUS_CONFIG[s].label}
+              <span className="text-indigo-400" aria-hidden="true">✕</span>
+            </button>
+          ))}
           {selectedTags.map(tag => (
             <button
               key={tag}
@@ -156,10 +172,12 @@ export default function LinkList() {
       <FilterSheet
         isOpen={filterOpen}
         category={category}
+        selectedStatuses={selectedStatuses}
         selectedTags={selectedTags}
         tagMode={tagMode}
         resultCount={results.length}
         onCategoryChange={setCategory}
+        onStatusesChange={setSelectedStatuses}
         onTagsChange={setSelectedTags}
         onTagModeChange={setTagMode}
         onReset={resetFilters}
