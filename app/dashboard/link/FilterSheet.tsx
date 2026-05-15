@@ -8,20 +8,24 @@ type Filter = ContentType | 'all'
 
 const ALL_TAGS = Array.from(new Set(MOCK_LINKS.flatMap(l => l.tags))).sort()
 
+type TagMode = 'any' | 'all'
+
 interface Props {
   isOpen: boolean
   category: Filter
   selectedTags: string[]
+  tagMode: TagMode
   resultCount: number
   onCategoryChange: (c: Filter) => void
   onTagsChange: (tags: string[]) => void
+  onTagModeChange: (mode: TagMode) => void
   onReset: () => void
   onClose: () => void
 }
 
 export default function FilterSheet({
-  isOpen, category, selectedTags, resultCount,
-  onCategoryChange, onTagsChange, onReset, onClose,
+  isOpen, category, selectedTags, tagMode, resultCount,
+  onCategoryChange, onTagsChange, onTagModeChange, onReset, onClose,
 }: Props) {
   if (!isOpen) return null
 
@@ -81,7 +85,26 @@ export default function FilterSheet({
           </div>
 
           <div>
-            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Tags</p>
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Tags</p>
+              {selectedTags.length > 0 && (
+                <div className="flex rounded-lg border border-slate-200 p-0.5">
+                  {(['any', 'all'] as TagMode[]).map(mode => (
+                    <button
+                      key={mode}
+                      onClick={() => onTagModeChange(mode)}
+                      className={`rounded-md px-3 py-1 text-xs font-medium capitalize transition ${
+                        tagMode === mode
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : 'text-slate-500 hover:text-slate-700'
+                      }`}
+                    >
+                      {mode}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <div className="flex flex-wrap gap-2">
               {ALL_TAGS.map(tag => {
                 const active = selectedTags.includes(tag)
