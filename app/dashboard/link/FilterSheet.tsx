@@ -9,14 +9,24 @@ type Filter = ContentType | 'all'
 const ALL_TAGS = Array.from(new Set(MOCK_LINKS.flatMap(l => l.tags))).sort()
 
 type TagMode = 'any' | 'all'
+export type SortBy = 'newest' | 'oldest' | 'alphabetical' | 'status'
+
+const SORT_OPTIONS: { value: SortBy; label: string }[] = [
+  { value: 'newest',      label: 'Newest first' },
+  { value: 'oldest',      label: 'Oldest first' },
+  { value: 'alphabetical', label: 'A → Z' },
+  { value: 'status',      label: 'By status' },
+]
 
 interface Props {
   isOpen: boolean
+  sortBy: SortBy
   category: Filter
   selectedStatuses: LinkStatus[]
   selectedTags: string[]
   tagMode: TagMode
   resultCount: number
+  onSortChange: (s: SortBy) => void
   onCategoryChange: (c: Filter) => void
   onStatusesChange: (statuses: LinkStatus[]) => void
   onTagsChange: (tags: string[]) => void
@@ -26,8 +36,8 @@ interface Props {
 }
 
 export default function FilterSheet({
-  isOpen, category, selectedStatuses, selectedTags, tagMode, resultCount,
-  onCategoryChange, onStatusesChange, onTagsChange, onTagModeChange, onReset, onClose,
+  isOpen, sortBy, category, selectedStatuses, selectedTags, tagMode, resultCount,
+  onSortChange, onCategoryChange, onStatusesChange, onTagsChange, onTagModeChange, onReset, onClose,
 }: Props) {
   if (!isOpen) return null
 
@@ -47,7 +57,7 @@ export default function FilterSheet({
     )
   }
 
-  const hasFilters = category !== 'all' || selectedStatuses.length > 0 || selectedTags.length > 0
+  const hasFilters = sortBy !== 'newest' || category !== 'all' || selectedStatuses.length > 0 || selectedTags.length > 0
 
   return (
     <div
@@ -72,6 +82,25 @@ export default function FilterSheet({
         </div>
 
         <div className="max-h-[55vh] space-y-6 overflow-y-auto px-5 py-5">
+          <div>
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Sort by</p>
+            <div className="flex flex-wrap gap-2">
+              {SORT_OPTIONS.map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => onSortChange(opt.value)}
+                  className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                    sortBy === opt.value
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div>
             <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Category</p>
             <div className="flex flex-wrap gap-2">
