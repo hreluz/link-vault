@@ -9,9 +9,17 @@ import LinkCard from './LinkCard'
 import AddLinkModal from './AddLinkModal'
 import EditLinkModal from './EditLinkModal'
 import BottomSheet from './BottomSheet'
-import FilterSheet from './FilterSheet'
+import FilterSheet, { type SortBy } from './FilterSheet'
 
 type Filter = ContentType | 'all'
+
+const STATUS_ORDER: Record<LinkStatus, number> = {
+  unread: 0, watching: 1, read: 2, favorite: 3, archived: 4,
+}
+
+const SORT_LABELS: Record<SortBy, string> = {
+  newest: 'Newest first', oldest: 'Oldest first', alphabetical: 'A → Z', status: 'By status',
+}
 
 export default function LinkList() {
   const [links, setLinks] = useState<MockLink[]>(MOCK_LINKS)
@@ -22,6 +30,7 @@ export default function LinkList() {
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [tagMode, setTagMode] = useState<'any' | 'all'>('any')
   const [selectedStatuses, setSelectedStatuses] = useState<LinkStatus[]>([])
+  const [sortBy, setSortBy] = useState<SortBy>('newest')
   const [activeLink, setActiveLink] = useState<MockLink | null>(null)
   const [editingLink, setEditingLink] = useState<MockLink | null>(null)
   const { addToast } = useToast()
@@ -57,6 +66,7 @@ export default function LinkList() {
     setSelectedStatuses([])
     setSelectedTags([])
     setTagMode('any')
+    setSortBy('newest')
     setSearchQuery('')
   }
 
@@ -75,7 +85,7 @@ export default function LinkList() {
     ? bySearch.filter(l => selectedStatuses.includes(l.status))
     : bySearch
 
-  const results = selectedTags.length > 0
+  const byTags = selectedTags.length > 0
     ? byStatus.filter(l =>
         tagMode === 'all'
           ? selectedTags.every(tag => l.tags.includes(tag))
@@ -83,7 +93,16 @@ export default function LinkList() {
       )
     : byStatus
 
-  const activeFilterCount = (category !== 'all' ? 1 : 0) + selectedStatuses.length + selectedTags.length
+  const results = [...byTags].sort((a, b) => {
+    switch (sortBy) {
+      case 'oldest':      return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      case 'alphabetical': return a.title.localeCompare(b.title)
+      case 'status':      return STATUS_ORDER[a.status] - STATUS_ORDER[b.status]
+      default:            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    }
+  })
+
+  const activeFilterCount = (sortBy !== 'newest' ? 1 : 0) + (category !== 'all' ? 1 : 0) + selectedStatuses.length + selectedTags.length
   const hasActiveFilters = activeFilterCount > 0 || query.length > 0
 
   return (
@@ -131,6 +150,15 @@ export default function LinkList() {
 
       {hasActiveFilters && (
         <div className="mb-4 flex flex-wrap items-center gap-2">
+          {sortBy !== 'newest' && (
+            <button
+              onClick={() => setSortBy('newest')}
+              className="flex items-center gap-1.5 rounded-full bg-indigo-100 px-3 py-1 text-sm font-medium text-indigo-700 transition hover:bg-indigo-200"
+            >
+              {SORT_LABELS[sortBy]}
+              <span className="text-indigo-400" aria-hidden="true">✕</span>
+            </button>
+          )}
           {category !== 'all' && (
             <button
               onClick={() => setCategory('all')}
@@ -200,11 +228,13 @@ export default function LinkList() {
 
       <FilterSheet
         isOpen={filterOpen}
+        sortBy={sortBy}
         category={category}
         selectedStatuses={selectedStatuses}
         selectedTags={selectedTags}
         tagMode={tagMode}
         resultCount={results.length}
+        onSortChange={setSortBy}
         onCategoryChange={setCategory}
         onStatusesChange={setSelectedStatuses}
         onTagsChange={setSelectedTags}
