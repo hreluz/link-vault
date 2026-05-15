@@ -5,20 +5,28 @@ import { MOCK_LINKS, type MockLink } from '@/lib/mock-data'
 import type { LinkStatus } from '@/lib/types/database'
 import LinkCard from '../link/LinkCard'
 import BottomSheet from '../link/BottomSheet'
-
-const FAVORITES = MOCK_LINKS.filter(l => l.is_favorite)
+import EditLinkModal from '../link/EditLinkModal'
 
 export default function FavoritesList() {
+  const [links, setLinks] = useState<MockLink[]>(MOCK_LINKS.filter(l => l.is_favorite))
   const [activeLink, setActiveLink] = useState<MockLink | null>(null)
-  const [statuses, setStatuses] = useState<Record<string, LinkStatus>>(
-    () => Object.fromEntries(FAVORITES.map(l => [l.id, l.status]))
-  )
+  const [editingLink, setEditingLink] = useState<MockLink | null>(null)
 
   function handleStatusChange(id: string, status: LinkStatus) {
-    setStatuses(prev => ({ ...prev, [id]: status }))
+    setLinks(prev => prev.map(l => l.id === id ? { ...l, status } : l))
+    setActiveLink(prev => prev?.id === id ? { ...prev, status } : prev)
   }
 
-  const links = FAVORITES.map(l => ({ ...l, status: statuses[l.id] }))
+  function handleEdit(updated: MockLink) {
+    setLinks(prev => prev.map(l => l.id === updated.id ? updated : l))
+    setEditingLink(null)
+  }
+
+  function handleDelete() {
+    if (!activeLink) return
+    setLinks(prev => prev.filter(l => l.id !== activeLink.id))
+    setActiveLink(null)
+  }
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8">
@@ -42,10 +50,17 @@ export default function FavoritesList() {
         </div>
       )}
 
+      <EditLinkModal
+        link={editingLink}
+        onSave={handleEdit}
+        onClose={() => setEditingLink(null)}
+      />
+
       <BottomSheet
         link={activeLink}
-        currentStatus={activeLink ? statuses[activeLink.id] : 'unread'}
         onStatusChange={handleStatusChange}
+        onEdit={() => setEditingLink(activeLink)}
+        onDelete={handleDelete}
         onClose={() => setActiveLink(null)}
       />
     </main>
