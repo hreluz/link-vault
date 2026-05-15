@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p /Users/camucamu/Projects/hreluz/link-vault/app/login)"
+    ],
+    "additionalDirectories": [
+      "/Users/camucamu/Projects/hreluz/link-vault/app"
+    ]
+  }
+}
