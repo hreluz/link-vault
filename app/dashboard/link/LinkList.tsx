@@ -17,6 +17,7 @@ export default function LinkList() {
   const [filterOpen, setFilterOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedTags, setSelectedTags] = useState<string[]>([])
+  const [tagMode, setTagMode] = useState<'any' | 'all'>('any')
   const [activeLink, setActiveLink] = useState<MockLink | null>(null)
   const [statuses, setStatuses] = useState<Record<string, LinkStatus>>(
     () => Object.fromEntries(MOCK_LINKS.map(l => [l.id, l.status]))
@@ -29,6 +30,7 @@ export default function LinkList() {
   function resetFilters() {
     setCategory('all')
     setSelectedTags([])
+    setTagMode('any')
     setSearchQuery('')
   }
 
@@ -45,7 +47,11 @@ export default function LinkList() {
     : byCategory
 
   const results = selectedTags.length > 0
-    ? bySearch.filter(l => selectedTags.some(tag => l.tags.includes(tag)))
+    ? bySearch.filter(l =>
+        tagMode === 'all'
+          ? selectedTags.every(tag => l.tags.includes(tag))
+          : selectedTags.some(tag => l.tags.includes(tag))
+      )
     : bySearch
 
   const activeFilterCount = (category !== 'all' ? 1 : 0) + selectedTags.length
@@ -151,9 +157,11 @@ export default function LinkList() {
         isOpen={filterOpen}
         category={category}
         selectedTags={selectedTags}
+        tagMode={tagMode}
         resultCount={results.length}
         onCategoryChange={setCategory}
         onTagsChange={setSelectedTags}
+        onTagModeChange={setTagMode}
         onReset={resetFilters}
         onClose={() => setFilterOpen(false)}
       />
