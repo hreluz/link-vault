@@ -133,7 +133,7 @@ export default function AddLinkModal({ isOpen, onSuccess, onClose }: Props) {
           <button
             type="button"
             onClick={handleSave}
-            disabled={submitting}
+            disabled={submitting || !url.trim()}
             className="flex-1 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {submitting ? 'Saving…' : 'Save link'}

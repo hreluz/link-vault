@@ -164,6 +164,13 @@ describe('getLinks', () => {
 // ── createLink ────────────────────────────────────────────────────────────────
 
 describe('createLink', () => {
+  it('returns null when url is empty', async () => {
+    const result = await createLink({ url: '  ', content_type: 'article', status: 'unread', tags: [] })
+
+    expect(result).toBeNull()
+    expect(mockGetUser).not.toHaveBeenCalled()
+  })
+
   it('returns null when the user is not authenticated', async () => {
     mockGetUser.mockResolvedValue({ data: { user: null } })
 
@@ -242,6 +249,13 @@ describe('createLink', () => {
 
 describe('updateLink', () => {
   const INPUT = { id: '1', url: 'https://example.com', content_type: 'article' as const, status: 'unread' as const, tags: [] }
+
+  it('returns null when url is empty', async () => {
+    const result = await updateLink({ ...INPUT, url: '   ' })
+
+    expect(result).toBeNull()
+    expect(mockGetUser).not.toHaveBeenCalled()
+  })
 
   it('returns null when the user is not authenticated', async () => {
     mockGetUser.mockResolvedValue({ data: { user: null } })
