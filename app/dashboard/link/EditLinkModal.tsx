@@ -4,6 +4,7 @@ import type { LinkWithTags } from '@/lib/services/links'
 import type { ContentType, LinkStatus } from '@/lib/types/database'
 import { CONTENT_TYPE_CONFIG, STATUS_CONFIG } from '../config'
 import { useEditLinkForm } from '@/lib/hooks/links'
+import { toast } from 'sonner'
 
 interface Props {
   link: LinkWithTags | null
@@ -35,6 +36,7 @@ export default function EditLinkModal({ link, onSave, onClose }: Props) {
     if (updated) {
       onSave(updated)
       onClose()
+      toast.success('Link updated')
     }
   }
 
