@@ -33,7 +33,7 @@ export default function LinkCard({ link, onMenuOpen, onFavoriteToggle }: Props) 
           <button
             onClick={onMenuOpen}
             aria-label="Link options"
-            className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500 transition hover:bg-slate-200 hover:text-slate-700 active:bg-slate-200"
+            className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-sm text-slate-500 transition hover:bg-slate-200 hover:text-slate-700 active:bg-slate-200 lg:h-10 lg:w-10 lg:text-xl"
           >
             ···
           </button>
