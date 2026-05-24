@@ -4,6 +4,7 @@ import type { ContentType, LinkStatus } from '@/lib/types/database'
 import { CONTENT_TYPE_CONFIG, STATUS_CONFIG } from '../config'
 import { useAddLinkForm } from '@/lib/hooks/links'
 import type { LinkWithTags } from '@/lib/services/links'
+import { toast } from 'sonner'
 
 interface Props {
   isOpen: boolean
@@ -24,6 +25,7 @@ export default function AddLinkModal({ isOpen, onSuccess, onClose }: Props) {
     if (link) {
       onSuccess?.(link)
       onClose()
+      toast.success('Link saved')
     }
   }
 
