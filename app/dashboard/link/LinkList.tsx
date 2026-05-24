@@ -73,12 +73,24 @@ export default function LinkList() {
   const byCategory = category === 'all' ? links : links.filter(l => l.content_type === category)
 
   const query = searchQuery.trim().toLowerCase()
+  const hashTagTerms = query.match(/#(\w+)/g)?.map(t => t.slice(1)) ?? []
+  const plainQuery = query.replace(/#\w+/g, '').trim()
+  const isHashTagSearch = hashTagTerms.length > 0
+
   const bySearch = query
-    ? byCategory.filter(l =>
-        l.title.toLowerCase().includes(query) ||
-        l.site_name.toLowerCase().includes(query) ||
-        l.tags.some(t => t.toLowerCase().includes(query))
-      )
+    ? byCategory.filter(l => {
+        const tagMatch = isHashTagSearch
+          ? hashTagTerms.every(ht => l.tags.some(t => t.toLowerCase().includes(ht)))
+          : false
+        const textMatch = plainQuery
+          ? l.title.toLowerCase().includes(plainQuery) ||
+            l.site_name.toLowerCase().includes(plainQuery) ||
+            l.tags.some(t => t.toLowerCase().includes(plainQuery))
+          : false
+        if (isHashTagSearch && plainQuery) return tagMatch && textMatch
+        if (isHashTagSearch) return tagMatch
+        return textMatch
+      })
     : byCategory
 
   const byStatus = selectedStatuses.length > 0
@@ -129,10 +141,14 @@ export default function LinkList() {
           </span>
           <input
             type="search"
-            placeholder="Search by title, domain, or tag…"
+            placeholder="Search by title, domain, tag… or #tag for tag-only"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-11 pr-4 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+            className={`w-full rounded-xl border bg-white py-3 pl-11 pr-4 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:ring-2 ${
+              isHashTagSearch
+                ? 'border-indigo-400 focus:border-indigo-500 focus:ring-indigo-500/20 ring-1 ring-indigo-300'
+                : 'border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20'
+            }`}
           />
         </div>
         <button
