@@ -38,12 +38,17 @@ export function useEditLinkForm(link: LinkWithTags | null) {
       setError('URL is required.')
       return null
     }
+    try { new URL(url) } catch {
+      setError('Please enter a valid URL (e.g. https://example.com).')
+      return null
+    }
     setSubmitting(true)
     setError(null)
+    const resolvedTitle = title.trim() || url.replace(/^https?:\/\//, '').slice(0, 30)
     const updated = await updateLink({
       id: link.id,
       url,
-      title: title || null,
+      title: resolvedTitle,
       description: description || null,
       content_type: contentType,
       status,

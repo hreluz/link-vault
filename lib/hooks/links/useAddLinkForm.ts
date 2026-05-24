@@ -33,11 +33,16 @@ export function useAddLinkForm() {
       setError('URL is required.')
       return null
     }
+    try { new URL(url) } catch {
+      setError('Please enter a valid URL (e.g. https://example.com).')
+      return null
+    }
     setSubmitting(true)
     setError(null)
+    const resolvedTitle = title.trim() || url.replace(/^https?:\/\//, '').slice(0, 30)
     const link = await createLink({
       url,
-      title: title || null,
+      title: resolvedTitle,
       content_type: contentType,
       status,
       notes: notes || null,
