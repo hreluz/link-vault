@@ -63,6 +63,7 @@ export default function FavoritesList() {
       )}
 
       <EditLinkModal
+        key={editingLink?.id}
         link={editingLink}
         onSave={handleEdit}
         onClose={() => setEditingLink(null)}

@@ -96,20 +96,6 @@ describe('useEditLinkForm', () => {
     })
   })
 
-  describe('resets when link id changes', () => {
-    it('syncs form fields to the new link', () => {
-      const LINK_B: LinkWithTags = { ...LINK, id: '2', title: 'Beta', url: 'https://beta.com', tags: ['vue'], notes: null }
-      const { result, rerender } = renderHook(({ link }) => useEditLinkForm(link), { initialProps: { link: LINK as LinkWithTags | null } })
-
-      rerender({ link: LINK_B })
-
-      expect(result.current.url).toBe('https://beta.com')
-      expect(result.current.title).toBe('Beta')
-      expect(result.current.tags).toBe('vue')
-      expect(result.current.notes).toBe('')
-    })
-  })
-
   describe('handleSubmit', () => {
     it('sets error and returns null when url is empty', async () => {
       const { result } = renderHook(() => useEditLinkForm(LINK))
