@@ -1,21 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { getLinks, createLink } from '@/lib/services/links'
+import { getLinks, createLink, updateLink } from '@/lib/services/links'
 
 // ── shared mocks ──────────────────────────────────────────────────────────────
 
 const {
   // getLinks chain: from('links').select().order().returns()
   mockGetLinksSelect, mockOrder, mockReturns,
-  // createLink auth
+  // auth
   mockGetUser,
   // createLink – links insert chain: from('links').insert().select().single()
   mockLinksInsert, mockLinksSingle,
-  // createLink – tags upsert: from('tags').upsert()
+  // updateLink – links update chain: from('links').update().eq().select().single()
+  mockLinksUpdate, mockLinksUpdateEq, mockLinksUpdateSingle,
+  // tags upsert: from('tags').upsert()
   mockTagsUpsert,
-  // createLink – tags select chain: from('tags').select().eq().in()
+  // tags select chain: from('tags').select().eq().in()
   mockTagsSelect, mockTagsIn,
-  // createLink – link_tags insert: from('link_tags').insert()
+  // link_tags insert: from('link_tags').insert()
   mockLinkTagsInsert,
+  // link_tags delete chain: from('link_tags').delete().eq()
+  mockLinkTagsDelete, mockLinkTagsDeleteEq,
 } = vi.hoisted(() => {
   const mockReturns = vi.fn()
   const mockOrder = vi.fn(() => ({ returns: mockReturns }))
@@ -27,6 +31,11 @@ const {
   const mockLinksSelectAfterInsert = vi.fn(() => ({ single: mockLinksSingle }))
   const mockLinksInsert = vi.fn(() => ({ select: mockLinksSelectAfterInsert }))
 
+  const mockLinksUpdateSingle = vi.fn()
+  const mockLinksUpdateSelect = vi.fn(() => ({ single: mockLinksUpdateSingle }))
+  const mockLinksUpdateEq = vi.fn(() => ({ select: mockLinksUpdateSelect }))
+  const mockLinksUpdate = vi.fn(() => ({ eq: mockLinksUpdateEq }))
+
   const mockTagsUpsert = vi.fn()
 
   const mockTagsIn = vi.fn()
@@ -34,13 +43,16 @@ const {
   const mockTagsSelect = vi.fn(() => ({ eq: mockTagsEq }))
 
   const mockLinkTagsInsert = vi.fn()
+  const mockLinkTagsDeleteEq = vi.fn()
+  const mockLinkTagsDelete = vi.fn(() => ({ eq: mockLinkTagsDeleteEq }))
 
   return {
     mockGetLinksSelect, mockOrder, mockReturns,
     mockGetUser,
     mockLinksInsert, mockLinksSingle,
+    mockLinksUpdate, mockLinksUpdateEq, mockLinksUpdateSingle,
     mockTagsUpsert, mockTagsSelect, mockTagsIn,
-    mockLinkTagsInsert,
+    mockLinkTagsInsert, mockLinkTagsDelete, mockLinkTagsDeleteEq,
   }
 })
 
@@ -48,9 +60,9 @@ vi.mock('@/lib/supabase/client', () => ({
   createClient: vi.fn(() => ({
     auth: { getUser: mockGetUser },
     from: vi.fn((table: string) => {
-      if (table === 'links') return { select: mockGetLinksSelect, insert: mockLinksInsert }
+      if (table === 'links') return { select: mockGetLinksSelect, insert: mockLinksInsert, update: mockLinksUpdate }
       if (table === 'tags') return { upsert: mockTagsUpsert, select: mockTagsSelect }
-      if (table === 'link_tags') return { insert: mockLinkTagsInsert }
+      if (table === 'link_tags') return { insert: mockLinkTagsInsert, delete: mockLinkTagsDelete }
       return {}
     }),
   })),
@@ -68,9 +80,11 @@ beforeEach(() => {
   vi.clearAllMocks()
   mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1' } } })
   mockLinksSingle.mockResolvedValue({ data: RAW_LINK, error: null })
+  mockLinksUpdateSingle.mockResolvedValue({ data: RAW_LINK, error: null })
   mockTagsUpsert.mockResolvedValue({ error: null })
   mockTagsIn.mockResolvedValue({ data: [] })
   mockLinkTagsInsert.mockResolvedValue({ error: null })
+  mockLinkTagsDeleteEq.mockResolvedValue({ error: null })
 })
 
 // ── getLinks ──────────────────────────────────────────────────────────────────
@@ -221,5 +235,80 @@ describe('createLink', () => {
       { link_id: RAW_LINK.id, tag_id: 't1' },
       { link_id: RAW_LINK.id, tag_id: 't2' },
     ])
+  })
+})
+
+// ── updateLink ────────────────────────────────────────────────────────────────
+
+describe('updateLink', () => {
+  const INPUT = { id: '1', url: 'https://example.com', content_type: 'article' as const, status: 'unread' as const, tags: [] }
+
+  it('returns null when the user is not authenticated', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } })
+
+    expect(await updateLink(INPUT)).toBeNull()
+  })
+
+  it('returns null when the link update fails', async () => {
+    mockLinksUpdateSingle.mockResolvedValue({ data: null, error: { message: 'update failed' } })
+
+    expect(await updateLink(INPUT)).toBeNull()
+  })
+
+  it('returns the link with an empty tags array when no tags are provided', async () => {
+    const result = await updateLink(INPUT)
+
+    expect(result).toMatchObject({ ...RAW_LINK, tags: [] })
+  })
+
+  it('returns the link with tags when tags are resolved', async () => {
+    mockTagsIn.mockResolvedValue({ data: [{ id: 't1', name: 'react' }, { id: 't2', name: 'css' }] })
+
+    const result = await updateLink({ ...INPUT, tags: ['react', 'css'] })
+
+    expect(result?.tags).toEqual(['react', 'css'])
+  })
+
+  it('returns the link with empty tags when tag fetch returns nothing', async () => {
+    mockTagsIn.mockResolvedValue({ data: null })
+
+    const result = await updateLink({ ...INPUT, tags: ['react'] })
+
+    expect(result?.tags).toEqual([])
+  })
+
+  it('updates the link with the correct fields', async () => {
+    await updateLink({ ...INPUT, url: 'https://new.com', title: 'New Title', content_type: 'youtube', status: 'read', notes: 'a note' })
+
+    expect(mockLinksUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      url: 'https://new.com',
+      title: 'New Title',
+      content_type: 'youtube',
+      status: 'read',
+      notes: 'a note',
+    }))
+  })
+
+  it('targets the correct link id', async () => {
+    await updateLink(INPUT)
+
+    expect(mockLinksUpdateEq).toHaveBeenCalledWith('id', '1')
+  })
+
+  it('deletes existing link_tags before reinserting', async () => {
+    mockTagsIn.mockResolvedValue({ data: [{ id: 't1', name: 'react' }] })
+
+    await updateLink({ ...INPUT, tags: ['react'] })
+
+    expect(mockLinkTagsDelete).toHaveBeenCalled()
+    expect(mockLinkTagsDeleteEq).toHaveBeenCalledWith('link_id', '1')
+    expect(mockLinkTagsInsert).toHaveBeenCalled()
+  })
+
+  it('deletes existing link_tags even when new tags list is empty', async () => {
+    await updateLink(INPUT)
+
+    expect(mockLinkTagsDelete).toHaveBeenCalled()
+    expect(mockLinkTagsDeleteEq).toHaveBeenCalledWith('link_id', '1')
   })
 })

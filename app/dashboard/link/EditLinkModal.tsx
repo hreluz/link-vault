@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
 import type { LinkWithTags } from '@/lib/services/links'
 import type { ContentType, LinkStatus } from '@/lib/types/database'
 import { CONTENT_TYPE_CONFIG, STATUS_CONFIG } from '../config'
+import { useEditLinkForm } from '@/lib/hooks/links'
 
 interface Props {
   link: LinkWithTags | null
@@ -15,28 +15,27 @@ const INPUT = 'w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text
 const LABEL = 'block text-sm font-medium text-slate-700 mb-1.5'
 
 export default function EditLinkModal({ link, onSave, onClose }: Props) {
-  const [url, setUrl] = useState(link?.url ?? '')
-  const [title, setTitle] = useState(link?.title ?? '')
-  const [description, setDescription] = useState(link?.description ?? '')
-  const [contentType, setContentType] = useState<ContentType>(link?.content_type ?? 'other')
-  const [status, setStatus] = useState<LinkStatus>(link?.status ?? 'unread')
-  const [tags, setTags] = useState(link?.tags.join(', ') ?? '')
-  const [notes, setNotes] = useState(link?.notes ?? '')
+  const {
+    url, setUrl,
+    title, setTitle,
+    description, setDescription,
+    contentType, setContentType,
+    status, setStatus,
+    tags, setTags,
+    notes, setNotes,
+    submitting,
+    error,
+    handleSubmit,
+  } = useEditLinkForm(link)
 
   if (!link) return null
 
-  function handleSave() {
-    if (!link) return
-    onSave({
-      ...link,
-      url,
-      title,
-      description,
-      content_type: contentType,
-      status,
-      tags: tags.split(',').map(t => t.trim()).filter(Boolean),
-      notes: notes.trim() || null,
-    })
+  async function handleSave() {
+    const updated = await handleSubmit()
+    if (updated) {
+      onSave(updated)
+      onClose()
+    }
   }
 
   function handleBackdropClick(e: React.MouseEvent<HTMLDivElement>) {
@@ -54,6 +53,10 @@ export default function EditLinkModal({ link, onSave, onClose }: Props) {
         </div>
 
         <div className="max-h-[70vh] overflow-y-auto px-6 py-5 space-y-4">
+          {error && (
+            <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>
+          )}
+
           <div>
             <label className={LABEL}>URL</label>
             <input
@@ -140,16 +143,17 @@ export default function EditLinkModal({ link, onSave, onClose }: Props) {
         <div className="flex gap-3 border-t border-slate-100 px-6 py-4">
           <button
             onClick={onClose}
-            className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-600 shadow-sm transition hover:bg-slate-50"
+            disabled={submitting}
+            className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
-            disabled={!url.trim() || !title.trim()}
+            disabled={submitting || !url.trim() || !title.trim()}
             className="flex-1 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Save changes
+            {submitting ? 'Saving…' : 'Save changes'}
           </button>
         </div>
       </div>
