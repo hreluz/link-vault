@@ -111,6 +111,18 @@ describe('useEditLinkForm', () => {
   })
 
   describe('handleSubmit', () => {
+    it('sets error and returns null when url is empty', async () => {
+      const { result } = renderHook(() => useEditLinkForm(LINK))
+
+      act(() => result.current.setUrl('  '))
+      let returned: LinkWithTags | null = UPDATED_LINK
+      await act(async () => { returned = await result.current.handleSubmit() })
+
+      expect(returned).toBeNull()
+      expect(result.current.error).toBeTruthy()
+      expect(mockUpdateLink).not.toHaveBeenCalled()
+    })
+
     it('returns null immediately when link is null', async () => {
       const { result } = renderHook(() => useEditLinkForm(null))
 

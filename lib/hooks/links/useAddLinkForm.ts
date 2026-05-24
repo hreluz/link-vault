@@ -29,6 +29,10 @@ export function useAddLinkForm() {
   }
 
   async function handleSubmit(): Promise<LinkWithTags | null> {
+    if (!url.trim()) {
+      setError('URL is required.')
+      return null
+    }
     setSubmitting(true)
     setError(null)
     const link = await createLink({

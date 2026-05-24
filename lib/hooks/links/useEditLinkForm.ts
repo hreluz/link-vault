@@ -34,6 +34,10 @@ export function useEditLinkForm(link: LinkWithTags | null) {
 
   async function handleSubmit(): Promise<LinkWithTags | null> {
     if (!link) return null
+    if (!url.trim()) {
+      setError('URL is required.')
+      return null
+    }
     setSubmitting(true)
     setError(null)
     const updated = await updateLink({

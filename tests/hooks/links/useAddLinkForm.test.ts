@@ -104,9 +104,21 @@ describe('useAddLinkForm', () => {
   })
 
   describe('handleSubmit', () => {
+    it('sets error and returns null when url is empty', async () => {
+      const { result } = renderHook(() => useAddLinkForm())
+
+      let returned: LinkWithTags | null = SAVED_LINK
+      await act(async () => { returned = await result.current.handleSubmit() })
+
+      expect(returned).toBeNull()
+      expect(result.current.error).toBeTruthy()
+      expect(mockCreateLink).not.toHaveBeenCalled()
+    })
+
     it('returns the saved link on success', async () => {
       const { result } = renderHook(() => useAddLinkForm())
 
+      act(() => result.current.setUrl('https://example.com'))
       let returned: LinkWithTags | null = null
       await act(async () => { returned = await result.current.handleSubmit() })
 
@@ -127,6 +139,7 @@ describe('useAddLinkForm', () => {
       mockCreateLink.mockResolvedValue(null)
       const { result } = renderHook(() => useAddLinkForm())
 
+      act(() => result.current.setUrl('https://example.com'))
       let returned: LinkWithTags | null = SAVED_LINK
       await act(async () => { returned = await result.current.handleSubmit() })
 
@@ -147,6 +160,7 @@ describe('useAddLinkForm', () => {
     it('is not submitting before and after the call', async () => {
       const { result } = renderHook(() => useAddLinkForm())
 
+      act(() => result.current.setUrl('https://example.com'))
       expect(result.current.submitting).toBe(false)
       await act(async () => { await result.current.handleSubmit() })
       expect(result.current.submitting).toBe(false)
@@ -155,7 +169,7 @@ describe('useAddLinkForm', () => {
     it('passes parsed tags as an array to createLink', async () => {
       const { result } = renderHook(() => useAddLinkForm())
 
-      act(() => result.current.setTags(' react , css , '))
+      act(() => { result.current.setUrl('https://example.com'); result.current.setTags(' react , css , ') })
       await act(async () => { await result.current.handleSubmit() })
 
       expect(mockCreateLink).toHaveBeenCalledWith(expect.objectContaining({

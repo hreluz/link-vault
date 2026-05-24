@@ -17,6 +17,8 @@ export type CreateLinkInput = {
 }
 
 export async function createLink(input: CreateLinkInput): Promise<LinkWithTags | null> {
+  if (!input.url.trim()) return null
+
   const supabase = createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
@@ -74,6 +76,8 @@ export type UpdateLinkInput = {
 }
 
 export async function updateLink(input: UpdateLinkInput): Promise<LinkWithTags | null> {
+  if (!input.url.trim()) return null
+
   const supabase = createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
