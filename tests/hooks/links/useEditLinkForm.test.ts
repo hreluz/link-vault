@@ -123,6 +123,18 @@ describe('useEditLinkForm', () => {
       expect(mockUpdateLink).not.toHaveBeenCalled()
     })
 
+    it('sets error and returns null when url is not a valid URL', async () => {
+      const { result } = renderHook(() => useEditLinkForm(LINK))
+
+      act(() => result.current.setUrl('not-a-url'))
+      let returned: LinkWithTags | null = UPDATED_LINK
+      await act(async () => { returned = await result.current.handleSubmit() })
+
+      expect(returned).toBeNull()
+      expect(result.current.error).toBeTruthy()
+      expect(mockUpdateLink).not.toHaveBeenCalled()
+    })
+
     it('returns null immediately when link is null', async () => {
       const { result } = renderHook(() => useEditLinkForm(null))
 
@@ -148,6 +160,26 @@ describe('useEditLinkForm', () => {
       await act(async () => { await result.current.handleSubmit() })
 
       expect(mockUpdateLink).toHaveBeenCalledWith(expect.objectContaining({ id: '1' }))
+    })
+
+    it('uses the first 30 chars of the url without protocol as title when title is empty', async () => {
+      const { result } = renderHook(() => useEditLinkForm(LINK))
+
+      act(() => { result.current.setUrl('https://example.com/some/very/long/path/here'); result.current.setTitle('') })
+      await act(async () => { await result.current.handleSubmit() })
+
+      expect(mockUpdateLink).toHaveBeenCalledWith(expect.objectContaining({
+        title: 'example.com/some/very/long/pat',
+      }))
+    })
+
+    it('uses the provided title when set', async () => {
+      const { result } = renderHook(() => useEditLinkForm(LINK))
+
+      act(() => result.current.setTitle('My Title'))
+      await act(async () => { await result.current.handleSubmit() })
+
+      expect(mockUpdateLink).toHaveBeenCalledWith(expect.objectContaining({ title: 'My Title' }))
     })
 
     it('passes parsed tags as an array', async () => {

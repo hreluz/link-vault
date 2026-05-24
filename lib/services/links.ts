@@ -16,8 +16,17 @@ export type CreateLinkInput = {
   tags: string[]
 }
 
+function isValidUrl(url: string): boolean {
+  try {
+    new URL(url)
+    return true
+  } catch {
+    return false
+  }
+}
+
 export async function createLink(input: CreateLinkInput): Promise<LinkWithTags | null> {
-  if (!input.url.trim()) return null
+  if (!input.url.trim() || !isValidUrl(input.url)) return null
 
   const supabase = createClient()
 
@@ -40,7 +49,7 @@ export async function createLink(input: CreateLinkInput): Promise<LinkWithTags |
   if (error || !link) return null
 
   const tagNames = input.tags.filter(Boolean)
-  if (tagNames.length === 0) return { ...link, tags: [] }
+  if (tagNames.length === 0) tagNames.push('no-tag')
 
   await supabase
     .from('tags')
@@ -76,7 +85,7 @@ export type UpdateLinkInput = {
 }
 
 export async function updateLink(input: UpdateLinkInput): Promise<LinkWithTags | null> {
-  if (!input.url.trim()) return null
+  if (!input.url.trim() || !isValidUrl(input.url)) return null
 
   const supabase = createClient()
 
@@ -102,7 +111,7 @@ export async function updateLink(input: UpdateLinkInput): Promise<LinkWithTags |
   await supabase.from('link_tags').delete().eq('link_id', input.id)
 
   const tagNames = input.tags.filter(Boolean)
-  if (tagNames.length === 0) return { ...link, tags: [] }
+  if (tagNames.length === 0) tagNames.push('no-tag')
 
   await supabase
     .from('tags')

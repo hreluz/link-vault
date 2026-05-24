@@ -171,6 +171,13 @@ describe('createLink', () => {
     expect(mockGetUser).not.toHaveBeenCalled()
   })
 
+  it('returns null when url is not a valid URL', async () => {
+    const result = await createLink({ url: 'not-a-url', content_type: 'article', status: 'unread', tags: [] })
+
+    expect(result).toBeNull()
+    expect(mockGetUser).not.toHaveBeenCalled()
+  })
+
   it('returns null when the user is not authenticated', async () => {
     mockGetUser.mockResolvedValue({ data: { user: null } })
 
@@ -187,10 +194,16 @@ describe('createLink', () => {
     expect(result).toBeNull()
   })
 
-  it('returns the link with an empty tags array when no tags are provided', async () => {
+  it('defaults to "no-tag" when no tags are provided', async () => {
+    mockTagsIn.mockResolvedValue({ data: [{ id: 't1', name: 'no-tag' }] })
+
     const result = await createLink({ url: 'https://x.com', content_type: 'article', status: 'unread', tags: [] })
 
-    expect(result).toMatchObject({ ...RAW_LINK, tags: [] })
+    expect(result?.tags).toEqual(['no-tag'])
+    expect(mockTagsUpsert).toHaveBeenCalledWith(
+      [{ user_id: 'user-1', name: 'no-tag' }],
+      expect.objectContaining({ onConflict: 'user_id,name' }),
+    )
   })
 
   it('returns the link with tags when tags are resolved', async () => {
@@ -257,6 +270,13 @@ describe('updateLink', () => {
     expect(mockGetUser).not.toHaveBeenCalled()
   })
 
+  it('returns null when url is not a valid URL', async () => {
+    const result = await updateLink({ ...INPUT, url: 'not-a-url' })
+
+    expect(result).toBeNull()
+    expect(mockGetUser).not.toHaveBeenCalled()
+  })
+
   it('returns null when the user is not authenticated', async () => {
     mockGetUser.mockResolvedValue({ data: { user: null } })
 
@@ -269,10 +289,16 @@ describe('updateLink', () => {
     expect(await updateLink(INPUT)).toBeNull()
   })
 
-  it('returns the link with an empty tags array when no tags are provided', async () => {
+  it('defaults to "no-tag" when no tags are provided', async () => {
+    mockTagsIn.mockResolvedValue({ data: [{ id: 't1', name: 'no-tag' }] })
+
     const result = await updateLink(INPUT)
 
-    expect(result).toMatchObject({ ...RAW_LINK, tags: [] })
+    expect(result?.tags).toEqual(['no-tag'])
+    expect(mockTagsUpsert).toHaveBeenCalledWith(
+      [{ user_id: 'user-1', name: 'no-tag' }],
+      expect.objectContaining({ onConflict: 'user_id,name' }),
+    )
   })
 
   it('returns the link with tags when tags are resolved', async () => {
