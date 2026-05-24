@@ -37,6 +37,7 @@ export default function LinkModals() {
       />
 
       <EditLinkModal
+        key={editingLink?.id}
         link={editingLink}
         onSave={handleEdit}
         onClose={() => setEditingLink(null)}
