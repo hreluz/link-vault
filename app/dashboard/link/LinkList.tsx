@@ -6,7 +6,7 @@ import AddLinkModal from './AddLinkModal'
 import EditLinkModal from './EditLinkModal'
 import BottomSheet from './BottomSheet'
 import FilterSheet, { type SortBy } from './FilterSheet'
-import { useLinkList } from '@/lib/hooks/useLinkList'
+import { useLinkList } from '@/lib/hooks/links'
 
 const SORT_LABELS: Record<SortBy, string> = {
   newest: 'Newest first', oldest: 'Oldest first', alphabetical: 'A → Z', status: 'By status',
@@ -25,6 +25,8 @@ export default function LinkList() {
     activeLink,
     editingLink,
     results,
+    allTags,
+    loading,
     isHashTagSearch,
     activeFilterCount,
     hasActiveFilters,
@@ -142,7 +144,13 @@ export default function LinkList() {
         </div>
       )}
 
-      {results.length > 0 ? (
+      {loading ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="h-48 animate-pulse rounded-2xl bg-slate-100" />
+          ))}
+        </div>
+      ) : results.length > 0 ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {results.map(link => (
             <LinkCard key={link.id} link={link} onMenuOpen={() => setActiveLink(link)} onFavoriteToggle={() => handleFavoriteToggle(link.id)} />
@@ -178,6 +186,7 @@ export default function LinkList() {
         selectedStatuses={selectedStatuses}
         selectedTags={selectedTags}
         tagMode={tagMode}
+        allTags={allTags}
         resultCount={results.length}
         onSortChange={setSortBy}
         onCategoryChange={setCategory}

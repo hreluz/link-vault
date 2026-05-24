@@ -1,13 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import type { MockLink } from '@/lib/mock-data'
+import type { LinkWithTags } from '@/lib/services/links'
 import type { ContentType, LinkStatus } from '@/lib/types/database'
 import { CONTENT_TYPE_CONFIG, STATUS_CONFIG } from '../config'
 
 interface Props {
-  link: MockLink | null
-  onSave: (updated: MockLink) => void
+  link: LinkWithTags | null
+  onSave: (updated: LinkWithTags) => void
   onClose: () => void
 }
 

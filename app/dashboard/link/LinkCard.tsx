@@ -1,8 +1,8 @@
-import type { MockLink } from '@/lib/mock-data'
+import type { LinkWithTags } from '@/lib/services/links'
 import { CONTENT_TYPE_CONFIG, STATUS_CONFIG } from '../config'
 
 interface Props {
-  link: MockLink
+  link: LinkWithTags
   onMenuOpen: () => void
   onFavoriteToggle: () => void
 }
