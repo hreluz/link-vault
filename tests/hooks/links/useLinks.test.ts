@@ -165,4 +165,16 @@ describe('useLinks', () => {
       expect(mockAddToast).toHaveBeenCalledWith('Removed from favorites')
     })
   })
+
+  describe('handleCreate', () => {
+    it('prepends the new link to the list', async () => {
+      const { result } = await renderLoaded()
+      const newLink = { ...LINK_A, id: '99', title: 'New' }
+
+      act(() => result.current.handleCreate(newLink))
+
+      expect(result.current.links[0].id).toBe('99')
+      expect(result.current.links).toHaveLength(3)
+    })
+  })
 })

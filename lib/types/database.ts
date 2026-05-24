@@ -36,6 +36,7 @@ export interface Database {
           avatar_url?: string | null
           updated_at?: string
         }
+        Relationships: []
       }
       links: {
         Row: {
@@ -80,6 +81,7 @@ export interface Database {
           is_favorite?: boolean
           updated_at?: string
         }
+        Relationships: []
       }
       tags: {
         Row: {
@@ -100,6 +102,7 @@ export interface Database {
           name?: string
           color?: string | null
         }
+        Relationships: []
       }
       link_tags: {
         Row: {
@@ -112,9 +115,15 @@ export interface Database {
           link_id: string
           tag_id: string
         }
-        Update: never
+        Update: {
+          link_id?: string
+          tag_id?: string
+        }
+        Relationships: []
       }
     }
+    Views: Record<string, never>
+    Functions: Record<string, never>
     Enums: {
       content_type: ContentType
       link_status: LinkStatus

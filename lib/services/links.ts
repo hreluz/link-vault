@@ -1,10 +1,65 @@
 import { createClient } from '@/lib/supabase/client'
-import type { Tables } from '@/lib/types/database'
+import type { ContentType, LinkStatus, Tables } from '@/lib/types/database'
 
 export type LinkWithTags = Tables<'links'> & { tags: string[] }
 
 type LinkQueryRow = Tables<'links'> & {
   link_tags: Array<{ tags: { name: string } | null }>
+}
+
+export type CreateLinkInput = {
+  url: string
+  title?: string | null
+  content_type: ContentType
+  status: LinkStatus
+  notes?: string | null
+  tags: string[]
+}
+
+export async function createLink(input: CreateLinkInput): Promise<LinkWithTags | null> {
+  const supabase = createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
+  const { data: link, error } = await supabase
+    .from('links')
+    .insert({
+      user_id: user.id,
+      url: input.url,
+      title: input.title ?? null,
+      content_type: input.content_type,
+      status: input.status,
+      notes: input.notes ?? null,
+    })
+    .select()
+    .single()
+
+  if (error || !link) return null
+
+  const tagNames = input.tags.filter(Boolean)
+  if (tagNames.length === 0) return { ...link, tags: [] }
+
+  await supabase
+    .from('tags')
+    .upsert(
+      tagNames.map(name => ({ user_id: user.id, name })),
+      { onConflict: 'user_id,name', ignoreDuplicates: true },
+    )
+
+  const { data: tagRows } = await supabase
+    .from('tags')
+    .select('id, name')
+    .eq('user_id', user.id)
+    .in('name', tagNames)
+
+  if (!tagRows?.length) return { ...link, tags: [] }
+
+  await supabase
+    .from('link_tags')
+    .insert(tagRows.map(tag => ({ link_id: link.id, tag_id: tag.id })))
+
+  return { ...link, tags: tagRows.map(t => t.name) }
 }
 
 export async function getLinks(): Promise<LinkWithTags[]> {

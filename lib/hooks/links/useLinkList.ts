@@ -9,7 +9,7 @@ import type { LinkStatus } from '@/lib/types/database'
 
 export function useLinkList() {
   const modals = useLinkModals()
-  const { links, loading, handleStatusChange: changeStatus, handleEdit: editLink, handleDelete: deleteLink, handleFavoriteToggle: toggleFavorite } = useLinks()
+  const { links, loading, handleStatusChange: changeStatus, handleEdit: editLink, handleDelete: deleteLink, handleFavoriteToggle: toggleFavorite, handleCreate } = useLinks()
   const filters = useLinkFilters(links)
   const { addToast } = useToast()
 
@@ -43,6 +43,7 @@ export function useLinkList() {
     handleEdit,
     handleDelete,
     handleFavoriteToggle,
+    handleCreate,
     addToast,
   }
 }
