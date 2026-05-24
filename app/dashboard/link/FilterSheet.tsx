@@ -1,15 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { MOCK_LINKS } from '@/lib/mock-data'
 import { CONTENT_TYPE_FILTERS, STATUS_CONFIG } from '../config'
 import type { ContentType, LinkStatus } from '@/lib/types/database'
 
 type Filter = ContentType | 'all'
 type TagMode = 'any' | 'all'
 export type SortBy = 'newest' | 'oldest' | 'alphabetical' | 'status'
-
-const ALL_TAGS = Array.from(new Set(MOCK_LINKS.flatMap(l => l.tags))).sort()
 
 const SORT_OPTIONS: { value: SortBy; label: string }[] = [
   { value: 'newest',       label: 'Newest first' },
@@ -25,6 +22,7 @@ interface Props {
   selectedStatuses: LinkStatus[]
   selectedTags: string[]
   tagMode: TagMode
+  allTags: string[]
   resultCount: number
   onSortChange: (s: SortBy) => void
   onCategoryChange: (c: Filter) => void
@@ -81,7 +79,7 @@ function AccordionSection({
 }
 
 export default function FilterSheet({
-  isOpen, sortBy, category, selectedStatuses, selectedTags, tagMode, resultCount,
+  isOpen, sortBy, category, selectedStatuses, selectedTags, tagMode, allTags, resultCount,
   onSortChange, onCategoryChange, onStatusesChange, onTagsChange, onTagModeChange, onReset, onClose,
 }: Props) {
   const [openSections, setOpenSections] = useState<Set<SectionKey>>(
@@ -226,7 +224,7 @@ export default function FilterSheet({
             }
           >
             <div className="flex flex-wrap gap-2">
-              {ALL_TAGS.map(tag => (
+              {allTags.map(tag => (
                 <button
                   key={tag}
                   onClick={() => toggleTag(tag)}

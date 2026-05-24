@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import type { MockLink } from '@/lib/mock-data'
+import type { LinkWithTags } from '@/lib/services/links'
 import type { LinkStatus } from '@/lib/types/database'
 import { STATUS_CONFIG } from '../config'
 
@@ -14,7 +14,7 @@ const STATUS_ICONS: Record<LinkStatus, string> = {
 }
 
 interface Props {
-  link: MockLink | null
+  link: LinkWithTags | null
   onStatusChange: (id: string, status: LinkStatus) => void
   onFavoriteToggle: () => void
   onEdit: () => void
