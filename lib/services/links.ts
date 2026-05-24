@@ -25,6 +25,33 @@ function isValidUrl(url: string): boolean {
   }
 }
 
+type SupabaseClient = ReturnType<typeof createClient>
+
+async function syncTags(supabase: SupabaseClient, userId: string, linkId: string, tags: string[]): Promise<string[]> {
+  const names = tags.length > 0 ? tags : ['no-tag']
+
+  await supabase
+    .from('tags')
+    .upsert(
+      names.map(name => ({ user_id: userId, name })),
+      { onConflict: 'user_id,name', ignoreDuplicates: true },
+    )
+
+  const { data: tagRows } = await supabase
+    .from('tags')
+    .select('id, name')
+    .eq('user_id', userId)
+    .in('name', names)
+
+  if (!tagRows?.length) return []
+
+  await supabase
+    .from('link_tags')
+    .insert(tagRows.map(tag => ({ link_id: linkId, tag_id: tag.id })))
+
+  return tagRows.map(t => t.name)
+}
+
 export async function createLink(input: CreateLinkInput): Promise<LinkWithTags | null> {
   if (!input.url.trim() || !isValidUrl(input.url)) return null
 
@@ -48,29 +75,8 @@ export async function createLink(input: CreateLinkInput): Promise<LinkWithTags |
 
   if (error || !link) return null
 
-  const tagNames = input.tags.filter(Boolean)
-  if (tagNames.length === 0) tagNames.push('no-tag')
-
-  await supabase
-    .from('tags')
-    .upsert(
-      tagNames.map(name => ({ user_id: user.id, name })),
-      { onConflict: 'user_id,name', ignoreDuplicates: true },
-    )
-
-  const { data: tagRows } = await supabase
-    .from('tags')
-    .select('id, name')
-    .eq('user_id', user.id)
-    .in('name', tagNames)
-
-  if (!tagRows?.length) return { ...link, tags: [] }
-
-  await supabase
-    .from('link_tags')
-    .insert(tagRows.map(tag => ({ link_id: link.id, tag_id: tag.id })))
-
-  return { ...link, tags: tagRows.map(t => t.name) }
+  const tags = await syncTags(supabase, user.id, link.id, input.tags.filter(Boolean))
+  return { ...link, tags }
 }
 
 export type UpdateLinkInput = {
@@ -110,29 +116,8 @@ export async function updateLink(input: UpdateLinkInput): Promise<LinkWithTags |
 
   await supabase.from('link_tags').delete().eq('link_id', input.id)
 
-  const tagNames = input.tags.filter(Boolean)
-  if (tagNames.length === 0) tagNames.push('no-tag')
-
-  await supabase
-    .from('tags')
-    .upsert(
-      tagNames.map(name => ({ user_id: user.id, name })),
-      { onConflict: 'user_id,name', ignoreDuplicates: true },
-    )
-
-  const { data: tagRows } = await supabase
-    .from('tags')
-    .select('id, name')
-    .eq('user_id', user.id)
-    .in('name', tagNames)
-
-  if (!tagRows?.length) return { ...link, tags: [] }
-
-  await supabase
-    .from('link_tags')
-    .insert(tagRows.map(tag => ({ link_id: link.id, tag_id: tag.id })))
-
-  return { ...link, tags: tagRows.map(t => t.name) }
+  const tags = await syncTags(supabase, user.id, link.id, input.tags.filter(Boolean))
+  return { ...link, tags }
 }
 
 export async function getLinks(): Promise<LinkWithTags[]> {
