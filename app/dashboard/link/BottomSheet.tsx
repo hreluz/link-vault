@@ -33,22 +33,31 @@ export default function BottomSheet({ link, onStatusChange, onFavoriteToggle, on
   }
 
   return (
-    <div className="fixed inset-0 z-50" onClick={handleClose}>
-      <div className="absolute inset-0 bg-black/40" />
+    <div className="fixed inset-0 z-50 flex items-end lg:items-center lg:justify-center" onClick={handleClose}>
+      <div className="absolute inset-0 bg-black/40 lg:backdrop-blur-sm" />
 
       <div
-        className="absolute bottom-0 left-0 right-0 rounded-t-2xl bg-white"
+        className="relative w-full rounded-t-2xl bg-white lg:max-w-sm lg:rounded-2xl lg:shadow-2xl lg:max-h-[90vh] lg:overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
-        {/* drag handle */}
-        <div className="flex justify-center pb-1 pt-3">
+        {/* drag handle - mobile only */}
+        <div className="flex justify-center pb-1 pt-3 lg:hidden">
           <div className="h-1 w-10 rounded-full bg-slate-200" />
         </div>
 
         {/* header */}
-        <div className="border-b border-slate-100 px-5 py-3">
-          <p className="line-clamp-1 text-sm font-semibold text-slate-900">{link.title}</p>
-          <p className="mt-0.5 text-xs text-slate-400">{link.site_name}</p>
+        <div className="flex items-start gap-2 border-b border-slate-100 px-5 py-3 lg:py-4">
+          <div className="min-w-0 flex-1">
+            <p className="line-clamp-1 text-sm font-semibold text-slate-900">{link.title}</p>
+            <p className="mt-0.5 text-xs text-slate-400">{link.site_name}</p>
+          </div>
+          <button
+            onClick={handleClose}
+            aria-label="Close"
+            className="hidden h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 lg:flex"
+          >
+            ✕
+          </button>
         </div>
 
         {/* quick actions */}
@@ -135,7 +144,7 @@ export default function BottomSheet({ link, onStatusChange, onFavoriteToggle, on
           )}
         </div>
 
-        <div className="h-6" />
+        <div className="h-6 lg:hidden" />
       </div>
     </div>
   )
