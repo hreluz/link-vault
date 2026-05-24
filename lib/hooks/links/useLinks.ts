@@ -39,5 +39,9 @@ export function useLinks() {
     addToast(isFav ? 'Removed from favorites' : 'Added to favorites')
   }
 
-  return { links, loading, handleStatusChange, handleEdit, handleDelete, handleFavoriteToggle }
+  function handleCreate(link: LinkWithTags) {
+    setLinks(prev => [link, ...prev])
+  }
+
+  return { links, loading, handleStatusChange, handleEdit, handleDelete, handleFavoriteToggle, handleCreate }
 }

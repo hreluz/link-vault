@@ -1,37 +1,30 @@
 'use client'
 
-import { useState } from 'react'
 import type { ContentType, LinkStatus } from '@/lib/types/database'
 import { CONTENT_TYPE_CONFIG, STATUS_CONFIG } from '../config'
+import { useAddLinkForm } from '@/lib/hooks/links'
+import type { LinkWithTags } from '@/lib/services/links'
 
 interface Props {
   isOpen: boolean
-  onSave?: () => void
+  onSuccess?: (link: LinkWithTags) => void
   onClose: () => void
 }
 
 const INPUT = 'w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20'
 const LABEL = 'block text-sm font-medium text-slate-700 mb-1.5'
 
-export default function AddLinkModal({ isOpen, onSave, onClose }: Props) {
-  const [url, setUrl] = useState('')
-  const [title, setTitle] = useState('')
-  const [contentType, setContentType] = useState<ContentType>('other')
-  const [status, setStatus] = useState<LinkStatus>('unread')
-  const [tags, setTags] = useState('')
-  const [notes, setNotes] = useState('')
+export default function AddLinkModal({ isOpen, onSuccess, onClose }: Props) {
+  const { url, setUrl, title, setTitle, contentType, setContentType, status, setStatus, tags, setTags, notes, setNotes, submitting, error, handleSubmit } = useAddLinkForm()
 
   if (!isOpen) return null
 
-  function handleSave() {
-    onSave?.()
-    onClose()
-    setUrl('')
-    setTitle('')
-    setContentType('other')
-    setStatus('unread')
-    setTags('')
-    setNotes('')
+  async function handleSave() {
+    const link = await handleSubmit()
+    if (link) {
+      onSuccess?.(link)
+      onClose()
+    }
   }
 
   function handleBackdropClick(e: React.MouseEvent<HTMLDivElement>) {
@@ -122,20 +115,26 @@ export default function AddLinkModal({ isOpen, onSave, onClose }: Props) {
           </div>
         </div>
 
+        {error && (
+          <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>
+        )}
+
         <div className="mt-6 flex gap-3">
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-slate-900"
+            disabled={submitting}
+            className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={handleSave}
-            className="flex-1 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500"
+            disabled={submitting}
+            className="flex-1 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Save link
+            {submitting ? 'Saving…' : 'Save link'}
           </button>
         </div>
       </div>

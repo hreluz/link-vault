@@ -2,21 +2,26 @@ import type { ContentType, LinkStatus } from './types/database'
 
 export interface MockLink {
   id: string
+  user_id: string
   url: string
-  title: string
-  description: string
-  site_name: string
+  title: string | null
+  description: string | null
+  image_url: string | null
+  site_name: string | null
   content_type: ContentType
   status: LinkStatus
   is_favorite: boolean
   tags: string[]
   notes: string | null
   created_at: string
+  updated_at: string
 }
+
+const BASE = { user_id: 'mock-user', image_url: null, updated_at: '2026-05-24T00:00:00Z' }
 
 export const MOCK_LINKS: MockLink[] = [
   {
-    id: '1',
+    ...BASE, id: '1',
     url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
     title: 'React 19 Deep Dive — New Features Explained',
     description: 'A comprehensive walkthrough of everything new in React 19 including Server Components, Actions, and the new hooks.',
@@ -29,7 +34,7 @@ export const MOCK_LINKS: MockLink[] = [
     created_at: '2026-05-10T10:00:00Z',
   },
   {
-    id: '2',
+    ...BASE, id: '2',
     url: 'https://github.com/vercel/next.js',
     title: 'Next.js — The React Framework for the Web',
     description: "The React Framework for the Web. Used by some of the world's largest companies, Next.js enables high-quality web applications.",
@@ -42,7 +47,7 @@ export const MOCK_LINKS: MockLink[] = [
     created_at: '2026-05-09T08:00:00Z',
   },
   {
-    id: '3',
+    ...BASE, id: '3',
     url: 'https://www.typescriptlang.org/docs/',
     title: 'TypeScript Official Documentation',
     description: 'Official TypeScript documentation covering all language features, the type system, and configuration options.',
@@ -55,7 +60,7 @@ export const MOCK_LINKS: MockLink[] = [
     created_at: '2026-05-08T12:00:00Z',
   },
   {
-    id: '4',
+    ...BASE, id: '4',
     url: 'https://x.com/dan_abramov/status/1234567890',
     title: 'Dan Abramov on React Server Components',
     description: 'Thread explaining the mental model behind React Server Components and why they matter for the future of web development.',
@@ -68,7 +73,7 @@ export const MOCK_LINKS: MockLink[] = [
     created_at: '2026-05-12T15:30:00Z',
   },
   {
-    id: '5',
+    ...BASE, id: '5',
     url: 'https://www.instagram.com/p/abc123',
     title: 'UI Design Tips for Developers',
     description: 'Quick visual tips for making your interfaces look polished and professional without a design background.',
@@ -81,7 +86,7 @@ export const MOCK_LINKS: MockLink[] = [
     created_at: '2026-05-07T09:00:00Z',
   },
   {
-    id: '6',
+    ...BASE, id: '6',
     url: 'https://css-tricks.com/a-complete-guide-to-flexbox/',
     title: 'A Complete Guide to Flexbox',
     description: 'A comprehensive reference for the CSS flexbox layout module, with visual examples for every property and combination.',
@@ -94,7 +99,7 @@ export const MOCK_LINKS: MockLink[] = [
     created_at: '2026-05-06T11:00:00Z',
   },
   {
-    id: '7',
+    ...BASE, id: '7',
     url: 'https://www.tiktok.com/@codewithreact/video/123456',
     title: '5 TypeScript Tricks You Probably Don\'t Know',
     description: 'Short video covering advanced TypeScript patterns that most developers miss, from conditional types to template literals.',
@@ -107,7 +112,7 @@ export const MOCK_LINKS: MockLink[] = [
     created_at: '2026-05-11T20:00:00Z',
   },
   {
-    id: '8',
+    ...BASE, id: '8',
     url: 'https://supabase.com/docs/guides/auth',
     title: 'Supabase Auth — SSR Guide',
     description: 'Complete guide to authentication with Supabase in server-side rendered apps, covering cookie management and row-level security.',

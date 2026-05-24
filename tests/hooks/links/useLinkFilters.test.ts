@@ -4,23 +4,22 @@ import { describe, it, expect } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useLinkFilters } from '@/lib/hooks/links/useLinkFilters'
 
+const BASE = { user_id: 'user-1', image_url: null, description: '', notes: null, updated_at: '2026-01-01T00:00:00Z' }
+
 const LINK_A = {
-  id: '1', title: 'Alpha Article', site_name: 'alpha.com',
+  ...BASE, id: '1', title: 'Alpha Article', site_name: 'alpha.com',
   content_type: 'article' as const, status: 'unread' as const, is_favorite: false,
-  tags: ['react'], created_at: '2026-01-01T00:00:00Z',
-  url: 'https://alpha.com', description: '', notes: null,
+  tags: ['react'], created_at: '2026-01-01T00:00:00Z', url: 'https://alpha.com',
 }
 const LINK_B = {
-  id: '2', title: 'Beta Video', site_name: 'beta.com',
+  ...BASE, id: '2', title: 'Beta Video', site_name: 'beta.com',
   content_type: 'youtube' as const, status: 'read' as const, is_favorite: true,
-  tags: ['vue', 'css'], created_at: '2026-01-02T00:00:00Z',
-  url: 'https://beta.com', description: '', notes: null,
+  tags: ['vue', 'css'], created_at: '2026-01-02T00:00:00Z', url: 'https://beta.com',
 }
 const LINK_C = {
-  id: '3', title: 'Gamma Article', site_name: 'gamma.com',
+  ...BASE, id: '3', title: 'Gamma Article', site_name: 'gamma.com',
   content_type: 'article' as const, status: 'watching' as const, is_favorite: false,
-  tags: ['react', 'css'], created_at: '2026-01-03T00:00:00Z',
-  url: 'https://gamma.com', description: '', notes: null,
+  tags: ['react', 'css'], created_at: '2026-01-03T00:00:00Z', url: 'https://gamma.com',
 }
 
 const ALL_LINKS = [LINK_A, LINK_B, LINK_C]

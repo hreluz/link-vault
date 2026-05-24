@@ -44,6 +44,7 @@ export default function LinkList() {
     handleEdit,
     handleDelete,
     handleFavoriteToggle,
+    handleCreate,
     resetFilters,
     addToast,
   } = useLinkList()
@@ -171,7 +172,11 @@ export default function LinkList() {
         </div>
       )}
 
-      <AddLinkModal isOpen={modalOpen} onSave={() => addToast('Link saved')} onClose={() => setModalOpen(false)} />
+      <AddLinkModal
+        isOpen={modalOpen}
+        onSuccess={link => { handleCreate(link); addToast('Link saved'); setModalOpen(false) }}
+        onClose={() => setModalOpen(false)}
+      />
 
       <EditLinkModal
         link={editingLink}

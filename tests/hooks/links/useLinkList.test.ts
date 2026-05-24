@@ -158,4 +158,16 @@ describe('useLinkList (integration)', () => {
       expect(result.current.editingLink).toBeNull()
     })
   })
+
+  describe('handleCreate', () => {
+    it('prepends the new link and it appears in results', async () => {
+      const { result } = await renderLoaded()
+      const newLink = { ...LINK_A, id: '99', title: 'Brand New', created_at: '2026-12-31T00:00:00Z' }
+
+      act(() => result.current.handleCreate(newLink))
+
+      expect(result.current.results[0].id).toBe('99')
+      expect(result.current.results).toHaveLength(4)
+    })
+  })
 })
