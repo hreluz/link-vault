@@ -70,12 +70,13 @@ describe('useCategories', () => {
   })
 
   describe('add form', () => {
-    it('starts with adding=false', async () => {
+    it('starts with adding=false and no error', async () => {
       const { result } = await renderLoaded()
       expect(result.current.adding).toBe(false)
+      expect(result.current.addError).toBeNull()
     })
 
-    it('openAdd sets adding=true and clears editingId/deletingId', async () => {
+    it('openAdd sets adding=true and clears editingId/deletingId/addError', async () => {
       const { result } = await renderLoaded()
 
       act(() => { result.current.openAdd() })
@@ -83,9 +84,10 @@ describe('useCategories', () => {
       expect(result.current.adding).toBe(true)
       expect(result.current.editingId).toBeNull()
       expect(result.current.deletingId).toBeNull()
+      expect(result.current.addError).toBeNull()
     })
 
-    it('closeAdd resets adding and clears form fields', async () => {
+    it('closeAdd resets adding, clears form fields and error', async () => {
       const { result } = await renderLoaded()
 
       act(() => {
@@ -98,11 +100,12 @@ describe('useCategories', () => {
       expect(result.current.adding).toBe(false)
       expect(result.current.newName).toBe('')
       expect(result.current.newIcon).toBe('')
+      expect(result.current.addError).toBeNull()
     })
 
     it('handleAdd calls createCategory and appends the result', async () => {
       const created: Category = { ...CAT_A, id: '99', name: 'New Cat', emoticon: '🎯' }
-      mockCreateCategory.mockResolvedValue(created)
+      mockCreateCategory.mockResolvedValue({ data: created, error: null })
       const { result } = await renderLoaded()
 
       act(() => {
@@ -115,6 +118,34 @@ describe('useCategories', () => {
       expect(mockCreateCategory).toHaveBeenCalledWith({ name: 'New Cat', emoticon: '🎯' })
       expect(result.current.categories).toContainEqual(created)
       expect(result.current.adding).toBe(false)
+      expect(result.current.addError).toBeNull()
+    })
+
+    it('handleAdd sets addError and keeps form open when name is taken', async () => {
+      mockCreateCategory.mockResolvedValue({ data: null, error: 'name_taken' })
+      const { result } = await renderLoaded()
+
+      act(() => {
+        result.current.openAdd()
+        result.current.setNewName('Article')
+      })
+      await act(() => result.current.handleAdd())
+
+      expect(result.current.addError).toBe('A category with that name already exists.')
+      expect(result.current.adding).toBe(true)
+      expect(result.current.categories).toHaveLength(2)
+    })
+
+    it('openAdd clears a previous addError', async () => {
+      mockCreateCategory.mockResolvedValue({ data: null, error: 'name_taken' })
+      const { result } = await renderLoaded()
+
+      act(() => { result.current.openAdd(); result.current.setNewName('Article') })
+      await act(() => result.current.handleAdd())
+      expect(result.current.addError).not.toBeNull()
+
+      act(() => { result.current.openAdd() })
+      expect(result.current.addError).toBeNull()
     })
 
     it('handleAdd does nothing when name is empty', async () => {
@@ -126,8 +157,8 @@ describe('useCategories', () => {
       expect(mockCreateCategory).not.toHaveBeenCalled()
     })
 
-    it('handleAdd does not append when createCategory returns null', async () => {
-      mockCreateCategory.mockResolvedValue(null)
+    it('handleAdd closes the form without appending on db_error', async () => {
+      mockCreateCategory.mockResolvedValue({ data: null, error: 'db_error' })
       const { result } = await renderLoaded()
 
       act(() => {
@@ -137,6 +168,7 @@ describe('useCategories', () => {
       await act(() => result.current.handleAdd())
 
       expect(result.current.categories).toHaveLength(2)
+      expect(result.current.adding).toBe(false)
     })
   })
 

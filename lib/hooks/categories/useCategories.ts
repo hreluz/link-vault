@@ -13,6 +13,7 @@ export function useCategories() {
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [adding, setAdding] = useState(false)
+  const [addError, setAddError] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [newIcon, setNewIcon] = useState('')
@@ -27,13 +28,17 @@ export function useCategories() {
     })
   }, [])
 
-  function openAdd() { setAdding(true); setEditingId(null); setDeletingId(null) }
-  function closeAdd() { setAdding(false); setNewIcon(''); setNewName('') }
+  function openAdd() { setAdding(true); setAddError(null); setEditingId(null); setDeletingId(null) }
+  function closeAdd() { setAdding(false); setAddError(null); setNewIcon(''); setNewName('') }
 
   async function handleAdd() {
     if (!newName.trim()) return
-    const created = await createCategory({ name: newName.trim(), emoticon: newIcon.trim() || '🔗' })
-    if (created) setCategories(prev => [...prev, created])
+    const result = await createCategory({ name: newName.trim(), emoticon: newIcon.trim() || '🔗' })
+    if (result.error === 'name_taken') {
+      setAddError('A category with that name already exists.')
+      return
+    }
+    if (result.data) setCategories(prev => [...prev, result.data])
     closeAdd()
   }
 
@@ -64,6 +69,7 @@ export function useCategories() {
     categories,
     loading,
     adding,
+    addError,
     editingId,
     setEditingId,
     deletingId,

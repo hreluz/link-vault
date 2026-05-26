@@ -7,12 +7,20 @@ import type { Category } from '@/lib/services/categories'
 const {
   mockGetUser,
   mockOrder,
+  mockNameCheckMaybeSingle,
+  mockIlike,
   mockInsert, mockInsertSingle,
   mockUpdate, mockUpdateEq, mockUpdateSingle,
   mockDeleteEq,
+  mockNameCheckEq,
 } = vi.hoisted(() => {
   const mockOrder = vi.fn()
   const mockGetUser = vi.fn()
+
+  // name-check chain: select().eq().ilike().maybySingle()
+  const mockNameCheckMaybeSingle = vi.fn()
+  const mockIlike = vi.fn(() => ({ maybeSingle: mockNameCheckMaybeSingle }))
+  const mockNameCheckEq = vi.fn(() => ({ ilike: mockIlike }))
 
   const mockInsertSingle = vi.fn()
   const mockInsertSelect = vi.fn(() => ({ single: mockInsertSingle }))
@@ -29,6 +37,9 @@ const {
   return {
     mockGetUser,
     mockOrder,
+    mockNameCheckMaybeSingle,
+    mockIlike,
+    mockNameCheckEq,
     mockInsert, mockInsertSingle,
     mockUpdate, mockUpdateEq, mockUpdateSingle,
     mockDeleteEq, mockDelete,
@@ -39,7 +50,7 @@ vi.mock('@/lib/supabase/client', () => ({
   createClient: vi.fn(() => ({
     auth: { getUser: mockGetUser },
     from: vi.fn(() => ({
-      select: vi.fn(() => ({ order: mockOrder })),
+      select: vi.fn(() => ({ order: mockOrder, eq: mockNameCheckEq })),
       insert: mockInsert,
       update: mockUpdate,
       delete: vi.fn(() => ({ eq: mockDeleteEq })),
@@ -61,7 +72,7 @@ function makeSeedClient({
   const mockSelect = vi.fn().mockReturnValue({ eq: mockEq })
   const from = vi.fn().mockReturnValue({ select: mockSelect, insert: mockInsertSeed })
 
-  return { client: { from } as ReturnType<typeof import('@/lib/supabase/client').createClient>, mockInsert: mockInsertSeed, from }
+  return { client: { from } as unknown as ReturnType<typeof import('@/lib/supabase/client').createClient>, mockInsert: mockInsertSeed, from }
 }
 
 const MOCK_CAT: Category = {
@@ -103,6 +114,7 @@ describe('getCategories', () => {
 describe('createCategory', () => {
   beforeEach(() => {
     mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } })
+    mockNameCheckMaybeSingle.mockResolvedValue({ data: null, error: null })
   })
 
   it('returns the created category on success', async () => {
@@ -110,7 +122,7 @@ describe('createCategory', () => {
 
     const result = await createCategory({ name: 'Article', emoticon: '📄', color: '#3B82F6' })
 
-    expect(result).toEqual(MOCK_CAT)
+    expect(result).toEqual({ data: MOCK_CAT, error: null })
   })
 
   it('includes name and emoticon in the insert payload', async () => {
@@ -123,17 +135,39 @@ describe('createCategory', () => {
     )
   })
 
-  it('returns null when the user is not authenticated', async () => {
-    mockGetUser.mockResolvedValue({ data: { user: null } })
+  it('returns name_taken when a category with the same name exists', async () => {
+    mockNameCheckMaybeSingle.mockResolvedValue({ data: { id: '99' }, error: null })
 
-    expect(await createCategory({ name: 'Article' })).toBeNull()
+    const result = await createCategory({ name: 'Article' })
+
+    expect(result).toEqual({ data: null, error: 'name_taken' })
     expect(mockInsert).not.toHaveBeenCalled()
   })
 
-  it('returns null on DB error', async () => {
+  it('performs the name check case-insensitively', async () => {
+    mockNameCheckMaybeSingle.mockResolvedValue({ data: null, error: null })
+    mockInsertSingle.mockResolvedValue({ data: MOCK_CAT, error: null })
+
+    await createCategory({ name: 'article' })
+
+    expect(mockIlike).toHaveBeenCalledWith('name', 'article')
+  })
+
+  it('returns unauthenticated when there is no user', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } })
+
+    const result = await createCategory({ name: 'Article' })
+
+    expect(result).toEqual({ data: null, error: 'unauthenticated' })
+    expect(mockInsert).not.toHaveBeenCalled()
+  })
+
+  it('returns db_error on insert failure', async () => {
     mockInsertSingle.mockResolvedValue({ data: null, error: { message: 'DB error' } })
 
-    expect(await createCategory({ name: 'Article' })).toBeNull()
+    const result = await createCategory({ name: 'Article' })
+
+    expect(result).toEqual({ data: null, error: 'db_error' })
   })
 })
 
