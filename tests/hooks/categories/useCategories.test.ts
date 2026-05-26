@@ -157,6 +157,18 @@ describe('useCategories', () => {
       expect(mockCreateCategory).not.toHaveBeenCalled()
     })
 
+    it('handleAdd uses 🔗 as default emoticon when icon is empty', async () => {
+      mockCreateCategory.mockResolvedValue({ data: CAT_A, error: null })
+      const { result } = await renderLoaded()
+
+      act(() => { result.current.openAdd(); result.current.setNewName('Article') })
+      await act(() => result.current.handleAdd())
+
+      expect(mockCreateCategory).toHaveBeenCalledWith(
+        expect.objectContaining({ emoticon: '🔗' }),
+      )
+    })
+
     it('handleAdd closes the form without appending on db_error', async () => {
       mockCreateCategory.mockResolvedValue({ data: null, error: 'db_error' })
       const { result } = await renderLoaded()
@@ -221,6 +233,21 @@ describe('useCategories', () => {
       await act(() => result.current.handleSaveEdit())
 
       expect(mockUpdateCategory).not.toHaveBeenCalled()
+    })
+
+    it('handleSaveEdit uses 🔗 as default emoticon when editIcon is empty', async () => {
+      mockUpdateCategory.mockResolvedValue(CAT_A)
+      const { result } = await renderLoaded()
+
+      act(() => {
+        result.current.startEdit(CAT_A)
+        result.current.setEditIcon('')
+      })
+      await act(() => result.current.handleSaveEdit())
+
+      expect(mockUpdateCategory).toHaveBeenCalledWith(
+        expect.objectContaining({ emoticon: '🔗' }),
+      )
     })
 
     it('handleSaveEdit does not update list when service returns null', async () => {

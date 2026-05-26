@@ -207,6 +207,22 @@ describe('useLinkFilters', () => {
     })
   })
 
+  describe('allTags', () => {
+    it('returns a sorted, deduplicated list of all tags across links', () => {
+      const { result } = renderFilters()
+      // LINK_A: ['react'], LINK_B: ['vue', 'css'], LINK_C: ['react', 'css']
+      expect(result.current.allTags).toEqual(['css', 'react', 'vue'])
+    })
+
+    it('returns an empty array when no links have tags', () => {
+      const { result } = renderHook(() => useLinkFilters([
+        { ...LINK_A, tags: [] },
+        { ...LINK_B, tags: [] },
+      ]))
+      expect(result.current.allTags).toEqual([])
+    })
+  })
+
   describe('resetFilters', () => {
     it('clears all active filters back to defaults', () => {
       const { result } = renderFilters()

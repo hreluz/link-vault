@@ -1,3 +1,9 @@
+"use client"
+
+import { useEffect, useRef, useState } from "react"
+import Picker from "@emoji-mart/react"
+import data from "@emoji-mart/data"
+
 interface Props {
   icon: string
   onIconChange: (v: string) => void
@@ -9,17 +15,47 @@ interface Props {
 }
 
 export default function CategoryAddForm({ icon, onIconChange, name, onNameChange, onAdd, onCancel, error }: Props) {
+  const [open, setOpen] = useState(false)
+  const pickerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function handleClick(e: MouseEvent) {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClick)
+    return () => document.removeEventListener("mousedown", handleClick)
+  }, [open])
+
   return (
     <div className="mb-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
       <p className="mb-3 text-sm font-semibold text-slate-700">New category</p>
       <div className="flex gap-3">
-        <input
-          type="text"
-          placeholder="Icon"
-          value={icon}
-          onChange={e => onIconChange(e.target.value)}
-          className="w-20 rounded-xl border border-slate-200 bg-white px-3 py-3 text-center text-lg outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
-        />
+        <div className="relative" ref={pickerRef}>
+          <button
+            type="button"
+            onClick={() => setOpen(v => !v)}
+            className="flex h-full w-20 items-center justify-center rounded-xl border border-slate-200 bg-white text-2xl outline-none transition hover:bg-slate-50 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+          >
+            {icon || "🔗"}
+          </button>
+          {open && (
+            <div className="absolute left-0 top-full z-50 mt-1" ref={pickerRef}>
+              <Picker
+                data={data}
+                onEmojiSelect={(e: { native: string }) => {
+                  onIconChange(e.native)
+                  setOpen(false)
+                }}
+                theme="light"
+                previewPosition="none"
+                skinTonePosition="none"
+              />
+            </div>
+          )}
+        </div>
         <input
           autoFocus
           type="text"
