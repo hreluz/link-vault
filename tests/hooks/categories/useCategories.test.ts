@@ -94,12 +94,14 @@ describe('useCategories', () => {
         result.current.openAdd()
         result.current.setNewName('Test')
         result.current.setNewIcon('🎯')
+        result.current.setNewColor('rose')
       })
       act(() => { result.current.closeAdd() })
 
       expect(result.current.adding).toBe(false)
       expect(result.current.newName).toBe('')
       expect(result.current.newIcon).toBe('')
+      expect(result.current.newColor).toBe('indigo')
       expect(result.current.addError).toBeNull()
     })
 
@@ -112,10 +114,11 @@ describe('useCategories', () => {
         result.current.openAdd()
         result.current.setNewName('New Cat')
         result.current.setNewIcon('🎯')
+        result.current.setNewColor('emerald')
       })
       await act(() => result.current.handleAdd())
 
-      expect(mockCreateCategory).toHaveBeenCalledWith({ name: 'New Cat', emoticon: '🎯' })
+      expect(mockCreateCategory).toHaveBeenCalledWith({ name: 'New Cat', emoticon: '🎯', color: 'emerald' })
       expect(result.current.categories).toContainEqual(created)
       expect(result.current.adding).toBe(false)
       expect(result.current.addError).toBeNull()
@@ -169,6 +172,30 @@ describe('useCategories', () => {
       )
     })
 
+    it('handleAdd passes the selected color to createCategory', async () => {
+      mockCreateCategory.mockResolvedValue({ data: CAT_A, error: null })
+      const { result } = await renderLoaded()
+
+      act(() => { result.current.openAdd(); result.current.setNewName('Article'); result.current.setNewColor('rose') })
+      await act(() => result.current.handleAdd())
+
+      expect(mockCreateCategory).toHaveBeenCalledWith(
+        expect.objectContaining({ color: 'rose' }),
+      )
+    })
+
+    it('handleAdd defaults to indigo color when none is set', async () => {
+      mockCreateCategory.mockResolvedValue({ data: CAT_A, error: null })
+      const { result } = await renderLoaded()
+
+      act(() => { result.current.openAdd(); result.current.setNewName('Article') })
+      await act(() => result.current.handleAdd())
+
+      expect(mockCreateCategory).toHaveBeenCalledWith(
+        expect.objectContaining({ color: 'indigo' }),
+      )
+    })
+
     it('handleAdd closes the form without appending on db_error', async () => {
       mockCreateCategory.mockResolvedValue({ data: null, error: 'db_error' })
       const { result } = await renderLoaded()
@@ -193,6 +220,7 @@ describe('useCategories', () => {
       expect(result.current.editingId).toBe(CAT_A.id)
       expect(result.current.editName).toBe(CAT_A.name)
       expect(result.current.editIcon).toBe(CAT_A.emoticon)
+      expect(result.current.editColor).toBe(CAT_A.color)
     })
 
     it('startEdit closes the add form', async () => {
@@ -225,15 +253,28 @@ describe('useCategories', () => {
         result.current.startEdit(CAT_A)
         result.current.setEditName('Renamed')
         result.current.setEditIcon('🆕')
+        result.current.setEditColor('sky')
       })
       await act(() => result.current.handleSaveEdit())
 
       expect(mockUpdateCategory).toHaveBeenCalledWith(
-        expect.objectContaining({ id: CAT_A.id, name: 'Renamed', emoticon: '🆕' }),
+        expect.objectContaining({ id: CAT_A.id, name: 'Renamed', emoticon: '🆕', color: 'sky' }),
       )
       expect(result.current.categories.find(c => c.id === CAT_A.id)).toEqual(updated)
       expect(result.current.editingId).toBeNull()
       expect(result.current.editError).toBeNull()
+    })
+
+    it('handleSaveEdit passes the selected color to updateCategory', async () => {
+      mockUpdateCategory.mockResolvedValue({ data: CAT_A, error: null })
+      const { result } = await renderLoaded()
+
+      act(() => { result.current.startEdit(CAT_A); result.current.setEditColor('purple') })
+      await act(() => result.current.handleSaveEdit())
+
+      expect(mockUpdateCategory).toHaveBeenCalledWith(
+        expect.objectContaining({ color: 'purple' }),
+      )
     })
 
     it('handleSaveEdit does not call service when name is empty', async () => {

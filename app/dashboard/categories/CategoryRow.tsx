@@ -1,4 +1,5 @@
 import type { Category } from '@/lib/services/categories'
+import { colorForCategory } from './CategoryForm'
 
 interface Props {
   category: Category
@@ -10,8 +11,10 @@ interface Props {
 }
 
 export default function CategoryRow({ category, isDeleting, onEdit, onConfirmDelete, onDelete, onCancelDelete }: Props) {
+  const color = colorForCategory(category.color)
   return (
     <div className="flex items-center gap-3 rounded-2xl bg-white px-4 py-3.5 shadow-sm ring-1 ring-slate-200">
+      <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${color.dot}`} aria-hidden="true" />
       <span className="text-xl" aria-hidden="true">{category.emoticon}</span>
       <span className="text-sm font-medium text-slate-900">{category.name}</span>
       <div className="ml-auto flex items-center gap-1">

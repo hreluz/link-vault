@@ -129,13 +129,13 @@ describe('createCategory', () => {
     expect(result).toEqual({ data: MOCK_CAT, error: null })
   })
 
-  it('includes name and emoticon in the insert payload', async () => {
+  it('includes name, emoticon, and color in the insert payload', async () => {
     mockInsertSingle.mockResolvedValue({ data: MOCK_CAT, error: null })
 
-    await createCategory({ name: 'Article', emoticon: '📄' })
+    await createCategory({ name: 'Article', emoticon: '📄', color: 'indigo' })
 
     expect(mockInsert).toHaveBeenCalledWith(
-      expect.objectContaining({ name: 'Article', emoticon: '📄', user_id: 'u1' }),
+      expect.objectContaining({ name: 'Article', emoticon: '📄', color: 'indigo', user_id: 'u1' }),
     )
   })
 
