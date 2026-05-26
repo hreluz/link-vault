@@ -127,10 +127,22 @@ describe('useAddLinkForm', () => {
       expect(mockCreateLink).not.toHaveBeenCalled()
     })
 
-    it('returns the saved link on success', async () => {
+    it('sets error and returns null when categoryId is null', async () => {
       const { result } = renderHook(() => useAddLinkForm())
 
       act(() => result.current.setUrl('https://example.com'))
+      let returned: LinkWithTags | null = SAVED_LINK
+      await act(async () => { returned = await result.current.handleSubmit() })
+
+      expect(returned).toBeNull()
+      expect(result.current.error).toBeTruthy()
+      expect(mockCreateLink).not.toHaveBeenCalled()
+    })
+
+    it('returns the saved link on success', async () => {
+      const { result } = renderHook(() => useAddLinkForm())
+
+      act(() => { result.current.setUrl('https://example.com'); result.current.setCategoryId('cat-1') })
       let returned: LinkWithTags | null = null
       await act(async () => { returned = await result.current.handleSubmit() })
 
@@ -140,7 +152,7 @@ describe('useAddLinkForm', () => {
     it('resets form fields on success', async () => {
       const { result } = renderHook(() => useAddLinkForm())
 
-      act(() => { result.current.setUrl('https://example.com'); result.current.setTitle('T') })
+      act(() => { result.current.setUrl('https://example.com'); result.current.setTitle('T'); result.current.setCategoryId('cat-1') })
       await act(async () => { await result.current.handleSubmit() })
 
       expect(result.current.url).toBe('')
@@ -151,7 +163,7 @@ describe('useAddLinkForm', () => {
       mockCreateLink.mockResolvedValue(null)
       const { result } = renderHook(() => useAddLinkForm())
 
-      act(() => result.current.setUrl('https://example.com'))
+      act(() => { result.current.setUrl('https://example.com'); result.current.setCategoryId('cat-1') })
       let returned: LinkWithTags | null = SAVED_LINK
       await act(async () => { returned = await result.current.handleSubmit() })
 
@@ -163,7 +175,7 @@ describe('useAddLinkForm', () => {
       mockCreateLink.mockResolvedValue(null)
       const { result } = renderHook(() => useAddLinkForm())
 
-      act(() => result.current.setUrl('https://example.com'))
+      act(() => { result.current.setUrl('https://example.com'); result.current.setCategoryId('cat-1') })
       await act(async () => { await result.current.handleSubmit() })
 
       expect(result.current.url).toBe('https://example.com')
@@ -172,7 +184,7 @@ describe('useAddLinkForm', () => {
     it('is not submitting before and after the call', async () => {
       const { result } = renderHook(() => useAddLinkForm())
 
-      act(() => result.current.setUrl('https://example.com'))
+      act(() => { result.current.setUrl('https://example.com'); result.current.setCategoryId('cat-1') })
       expect(result.current.submitting).toBe(false)
       await act(async () => { await result.current.handleSubmit() })
       expect(result.current.submitting).toBe(false)
@@ -181,7 +193,7 @@ describe('useAddLinkForm', () => {
     it('uses the first 30 chars of the url without protocol as title when title is empty', async () => {
       const { result } = renderHook(() => useAddLinkForm())
 
-      act(() => result.current.setUrl('https://example.com/some/very/long/path/here'))
+      act(() => { result.current.setUrl('https://example.com/some/very/long/path/here'); result.current.setCategoryId('cat-1') })
       await act(async () => { await result.current.handleSubmit() })
 
       expect(mockCreateLink).toHaveBeenCalledWith(expect.objectContaining({
@@ -192,7 +204,7 @@ describe('useAddLinkForm', () => {
     it('uses the provided title when set', async () => {
       const { result } = renderHook(() => useAddLinkForm())
 
-      act(() => { result.current.setUrl('https://example.com'); result.current.setTitle('My Title') })
+      act(() => { result.current.setUrl('https://example.com'); result.current.setTitle('My Title'); result.current.setCategoryId('cat-1') })
       await act(async () => { await result.current.handleSubmit() })
 
       expect(mockCreateLink).toHaveBeenCalledWith(expect.objectContaining({ title: 'My Title' }))
@@ -201,7 +213,7 @@ describe('useAddLinkForm', () => {
     it('passes parsed tags as an array to createLink', async () => {
       const { result } = renderHook(() => useAddLinkForm())
 
-      act(() => { result.current.setUrl('https://example.com'); result.current.setTags(' react , css , ') })
+      act(() => { result.current.setUrl('https://example.com'); result.current.setTags(' react , css , '); result.current.setCategoryId('cat-1') })
       await act(async () => { await result.current.handleSubmit() })
 
       expect(mockCreateLink).toHaveBeenCalledWith(expect.objectContaining({

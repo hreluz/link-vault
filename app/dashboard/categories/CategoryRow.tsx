@@ -1,6 +1,7 @@
 'use client'
 
 import type { Category } from '@/lib/services/categories'
+import { PROTECTED_CATEGORY_NAME } from '@/lib/services/categories'
 import { colorForCategory } from './CategoryForm'
 import { useCategoriesContext } from './CategoriesContext'
 
@@ -11,6 +12,7 @@ interface Props {
 export default function CategoryRow({ category }: Props) {
   const { deletingId, setDeletingId, startEdit, confirmDelete, handleDelete } = useCategoriesContext()
   const isDeleting = deletingId === category.id
+  const isProtected = category.name === PROTECTED_CATEGORY_NAME
   const color = colorForCategory(category.color)
 
   return (
@@ -44,13 +46,15 @@ export default function CategoryRow({ category }: Props) {
             >
               ✏️
             </button>
-            <button
-              onClick={() => confirmDelete(category.id)}
-              aria-label="Delete category"
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-500"
-            >
-              🗑️
-            </button>
+            {!isProtected && (
+              <button
+                onClick={() => confirmDelete(category.id)}
+                aria-label="Delete category"
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-500"
+              >
+                🗑️
+              </button>
+            )}
           </>
         )}
       </div>

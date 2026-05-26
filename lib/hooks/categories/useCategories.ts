@@ -6,6 +6,7 @@ import {
   createCategory,
   updateCategory,
   deleteCategory,
+  PROTECTED_CATEGORY_NAME,
   type Category,
 } from '@/lib/services/categories'
 
@@ -67,9 +68,15 @@ export function useCategories() {
     setEditError(null)
   }
 
-  function confirmDelete(id: string) { setDeletingId(id); setEditingId(null); setAdding(false) }
+  function confirmDelete(id: string) {
+    const cat = categories.find(c => c.id === id)
+    if (cat?.name === PROTECTED_CATEGORY_NAME) return
+    setDeletingId(id); setEditingId(null); setAdding(false)
+  }
 
   async function handleDelete(id: string) {
+    const cat = categories.find(c => c.id === id)
+    if (cat?.name === PROTECTED_CATEGORY_NAME) return
     const ok = await deleteCategory(id)
     if (ok) setCategories(prev => prev.filter(c => c.id !== id))
     setDeletingId(null)

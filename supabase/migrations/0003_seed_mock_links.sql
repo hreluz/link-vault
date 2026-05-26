@@ -19,14 +19,15 @@ declare
   v_l8  uuid := '00000000-0000-0000-0001-000000000008';
 
   -- category IDs
-  v_c_youtube   uuid := '00000000-0000-0000-0004-000000000001';
-  v_c_instagram uuid := '00000000-0000-0000-0004-000000000002';
-  v_c_tiktok    uuid := '00000000-0000-0000-0004-000000000003';
-  v_c_article   uuid := '00000000-0000-0000-0004-000000000004';
-  v_c_course    uuid := '00000000-0000-0000-0004-000000000005';
-  v_c_tweet     uuid := '00000000-0000-0000-0004-000000000006';
-  v_c_github    uuid := '00000000-0000-0000-0004-000000000007';
-  v_c_other     uuid := '00000000-0000-0000-0004-000000000008';
+  v_c_not_defined uuid := '00000000-0000-0000-0004-000000000000';
+  v_c_youtube     uuid := '00000000-0000-0000-0004-000000000001';
+  v_c_instagram   uuid := '00000000-0000-0000-0004-000000000002';
+  v_c_tiktok      uuid := '00000000-0000-0000-0004-000000000003';
+  v_c_article     uuid := '00000000-0000-0000-0004-000000000004';
+  v_c_course      uuid := '00000000-0000-0000-0004-000000000005';
+  v_c_tweet       uuid := '00000000-0000-0000-0004-000000000006';
+  v_c_github      uuid := '00000000-0000-0000-0004-000000000007';
+  v_c_other       uuid := '00000000-0000-0000-0004-000000000008';
 
   -- tag IDs
   v_t_react     uuid := '00000000-0000-0000-0002-000000000001';
@@ -50,15 +51,16 @@ begin
   -- ----------------------------------------------------------
   -- Categories
   -- ----------------------------------------------------------
-  insert into public.categories (id, user_id, name, emoticon) values
-    (v_c_youtube,   v_user, 'YouTube',   '📺'),
-    (v_c_instagram, v_user, 'Instagram', '📸'),
-    (v_c_tiktok,    v_user, 'TikTok',    '🎵'),
-    (v_c_article,   v_user, 'Article',   '📄'),
-    (v_c_course,    v_user, 'Course',    '🎓'),
-    (v_c_tweet,     v_user, 'Tweet',     '🐦'),
-    (v_c_github,    v_user, 'GitHub',    '💻'),
-    (v_c_other,     v_user, 'Other',     '🔗');
+  insert into public.categories (id, user_id, name, emoticon, color, description) values
+    (v_c_not_defined, v_user, 'Not defined', '🔖', '#94A3B8', 'Uncategorized links'),
+    (v_c_youtube,     v_user, 'YouTube',     '📺', '#FF0000', 'Videos and tutorials'),
+    (v_c_instagram,   v_user, 'Instagram',   '📸', '#E1306C', 'Photos, reels and stories'),
+    (v_c_tiktok,      v_user, 'TikTok',      '🎵', '#69C9D0', 'Short-form videos'),
+    (v_c_article,     v_user, 'Article',     '📄', '#3B82F6', 'Blog posts and articles'),
+    (v_c_course,      v_user, 'Course',      '🎓', '#8B5CF6', 'Courses and documentation'),
+    (v_c_tweet,       v_user, 'Tweet',       '🐦', '#1D9BF0', 'Posts from X / Twitter'),
+    (v_c_github,      v_user, 'GitHub',      '💻', '#24292E', 'Repositories and code'),
+    (v_c_other,       v_user, 'Other',       '🔗', '#6B7280', 'Everything else');
 
   -- ----------------------------------------------------------
   -- Links

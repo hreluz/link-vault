@@ -68,7 +68,6 @@ export default function LinkForm({ scrollable = false }: Props) {
               value={categoryId ?? ''}
               onChange={e => setCategoryId(e.target.value || null)}
             >
-              <option value="">None</option>
               {categories.map(cat => (
                 <option key={cat.id} value={cat.id}>
                   {cat.emoticon} {cat.name}

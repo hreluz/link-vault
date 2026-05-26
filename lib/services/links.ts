@@ -11,7 +11,7 @@ export type CreateLinkInput = {
   url: string
   title?: string | null
   content_type: ContentType
-  category_id?: string | null
+  category_id: string
   status: LinkStatus
   notes?: string | null
   tags: string[]
@@ -55,6 +55,7 @@ async function syncTags(supabase: SupabaseClient, userId: string, linkId: string
 
 export async function createLink(input: CreateLinkInput): Promise<LinkWithTags | null> {
   if (!input.url.trim() || !isValidUrl(input.url)) return null
+  if (!input.category_id) return null
 
   const supabase = createClient()
 
@@ -87,7 +88,7 @@ export type UpdateLinkInput = {
   title?: string | null
   description?: string | null
   content_type: ContentType
-  category_id?: string | null
+  category_id: string
   status: LinkStatus
   notes?: string | null
   tags: string[]
@@ -95,6 +96,7 @@ export type UpdateLinkInput = {
 
 export async function updateLink(input: UpdateLinkInput): Promise<LinkWithTags | null> {
   if (!input.url.trim() || !isValidUrl(input.url)) return null
+  if (!input.category_id) return null
 
   const supabase = createClient()
 

@@ -1,7 +1,9 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useAddLinkForm } from '@/lib/hooks/links'
 import { useCategoryList } from '@/lib/hooks/categories/useCategoryList'
+import { PROTECTED_CATEGORY_NAME } from '@/lib/services/categories'
 import type { LinkWithTags } from '@/lib/services/links'
 import { toast } from 'sonner'
 import { LinkFormContext } from './LinkFormContext'
@@ -16,6 +18,13 @@ interface Props {
 export default function AddLinkModal({ isOpen, onSuccess, onClose }: Props) {
   const form = useAddLinkForm()
   const { categories } = useCategoryList()
+
+  useEffect(() => {
+    if (!isOpen || categories.length === 0) return
+    const notDefined = categories.find(c => c.name === PROTECTED_CATEGORY_NAME)
+    if (notDefined) form.setCategoryId(notDefined.id)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, categories])
 
   if (!isOpen) return null
 

@@ -10,6 +10,7 @@ vi.mock('@/lib/services/categories', () => ({
   createCategory: vi.fn(),
   updateCategory: vi.fn(),
   deleteCategory: vi.fn(),
+  PROTECTED_CATEGORY_NAME: 'Not defined',
 }))
 
 import { getCategories, createCategory, updateCategory, deleteCategory } from '@/lib/services/categories'
@@ -25,6 +26,10 @@ const CAT_A: Category = {
 const CAT_B: Category = {
   id: '2', user_id: 'u1', name: 'YouTube', description: 'Videos and tutorials',
   color: '#FF0000', emoticon: '📺', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+}
+const CAT_PROTECTED: Category = {
+  id: '3', user_id: 'u1', name: 'Not defined', description: 'Uncategorized links',
+  color: '#94A3B8', emoticon: '🔖', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
 }
 
 beforeEach(() => {
@@ -361,6 +366,25 @@ describe('useCategories', () => {
       await act(() => result.current.handleDelete(CAT_A.id))
 
       expect(result.current.categories).toHaveLength(2)
+    })
+
+    it('confirmDelete ignores the protected category', async () => {
+      mockGetCategories.mockResolvedValue([CAT_A, CAT_B, CAT_PROTECTED])
+      const { result } = await renderLoaded()
+
+      act(() => { result.current.confirmDelete(CAT_PROTECTED.id) })
+
+      expect(result.current.deletingId).toBeNull()
+    })
+
+    it('handleDelete skips the protected category', async () => {
+      mockGetCategories.mockResolvedValue([CAT_A, CAT_B, CAT_PROTECTED])
+      const { result } = await renderLoaded()
+
+      await act(() => result.current.handleDelete(CAT_PROTECTED.id))
+
+      expect(mockDeleteCategory).not.toHaveBeenCalled()
+      expect(result.current.categories).toHaveLength(3)
     })
   })
 })

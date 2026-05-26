@@ -42,6 +42,10 @@ export function useLinkForm(initial: Fields = DEFAULT_FIELDS) {
       setForm(f => ({ ...f, error: 'Please enter a valid URL (e.g. https://example.com).' }))
       return false
     }
+    if (!form.categoryId) {
+      setForm(f => ({ ...f, error: 'Category is required.' }))
+      return false
+    }
     return true
   }
 

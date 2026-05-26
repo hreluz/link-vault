@@ -12,7 +12,7 @@ export function useAddLinkForm() {
         url: form.url,
         title: form.resolvedTitle,
         content_type: form.contentType,
-        category_id: form.categoryId,
+        category_id: form.categoryId!,
         status: form.status,
         notes: form.notes || null,
         tags: form.parsedTags,
