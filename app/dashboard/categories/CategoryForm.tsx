@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import Picker from "@emoji-mart/react"
 import data from "@emoji-mart/data"
+import { useCategoriesContext } from "./CategoriesContext"
 
 export const CATEGORY_COLORS = [
   { value: 'indigo',  bg: 'bg-indigo-100',  text: 'text-indigo-700',  dot: 'bg-indigo-500'  },
@@ -39,20 +40,28 @@ function ColorPicker({ selected, onChange }: { selected: string; onChange: (v: s
 }
 
 interface Props {
-  icon: string
-  onIconChange: (v: string) => void
-  name: string
-  onNameChange: (v: string) => void
-  color: string
-  onColorChange: (v: string) => void
-  onSubmit: () => void
-  onCancel: () => void
-  submitLabel: string
-  title?: string
-  error?: string | null
+  mode: 'add' | 'edit'
 }
 
-export default function CategoryForm({ icon, onIconChange, name, onNameChange, color, onColorChange, onSubmit, onCancel, submitLabel, title, error }: Props) {
+export default function CategoryForm({ mode }: Props) {
+  const {
+    newIcon, setNewIcon, newName, setNewName, newColor, setNewColor, handleAdd, closeAdd, addError,
+    editIcon, setEditIcon, editName, setEditName, editColor, setEditColor, handleSaveEdit, setEditingId, editError,
+  } = useCategoriesContext()
+
+  const isAdd = mode === 'add'
+  const icon = isAdd ? newIcon : editIcon
+  const onIconChange = isAdd ? setNewIcon : setEditIcon
+  const name = isAdd ? newName : editName
+  const onNameChange = isAdd ? setNewName : setEditName
+  const color = isAdd ? newColor : editColor
+  const onColorChange = isAdd ? setNewColor : setEditColor
+  const onSubmit = isAdd ? handleAdd : handleSaveEdit
+  const onCancel = isAdd ? closeAdd : () => setEditingId(null)
+  const submitLabel = isAdd ? 'Add category' : 'Save'
+  const title = isAdd ? 'New category' : undefined
+  const error = isAdd ? addError : editError
+
   const [open, setOpen] = useState(false)
   const pickerRef = useRef<HTMLDivElement>(null)
 

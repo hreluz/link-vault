@@ -1,39 +1,11 @@
 'use client'
 
-import { useCategories } from '@/lib/hooks/categories/useCategories'
+import { CategoriesProvider, useCategoriesContext } from './CategoriesContext'
 import CategoryForm from './CategoryForm'
 import CategoryRow from './CategoryRow'
 
-export default function CategoryList() {
-  const {
-    categories,
-    adding,
-    addError,
-    editingId,
-    editError,
-    setEditingId,
-    deletingId,
-    setDeletingId,
-    newIcon,
-    setNewIcon,
-    newName,
-    setNewName,
-    newColor,
-    setNewColor,
-    editIcon,
-    setEditIcon,
-    editName,
-    setEditName,
-    editColor,
-    setEditColor,
-    openAdd,
-    closeAdd,
-    handleAdd,
-    startEdit,
-    handleSaveEdit,
-    confirmDelete,
-    handleDelete,
-  } = useCategories()
+function CategoryListInner() {
+  const { categories, adding, editingId, openAdd } = useCategoriesContext()
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
@@ -52,48 +24,14 @@ export default function CategoryList() {
         )}
       </div>
 
-      {adding && (
-        <CategoryForm
-          icon={newIcon}
-          onIconChange={setNewIcon}
-          name={newName}
-          onNameChange={setNewName}
-          color={newColor}
-          onColorChange={setNewColor}
-          onSubmit={handleAdd}
-          onCancel={closeAdd}
-          submitLabel="Add category"
-          title="New category"
-          error={addError}
-        />
-      )}
+      {adding && <CategoryForm mode="add" />}
 
       <div className="space-y-2">
         {categories.map(cat =>
           editingId === cat.id ? (
-            <CategoryForm
-              key={cat.id}
-              icon={editIcon}
-              onIconChange={setEditIcon}
-              name={editName}
-              onNameChange={setEditName}
-              color={editColor}
-              onColorChange={setEditColor}
-              onSubmit={handleSaveEdit}
-              onCancel={() => setEditingId(null)}
-              submitLabel="Save"
-              error={editError}
-            />
+            <CategoryForm key={cat.id} mode="edit" />
           ) : (
-            <CategoryRow
-              key={cat.id}
-              category={cat}
-              isDeleting={deletingId === cat.id}
-              onEdit={startEdit}
-              onConfirmDelete={confirmDelete}
-              onDelete={handleDelete}
-              onCancelDelete={() => setDeletingId(null)}
-            />
+            <CategoryRow key={cat.id} category={cat} />
           )
         )}
       </div>
@@ -105,5 +43,13 @@ export default function CategoryList() {
         </div>
       )}
     </main>
+  )
+}
+
+export default function CategoryList() {
+  return (
+    <CategoriesProvider>
+      <CategoryListInner />
+    </CategoriesProvider>
   )
 }
