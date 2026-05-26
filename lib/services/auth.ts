@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { seedDefaultCategories } from '@/lib/services/categories'
 
 export type AuthResult =
   | { success: true }
@@ -6,8 +7,11 @@ export type AuthResult =
 
 export async function signIn(email: string, password: string): Promise<AuthResult> {
   const supabase = await createClient()
-  const { error } = await supabase.auth.signInWithPassword({ email, password })
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password })
   if (error) return { success: false, error: error.message }
+  if (data.user) {
+    await seedDefaultCategories(supabase, data.user.id)
+  }
   return { success: true }
 }
 
