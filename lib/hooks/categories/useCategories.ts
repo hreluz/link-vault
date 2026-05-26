@@ -15,6 +15,7 @@ export function useCategories() {
   const [adding, setAdding] = useState(false)
   const [addError, setAddError] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [editError, setEditError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [newIcon, setNewIcon] = useState('')
   const [newName, setNewName] = useState('')
@@ -46,15 +47,21 @@ export function useCategories() {
     setEditingId(cat.id)
     setEditIcon(cat.emoticon ?? '')
     setEditName(cat.name)
+    setEditError(null)
     setDeletingId(null)
     setAdding(false)
   }
 
   async function handleSaveEdit() {
     if (!editName.trim() || !editingId) return
-    const updated = await updateCategory({ id: editingId, name: editName.trim(), emoticon: editIcon.trim() || '🔗' })
-    if (updated) setCategories(prev => prev.map(c => c.id === editingId ? updated : c))
+    const result = await updateCategory({ id: editingId, name: editName.trim(), emoticon: editIcon.trim() || '🔗' })
+    if (result.error === 'name_taken') {
+      setEditError('A category with that name already exists.')
+      return
+    }
+    if (result.data) setCategories(prev => prev.map(c => c.id === editingId ? result.data : c))
     setEditingId(null)
+    setEditError(null)
   }
 
   function confirmDelete(id: string) { setDeletingId(id); setEditingId(null); setAdding(false) }
@@ -71,6 +78,7 @@ export function useCategories() {
     adding,
     addError,
     editingId,
+    editError,
     setEditingId,
     deletingId,
     setDeletingId,

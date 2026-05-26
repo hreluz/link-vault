@@ -204,9 +204,21 @@ describe('useCategories', () => {
       expect(result.current.adding).toBe(false)
     })
 
+    it('startEdit clears a previous editError', async () => {
+      mockUpdateCategory.mockResolvedValue({ data: null, error: 'name_taken' })
+      const { result } = await renderLoaded()
+
+      act(() => { result.current.startEdit(CAT_A) })
+      await act(() => result.current.handleSaveEdit())
+      expect(result.current.editError).not.toBeNull()
+
+      act(() => { result.current.startEdit(CAT_B) })
+      expect(result.current.editError).toBeNull()
+    })
+
     it('handleSaveEdit calls updateCategory and updates the list', async () => {
       const updated: Category = { ...CAT_A, name: 'Renamed', emoticon: '🆕' }
-      mockUpdateCategory.mockResolvedValue(updated)
+      mockUpdateCategory.mockResolvedValue({ data: updated, error: null })
       const { result } = await renderLoaded()
 
       act(() => {
@@ -221,6 +233,7 @@ describe('useCategories', () => {
       )
       expect(result.current.categories.find(c => c.id === CAT_A.id)).toEqual(updated)
       expect(result.current.editingId).toBeNull()
+      expect(result.current.editError).toBeNull()
     })
 
     it('handleSaveEdit does not call service when name is empty', async () => {
@@ -236,7 +249,7 @@ describe('useCategories', () => {
     })
 
     it('handleSaveEdit uses 🔗 as default emoticon when editIcon is empty', async () => {
-      mockUpdateCategory.mockResolvedValue(CAT_A)
+      mockUpdateCategory.mockResolvedValue({ data: CAT_A, error: null })
       const { result } = await renderLoaded()
 
       act(() => {
@@ -250,8 +263,20 @@ describe('useCategories', () => {
       )
     })
 
-    it('handleSaveEdit does not update list when service returns null', async () => {
-      mockUpdateCategory.mockResolvedValue(null)
+    it('handleSaveEdit sets editError and keeps form open when name is taken', async () => {
+      mockUpdateCategory.mockResolvedValue({ data: null, error: 'name_taken' })
+      const { result } = await renderLoaded()
+
+      act(() => { result.current.startEdit(CAT_A) })
+      await act(() => result.current.handleSaveEdit())
+
+      expect(result.current.editError).toBe('A category with that name already exists.')
+      expect(result.current.editingId).toBe(CAT_A.id)
+      expect(result.current.categories[0]).toEqual(CAT_A)
+    })
+
+    it('handleSaveEdit does not update list on db_error', async () => {
+      mockUpdateCategory.mockResolvedValue({ data: null, error: 'db_error' })
       const { result } = await renderLoaded()
 
       act(() => { result.current.startEdit(CAT_A) })
