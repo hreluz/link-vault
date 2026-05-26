@@ -34,6 +34,56 @@ export async function getCategories(): Promise<Category[]> {
   return data
 }
 
+export type CreateCategoryInput = {
+  name: string
+  emoticon?: string | null
+  color?: string | null
+  description?: string | null
+}
+
+export async function createCategory(input: CreateCategoryInput): Promise<Category | null> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
+  const { data, error } = await supabase
+    .from('categories')
+    .insert({ user_id: user.id, name: input.name, emoticon: input.emoticon ?? null, color: input.color ?? null, description: input.description ?? null })
+    .select()
+    .single()
+
+  if (error || !data) return null
+  return data
+}
+
+export type UpdateCategoryInput = {
+  id: string
+  name: string
+  emoticon?: string | null
+  color?: string | null
+  description?: string | null
+}
+
+export async function updateCategory(input: UpdateCategoryInput): Promise<Category | null> {
+  const supabase = createClient()
+
+  const { data, error } = await supabase
+    .from('categories')
+    .update({ name: input.name, emoticon: input.emoticon ?? null, color: input.color ?? null, description: input.description ?? null })
+    .eq('id', input.id)
+    .select()
+    .single()
+
+  if (error || !data) return null
+  return data
+}
+
+export async function deleteCategory(id: string): Promise<boolean> {
+  const supabase = createClient()
+  const { error } = await supabase.from('categories').delete().eq('id', id)
+  return !error
+}
+
 export async function seedDefaultCategories(
   supabase: SupabaseClient<Database>,
   userId: string,
