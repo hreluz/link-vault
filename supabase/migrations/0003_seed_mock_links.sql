@@ -18,6 +18,16 @@ declare
   v_l7  uuid := '00000000-0000-0000-0001-000000000007';
   v_l8  uuid := '00000000-0000-0000-0001-000000000008';
 
+  -- category IDs
+  v_c_youtube   uuid := '00000000-0000-0000-0004-000000000001';
+  v_c_instagram uuid := '00000000-0000-0000-0004-000000000002';
+  v_c_tiktok    uuid := '00000000-0000-0000-0004-000000000003';
+  v_c_article   uuid := '00000000-0000-0000-0004-000000000004';
+  v_c_course    uuid := '00000000-0000-0000-0004-000000000005';
+  v_c_tweet     uuid := '00000000-0000-0000-0004-000000000006';
+  v_c_github    uuid := '00000000-0000-0000-0004-000000000007';
+  v_c_other     uuid := '00000000-0000-0000-0004-000000000008';
+
   -- tag IDs
   v_t_react     uuid := '00000000-0000-0000-0002-000000000001';
   v_t_frontend  uuid := '00000000-0000-0000-0002-000000000002';
@@ -36,6 +46,19 @@ declare
   v_t_auth      uuid := '00000000-0000-0000-0002-000000000015';
   v_t_backend   uuid := '00000000-0000-0000-0002-000000000016';
 begin
+
+  -- ----------------------------------------------------------
+  -- Categories
+  -- ----------------------------------------------------------
+  insert into public.categories (id, user_id, name, emoticon) values
+    (v_c_youtube,   v_user, 'YouTube',   '📺'),
+    (v_c_instagram, v_user, 'Instagram', '📸'),
+    (v_c_tiktok,    v_user, 'TikTok',    '🎵'),
+    (v_c_article,   v_user, 'Article',   '📄'),
+    (v_c_course,    v_user, 'Course',    '🎓'),
+    (v_c_tweet,     v_user, 'Tweet',     '🐦'),
+    (v_c_github,    v_user, 'GitHub',    '💻'),
+    (v_c_other,     v_user, 'Other',     '🔗');
 
   -- ----------------------------------------------------------
   -- Links

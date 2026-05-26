@@ -121,6 +121,36 @@ export interface Database {
         }
         Relationships: []
       }
+      categories: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          description: string | null
+          color: string | null
+          emoticon: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name: string
+          description?: string | null
+          color?: string | null
+          emoticon?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          name?: string
+          description?: string | null
+          color?: string | null
+          emoticon?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
@@ -138,3 +168,4 @@ export type User = Tables<'users'>
 export type Link = Tables<'links'>
 export type Tag = Tables<'tags'>
 export type LinkTag = Tables<'link_tags'>
+export type Category = Tables<'categories'>
