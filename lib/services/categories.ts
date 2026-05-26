@@ -41,10 +41,23 @@ export type CreateCategoryInput = {
   description?: string | null
 }
 
-export async function createCategory(input: CreateCategoryInput): Promise<Category | null> {
+export type CreateCategoryResult =
+  | { data: Category; error: null }
+  | { data: null; error: 'name_taken' | 'unauthenticated' | 'db_error' }
+
+export async function createCategory(input: CreateCategoryInput): Promise<CreateCategoryResult> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
+  if (!user) return { data: null, error: 'unauthenticated' }
+
+  const { data: existing } = await supabase
+    .from('categories')
+    .select('id')
+    .eq('user_id', user.id)
+    .ilike('name', input.name.trim())
+    .maybeSingle()
+
+  if (existing) return { data: null, error: 'name_taken' }
 
   const { data, error } = await supabase
     .from('categories')
@@ -52,8 +65,8 @@ export async function createCategory(input: CreateCategoryInput): Promise<Catego
     .select()
     .single()
 
-  if (error || !data) return null
-  return data
+  if (error || !data) return { data: null, error: 'db_error' }
+  return { data, error: null }
 }
 
 export type UpdateCategoryInput = {

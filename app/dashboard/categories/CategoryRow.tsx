@@ -1,0 +1,55 @@
+import type { Category } from '@/lib/services/categories'
+
+interface Props {
+  category: Category
+  isDeleting: boolean
+  onEdit: (cat: Category) => void
+  onConfirmDelete: (id: string) => void
+  onDelete: (id: string) => void
+  onCancelDelete: () => void
+}
+
+export default function CategoryRow({ category, isDeleting, onEdit, onConfirmDelete, onDelete, onCancelDelete }: Props) {
+  return (
+    <div className="flex items-center gap-3 rounded-2xl bg-white px-4 py-3.5 shadow-sm ring-1 ring-slate-200">
+      <span className="text-xl" aria-hidden="true">{category.emoticon}</span>
+      <span className="text-sm font-medium text-slate-900">{category.name}</span>
+      <div className="ml-auto flex items-center gap-1">
+        {isDeleting ? (
+          <>
+            <span className="mr-1 text-xs text-slate-500">Delete?</span>
+            <button
+              onClick={onCancelDelete}
+              className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-500 transition hover:bg-slate-100"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => onDelete(category.id)}
+              className="rounded-lg bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-100"
+            >
+              Delete
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              onClick={() => onEdit(category)}
+              aria-label="Edit category"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+            >
+              ✏️
+            </button>
+            <button
+              onClick={() => onConfirmDelete(category.id)}
+              aria-label="Delete category"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-500"
+            >
+              🗑️
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
