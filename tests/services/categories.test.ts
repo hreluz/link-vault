@@ -9,6 +9,7 @@ const {
   mockOrder,
   mockNameCheckMaybeSingle,
   mockIlike,
+  mockNeq,
   mockInsert, mockInsertSingle,
   mockUpdate, mockUpdateEq, mockUpdateSingle,
   mockDeleteEq,
@@ -17,9 +18,11 @@ const {
   const mockOrder = vi.fn()
   const mockGetUser = vi.fn()
 
-  // name-check chain: select().eq().ilike().maybySingle()
+  // name-check chain: select().eq().ilike().maybeSingle()   (create)
+  //                   select().eq().ilike().neq().maybeSingle()  (update)
   const mockNameCheckMaybeSingle = vi.fn()
-  const mockIlike = vi.fn(() => ({ maybeSingle: mockNameCheckMaybeSingle }))
+  const mockNeq = vi.fn(() => ({ maybeSingle: mockNameCheckMaybeSingle }))
+  const mockIlike = vi.fn(() => ({ maybeSingle: mockNameCheckMaybeSingle, neq: mockNeq }))
   const mockNameCheckEq = vi.fn(() => ({ ilike: mockIlike }))
 
   const mockInsertSingle = vi.fn()
@@ -39,6 +42,7 @@ const {
     mockOrder,
     mockNameCheckMaybeSingle,
     mockIlike,
+    mockNeq,
     mockNameCheckEq,
     mockInsert, mockInsertSingle,
     mockUpdate, mockUpdateEq, mockUpdateSingle,
@@ -174,16 +178,21 @@ describe('createCategory', () => {
 // ── updateCategory ────────────────────────────────────────────────────────────
 
 describe('updateCategory', () => {
+  beforeEach(() => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } })
+    mockNameCheckMaybeSingle.mockResolvedValue({ data: null, error: null })
+  })
+
   it('returns the updated category on success', async () => {
     const updated = { ...MOCK_CAT, name: 'Updated', emoticon: '🆕' }
     mockUpdateSingle.mockResolvedValue({ data: updated, error: null })
 
     const result = await updateCategory({ id: '1', name: 'Updated', emoticon: '🆕' })
 
-    expect(result).toEqual(updated)
+    expect(result).toEqual({ data: updated, error: null })
   })
 
-  it('filters by id', async () => {
+  it('filters by id when updating', async () => {
     mockUpdateSingle.mockResolvedValue({ data: MOCK_CAT, error: null })
 
     await updateCategory({ id: 'cat-99', name: 'X' })
@@ -191,10 +200,46 @@ describe('updateCategory', () => {
     expect(mockUpdateEq).toHaveBeenCalledWith('id', 'cat-99')
   })
 
-  it('returns null on DB error', async () => {
+  it('excludes the current category from the name-conflict check', async () => {
+    mockUpdateSingle.mockResolvedValue({ data: MOCK_CAT, error: null })
+
+    await updateCategory({ id: 'cat-99', name: 'Article' })
+
+    expect(mockNeq).toHaveBeenCalledWith('id', 'cat-99')
+  })
+
+  it('performs the name-conflict check case-insensitively', async () => {
+    mockUpdateSingle.mockResolvedValue({ data: MOCK_CAT, error: null })
+
+    await updateCategory({ id: '1', name: 'article' })
+
+    expect(mockIlike).toHaveBeenCalledWith('name', 'article')
+  })
+
+  it('returns name_taken when another category has the same name', async () => {
+    mockNameCheckMaybeSingle.mockResolvedValue({ data: { id: '99' }, error: null })
+
+    const result = await updateCategory({ id: '1', name: 'Article' })
+
+    expect(result).toEqual({ data: null, error: 'name_taken' })
+    expect(mockUpdate).not.toHaveBeenCalled()
+  })
+
+  it('returns unauthenticated when there is no user', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } })
+
+    const result = await updateCategory({ id: '1', name: 'Article' })
+
+    expect(result).toEqual({ data: null, error: 'unauthenticated' })
+    expect(mockUpdate).not.toHaveBeenCalled()
+  })
+
+  it('returns db_error on update failure', async () => {
     mockUpdateSingle.mockResolvedValue({ data: null, error: { message: 'DB error' } })
 
-    expect(await updateCategory({ id: '1', name: 'X' })).toBeNull()
+    const result = await updateCategory({ id: '1', name: 'X' })
+
+    expect(result).toEqual({ data: null, error: 'db_error' })
   })
 })
 

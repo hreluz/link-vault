@@ -1,8 +1,7 @@
 'use client'
 
 import { useCategories } from '@/lib/hooks/categories/useCategories'
-import CategoryAddForm from './CategoryAddForm'
-import CategoryEditRow from './CategoryEditRow'
+import CategoryForm from './CategoryForm'
 import CategoryRow from './CategoryRow'
 
 export default function CategoryList() {
@@ -11,6 +10,7 @@ export default function CategoryList() {
     adding,
     addError,
     editingId,
+    editError,
     setEditingId,
     deletingId,
     setDeletingId,
@@ -49,13 +49,15 @@ export default function CategoryList() {
       </div>
 
       {adding && (
-        <CategoryAddForm
+        <CategoryForm
           icon={newIcon}
           onIconChange={setNewIcon}
           name={newName}
           onNameChange={setNewName}
-          onAdd={handleAdd}
+          onSubmit={handleAdd}
           onCancel={closeAdd}
+          submitLabel="Add category"
+          title="New category"
           error={addError}
         />
       )}
@@ -63,14 +65,16 @@ export default function CategoryList() {
       <div className="space-y-2">
         {categories.map(cat =>
           editingId === cat.id ? (
-            <CategoryEditRow
+            <CategoryForm
               key={cat.id}
               icon={editIcon}
               onIconChange={setEditIcon}
               name={editName}
               onNameChange={setEditName}
-              onSave={handleSaveEdit}
+              onSubmit={handleSaveEdit}
               onCancel={() => setEditingId(null)}
+              submitLabel="Save"
+              error={editError}
             />
           ) : (
             <CategoryRow

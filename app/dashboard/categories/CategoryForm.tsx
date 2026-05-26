@@ -9,12 +9,14 @@ interface Props {
   onIconChange: (v: string) => void
   name: string
   onNameChange: (v: string) => void
-  onAdd: () => void
+  onSubmit: () => void
   onCancel: () => void
+  submitLabel: string
+  title?: string
   error?: string | null
 }
 
-export default function CategoryAddForm({ icon, onIconChange, name, onNameChange, onAdd, onCancel, error }: Props) {
+export default function CategoryForm({ icon, onIconChange, name, onNameChange, onSubmit, onCancel, submitLabel, title, error }: Props) {
   const [open, setOpen] = useState(false)
   const pickerRef = useRef<HTMLDivElement>(null)
 
@@ -31,7 +33,7 @@ export default function CategoryAddForm({ icon, onIconChange, name, onNameChange
 
   return (
     <div className="mb-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-      <p className="mb-3 text-sm font-semibold text-slate-700">New category</p>
+      {title && <p className="mb-3 text-sm font-semibold text-slate-700">{title}</p>}
       <div className="flex gap-3">
         <div className="relative" ref={pickerRef}>
           <button
@@ -42,7 +44,7 @@ export default function CategoryAddForm({ icon, onIconChange, name, onNameChange
             {icon || "🔗"}
           </button>
           {open && (
-            <div className="absolute left-0 top-full z-50 mt-1" ref={pickerRef}>
+            <div className="absolute left-0 top-full z-50 mt-1">
               <Picker
                 data={data}
                 onEmojiSelect={(e: { native: string }) => {
@@ -62,7 +64,7 @@ export default function CategoryAddForm({ icon, onIconChange, name, onNameChange
           placeholder="Category name"
           value={name}
           onChange={e => onNameChange(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') onAdd(); if (e.key === 'Escape') onCancel() }}
+          onKeyDown={e => { if (e.key === 'Enter') onSubmit(); if (e.key === 'Escape') onCancel() }}
           className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
         />
       </div>
@@ -77,11 +79,11 @@ export default function CategoryAddForm({ icon, onIconChange, name, onNameChange
           Cancel
         </button>
         <button
-          onClick={onAdd}
+          onClick={onSubmit}
           disabled={!name.trim()}
           className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Add category
+          {submitLabel}
         </button>
       </div>
     </div>
