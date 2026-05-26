@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { getCategories, createCategory, updateCategory, deleteCategory, seedDefaultCategories, DEFAULT_CATEGORIES } from '@/lib/services/categories'
+import { getCategories, createCategory, updateCategory, deleteCategory, seedDefaultCategories, DEFAULT_CATEGORIES, PROTECTED_CATEGORY_NAME } from '@/lib/services/categories'
 import type { Category } from '@/lib/services/categories'
 
 // ── hoisted mocks ─────────────────────────────────────────────────────────────
@@ -297,13 +297,22 @@ describe('seedDefaultCategories', () => {
     expect(mockInsertSeed).not.toHaveBeenCalled()
   })
 
-  it('inserts exactly 8 categories', async () => {
+  it('inserts exactly 9 categories', async () => {
     const { client, mockInsert: mockInsertSeed } = makeSeedClient({ count: 0 })
 
     await seedDefaultCategories(client, 'user-123')
 
     const [inserted] = mockInsertSeed.mock.calls[0]
-    expect(inserted).toHaveLength(8)
+    expect(inserted).toHaveLength(9)
+  })
+
+  it('includes the protected "Not defined" category', async () => {
+    const { client, mockInsert: mockInsertSeed } = makeSeedClient({ count: 0 })
+
+    await seedDefaultCategories(client, 'user-123')
+
+    const [inserted] = mockInsertSeed.mock.calls[0]
+    expect(inserted.some((c: { name: string }) => c.name === PROTECTED_CATEGORY_NAME)).toBe(true)
   })
 
   it('sets user_id on every inserted category', async () => {

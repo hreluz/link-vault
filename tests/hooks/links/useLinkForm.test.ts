@@ -177,6 +177,16 @@ describe('useLinkForm', () => {
       expect(result.current.error).toBeTruthy()
     })
 
+    it('sets error and returns null when categoryId is null', async () => {
+      const { result } = render({ url: 'https://example.com', categoryId: null })
+
+      let out: unknown = 'not-null'
+      await act(async () => { out = await result.current.wrapSubmit(async () => 'ok', 'fail') })
+
+      expect(out).toBeNull()
+      expect(result.current.error).toBeTruthy()
+    })
+
     it('clears the error before running the action', async () => {
       const { result } = render()
 
@@ -184,8 +194,8 @@ describe('useLinkForm', () => {
       await act(async () => { await result.current.wrapSubmit(async () => null, 'fail') })
       expect(result.current.error).toBeTruthy()
 
-      // Now provide a valid URL and succeed
-      act(() => result.current.setUrl('https://example.com'))
+      // Now provide valid URL + category and succeed
+      act(() => { result.current.setUrl('https://example.com'); result.current.setCategoryId('cat-1') })
       await act(async () => { await result.current.wrapSubmit(async () => 'ok', 'fail') })
 
       expect(result.current.error).toBeNull()
@@ -197,7 +207,7 @@ describe('useLinkForm', () => {
   describe('wrapSubmit', () => {
     it('returns the action result on success', async () => {
       const { result } = render()
-      act(() => result.current.setUrl('https://example.com'))
+      act(() => { result.current.setUrl('https://example.com'); result.current.setCategoryId('cat-1') })
 
       let out: unknown
       await act(async () => { out = await result.current.wrapSubmit(async () => 'done', 'fail') })
@@ -207,7 +217,7 @@ describe('useLinkForm', () => {
 
     it('sets the failMsg as error and returns null when action returns null', async () => {
       const { result } = render()
-      act(() => result.current.setUrl('https://example.com'))
+      act(() => { result.current.setUrl('https://example.com'); result.current.setCategoryId('cat-1') })
 
       let out: unknown = 'not-null'
       await act(async () => { out = await result.current.wrapSubmit(async () => null, 'Something went wrong.') })
@@ -218,7 +228,7 @@ describe('useLinkForm', () => {
 
     it('is not submitting before or after the call', async () => {
       const { result } = render()
-      act(() => result.current.setUrl('https://example.com'))
+      act(() => { result.current.setUrl('https://example.com'); result.current.setCategoryId('cat-1') })
 
       expect(result.current.submitting).toBe(false)
       await act(async () => { await result.current.wrapSubmit(async () => 'ok', 'fail') })

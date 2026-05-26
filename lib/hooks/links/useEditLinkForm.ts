@@ -28,7 +28,7 @@ export function useEditLinkForm(link: LinkWithTags | null) {
         title: form.resolvedTitle,
         description: form.description || null,
         content_type: form.contentType,
-        category_id: form.categoryId,
+        category_id: form.categoryId!,
         status: form.status,
         notes: form.notes || null,
         tags: form.parsedTags,
