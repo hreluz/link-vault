@@ -1,17 +1,18 @@
+'use client'
+
 import type { Category } from '@/lib/services/categories'
 import { colorForCategory } from './CategoryForm'
+import { useCategoriesContext } from './CategoriesContext'
 
 interface Props {
   category: Category
-  isDeleting: boolean
-  onEdit: (cat: Category) => void
-  onConfirmDelete: (id: string) => void
-  onDelete: (id: string) => void
-  onCancelDelete: () => void
 }
 
-export default function CategoryRow({ category, isDeleting, onEdit, onConfirmDelete, onDelete, onCancelDelete }: Props) {
+export default function CategoryRow({ category }: Props) {
+  const { deletingId, setDeletingId, startEdit, confirmDelete, handleDelete } = useCategoriesContext()
+  const isDeleting = deletingId === category.id
   const color = colorForCategory(category.color)
+
   return (
     <div className="flex items-center gap-3 rounded-2xl bg-white px-4 py-3.5 shadow-sm ring-1 ring-slate-200">
       <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${color.dot}`} aria-hidden="true" />
@@ -22,13 +23,13 @@ export default function CategoryRow({ category, isDeleting, onEdit, onConfirmDel
           <>
             <span className="mr-1 text-xs text-slate-500">Delete?</span>
             <button
-              onClick={onCancelDelete}
+              onClick={() => setDeletingId(null)}
               className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-500 transition hover:bg-slate-100"
             >
               Cancel
             </button>
             <button
-              onClick={() => onDelete(category.id)}
+              onClick={() => handleDelete(category.id)}
               className="rounded-lg bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-100"
             >
               Delete
@@ -37,14 +38,14 @@ export default function CategoryRow({ category, isDeleting, onEdit, onConfirmDel
         ) : (
           <>
             <button
-              onClick={() => onEdit(category)}
+              onClick={() => startEdit(category)}
               aria-label="Edit category"
               className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
             >
               ✏️
             </button>
             <button
-              onClick={() => onConfirmDelete(category.id)}
+              onClick={() => confirmDelete(category.id)}
               aria-label="Delete category"
               className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-500"
             >
