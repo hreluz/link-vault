@@ -82,10 +82,14 @@ create table public.categories (
 -- Indexes
 -- ============================================================
 
-create index links_user_id_idx    on public.links(user_id);
-create index links_status_idx     on public.links(status);
-create index links_content_type_idx on public.links(content_type);
-create index tags_user_id_idx     on public.tags(user_id);
+alter table public.links
+  add column category_id uuid references public.categories(id) on delete set null;
+
+create index links_user_id_idx       on public.links(user_id);
+create index links_status_idx        on public.links(status);
+create index links_content_type_idx  on public.links(content_type);
+create index links_category_id_idx   on public.links(category_id);
+create index tags_user_id_idx        on public.tags(user_id);
 create index link_tags_link_id_idx   on public.link_tags(link_id);
 create index link_tags_tag_id_idx    on public.link_tags(tag_id);
 create index categories_user_id_idx  on public.categories(user_id);

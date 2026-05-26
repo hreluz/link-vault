@@ -11,6 +11,7 @@ export type CreateLinkInput = {
   url: string
   title?: string | null
   content_type: ContentType
+  category_id?: string | null
   status: LinkStatus
   notes?: string | null
   tags: string[]
@@ -67,6 +68,7 @@ export async function createLink(input: CreateLinkInput): Promise<LinkWithTags |
       url: input.url,
       title: input.title ?? null,
       content_type: input.content_type,
+      category_id: input.category_id ?? null,
       status: input.status,
       notes: input.notes ?? null,
     })
@@ -85,6 +87,7 @@ export type UpdateLinkInput = {
   title?: string | null
   description?: string | null
   content_type: ContentType
+  category_id?: string | null
   status: LinkStatus
   notes?: string | null
   tags: string[]
@@ -105,6 +108,7 @@ export async function updateLink(input: UpdateLinkInput): Promise<LinkWithTags |
       title: input.title ?? null,
       description: input.description ?? null,
       content_type: input.content_type,
+      category_id: input.category_id ?? null,
       status: input.status,
       notes: input.notes ?? null,
     })
