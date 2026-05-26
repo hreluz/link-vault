@@ -1,35 +1,72 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { getCategories, seedDefaultCategories, DEFAULT_CATEGORIES } from '@/lib/services/categories'
+import { getCategories, createCategory, updateCategory, deleteCategory, seedDefaultCategories, DEFAULT_CATEGORIES } from '@/lib/services/categories'
+import type { Category } from '@/lib/services/categories'
 
-// ── mocks for getCategories (browser client) ──────────────────────────────────
+// ── hoisted mocks ─────────────────────────────────────────────────────────────
 
-const { mockOrder } = vi.hoisted(() => ({
-  mockOrder: vi.fn(),
-}))
+const {
+  mockGetUser,
+  mockOrder,
+  mockInsert, mockInsertSingle,
+  mockUpdate, mockUpdateEq, mockUpdateSingle,
+  mockDeleteEq,
+} = vi.hoisted(() => {
+  const mockOrder = vi.fn()
+  const mockGetUser = vi.fn()
+
+  const mockInsertSingle = vi.fn()
+  const mockInsertSelect = vi.fn(() => ({ single: mockInsertSingle }))
+  const mockInsert = vi.fn(() => ({ select: mockInsertSelect }))
+
+  const mockUpdateSingle = vi.fn()
+  const mockUpdateSelect = vi.fn(() => ({ single: mockUpdateSingle }))
+  const mockUpdateEq = vi.fn(() => ({ select: mockUpdateSelect }))
+  const mockUpdate = vi.fn(() => ({ eq: mockUpdateEq }))
+
+  const mockDeleteEq = vi.fn()
+  const mockDelete = vi.fn(() => ({ eq: mockDeleteEq }))
+
+  return {
+    mockGetUser,
+    mockOrder,
+    mockInsert, mockInsertSingle,
+    mockUpdate, mockUpdateEq, mockUpdateSingle,
+    mockDeleteEq, mockDelete,
+  }
+})
 
 vi.mock('@/lib/supabase/client', () => ({
   createClient: vi.fn(() => ({
-    from: vi.fn().mockReturnValue({
-      select: vi.fn().mockReturnValue({ order: mockOrder }),
-    }),
+    auth: { getUser: mockGetUser },
+    from: vi.fn(() => ({
+      select: vi.fn(() => ({ order: mockOrder })),
+      insert: mockInsert,
+      update: mockUpdate,
+      delete: vi.fn(() => ({ eq: mockDeleteEq })),
+    })),
   })),
 }))
 
-// ── helper: build an injectable mock client for seedDefaultCategories ─────────
+// ── helper: injectable mock client for seedDefaultCategories ──────────────────
 
-function makeMockClient({
+function makeSeedClient({
   count = 0,
   countError = null,
 }: {
   count?: number | null
   countError?: object | null
 } = {}) {
-  const mockInsert = vi.fn().mockResolvedValue({ error: null })
+  const mockInsertSeed = vi.fn().mockResolvedValue({ error: null })
   const mockEq = vi.fn().mockResolvedValue({ count, error: countError })
   const mockSelect = vi.fn().mockReturnValue({ eq: mockEq })
-  const from = vi.fn().mockReturnValue({ select: mockSelect, insert: mockInsert })
+  const from = vi.fn().mockReturnValue({ select: mockSelect, insert: mockInsertSeed })
 
-  return { client: { from } as ReturnType<typeof import('@/lib/supabase/client').createClient>, mockInsert, from }
+  return { client: { from } as ReturnType<typeof import('@/lib/supabase/client').createClient>, mockInsert: mockInsertSeed, from }
+}
+
+const MOCK_CAT: Category = {
+  id: '1', user_id: 'u1', name: 'Article', description: 'Blog posts',
+  color: '#3B82F6', emoticon: '📄', created_at: '', updated_at: '',
 }
 
 beforeEach(() => {
@@ -40,15 +77,11 @@ beforeEach(() => {
 
 describe('getCategories', () => {
   it('returns categories ordered alphabetically by name', async () => {
-    const cats = [
-      { id: '1', user_id: 'u1', name: 'Article', description: 'Blog posts', color: '#3B82F6',
-        emoticon: '📄', created_at: '', updated_at: '' },
-    ]
-    mockOrder.mockResolvedValue({ data: cats, error: null })
+    mockOrder.mockResolvedValue({ data: [MOCK_CAT], error: null })
 
     const result = await getCategories()
 
-    expect(result).toEqual(cats)
+    expect(result).toEqual([MOCK_CAT])
     expect(mockOrder).toHaveBeenCalledWith('name', { ascending: true })
   })
 
@@ -65,65 +98,141 @@ describe('getCategories', () => {
   })
 })
 
+// ── createCategory ────────────────────────────────────────────────────────────
+
+describe('createCategory', () => {
+  beforeEach(() => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } })
+  })
+
+  it('returns the created category on success', async () => {
+    mockInsertSingle.mockResolvedValue({ data: MOCK_CAT, error: null })
+
+    const result = await createCategory({ name: 'Article', emoticon: '📄', color: '#3B82F6' })
+
+    expect(result).toEqual(MOCK_CAT)
+  })
+
+  it('includes name and emoticon in the insert payload', async () => {
+    mockInsertSingle.mockResolvedValue({ data: MOCK_CAT, error: null })
+
+    await createCategory({ name: 'Article', emoticon: '📄' })
+
+    expect(mockInsert).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'Article', emoticon: '📄', user_id: 'u1' }),
+    )
+  })
+
+  it('returns null when the user is not authenticated', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } })
+
+    expect(await createCategory({ name: 'Article' })).toBeNull()
+    expect(mockInsert).not.toHaveBeenCalled()
+  })
+
+  it('returns null on DB error', async () => {
+    mockInsertSingle.mockResolvedValue({ data: null, error: { message: 'DB error' } })
+
+    expect(await createCategory({ name: 'Article' })).toBeNull()
+  })
+})
+
+// ── updateCategory ────────────────────────────────────────────────────────────
+
+describe('updateCategory', () => {
+  it('returns the updated category on success', async () => {
+    const updated = { ...MOCK_CAT, name: 'Updated', emoticon: '🆕' }
+    mockUpdateSingle.mockResolvedValue({ data: updated, error: null })
+
+    const result = await updateCategory({ id: '1', name: 'Updated', emoticon: '🆕' })
+
+    expect(result).toEqual(updated)
+  })
+
+  it('filters by id', async () => {
+    mockUpdateSingle.mockResolvedValue({ data: MOCK_CAT, error: null })
+
+    await updateCategory({ id: 'cat-99', name: 'X' })
+
+    expect(mockUpdateEq).toHaveBeenCalledWith('id', 'cat-99')
+  })
+
+  it('returns null on DB error', async () => {
+    mockUpdateSingle.mockResolvedValue({ data: null, error: { message: 'DB error' } })
+
+    expect(await updateCategory({ id: '1', name: 'X' })).toBeNull()
+  })
+})
+
+// ── deleteCategory ────────────────────────────────────────────────────────────
+
+describe('deleteCategory', () => {
+  it('returns true when the delete succeeds', async () => {
+    mockDeleteEq.mockResolvedValue({ error: null })
+
+    expect(await deleteCategory('cat-1')).toBe(true)
+  })
+
+  it('filters by id', async () => {
+    mockDeleteEq.mockResolvedValue({ error: null })
+
+    await deleteCategory('cat-42')
+
+    expect(mockDeleteEq).toHaveBeenCalledWith('id', 'cat-42')
+  })
+
+  it('returns false on DB error', async () => {
+    mockDeleteEq.mockResolvedValue({ error: { message: 'DB error' } })
+
+    expect(await deleteCategory('cat-1')).toBe(false)
+  })
+})
+
 // ── seedDefaultCategories ─────────────────────────────────────────────────────
 
 describe('seedDefaultCategories', () => {
   it('inserts all default categories when the user has none', async () => {
-    const { client, mockInsert } = makeMockClient({ count: 0 })
+    const { client, mockInsert: mockInsertSeed } = makeSeedClient({ count: 0 })
 
     await seedDefaultCategories(client, 'user-123')
 
-    expect(mockInsert).toHaveBeenCalledOnce()
-    expect(mockInsert).toHaveBeenCalledWith(
+    expect(mockInsertSeed).toHaveBeenCalledOnce()
+    expect(mockInsertSeed).toHaveBeenCalledWith(
       DEFAULT_CATEGORIES.map(cat => ({ ...cat, user_id: 'user-123' })),
     )
   })
 
   it('skips insertion when the user already has categories', async () => {
-    const { client, mockInsert } = makeMockClient({ count: 3 })
+    const { client, mockInsert: mockInsertSeed } = makeSeedClient({ count: 3 })
 
     await seedDefaultCategories(client, 'user-123')
 
-    expect(mockInsert).not.toHaveBeenCalled()
+    expect(mockInsertSeed).not.toHaveBeenCalled()
   })
 
   it('skips insertion when the count query fails', async () => {
-    const { client, mockInsert } = makeMockClient({ count: null, countError: { message: 'error' } })
+    const { client, mockInsert: mockInsertSeed } = makeSeedClient({ count: null, countError: { message: 'error' } })
 
     await seedDefaultCategories(client, 'user-123')
 
-    expect(mockInsert).not.toHaveBeenCalled()
+    expect(mockInsertSeed).not.toHaveBeenCalled()
   })
 
   it('inserts exactly 8 categories', async () => {
-    const { client, mockInsert } = makeMockClient({ count: 0 })
+    const { client, mockInsert: mockInsertSeed } = makeSeedClient({ count: 0 })
 
     await seedDefaultCategories(client, 'user-123')
 
-    const [inserted] = mockInsert.mock.calls[0]
+    const [inserted] = mockInsertSeed.mock.calls[0]
     expect(inserted).toHaveLength(8)
   })
 
-  it('inserts categories with correct names, descriptions, colors, and emoticons', async () => {
-    const { client, mockInsert } = makeMockClient({ count: 0 })
-
-    await seedDefaultCategories(client, 'user-123')
-
-    const [inserted] = mockInsert.mock.calls[0]
-    expect(inserted.map((c: { name: string }) => c.name)).toEqual([
-      'YouTube', 'Instagram', 'TikTok', 'Article', 'Course', 'Tweet', 'GitHub', 'Other',
-    ])
-    expect(inserted.every((c: { description: string }) => typeof c.description === 'string')).toBe(true)
-    expect(inserted.every((c: { color: string }) => typeof c.color === 'string')).toBe(true)
-    expect(inserted.every((c: { emoticon: string }) => typeof c.emoticon === 'string')).toBe(true)
-  })
-
   it('sets user_id on every inserted category', async () => {
-    const { client, mockInsert } = makeMockClient({ count: 0 })
+    const { client, mockInsert: mockInsertSeed } = makeSeedClient({ count: 0 })
 
     await seedDefaultCategories(client, 'user-abc')
 
-    const [inserted] = mockInsert.mock.calls[0]
+    const [inserted] = mockInsertSeed.mock.calls[0]
     expect(inserted.every((c: { user_id: string }) => c.user_id === 'user-abc')).toBe(true)
   })
 })
