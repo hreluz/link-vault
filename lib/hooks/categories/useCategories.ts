@@ -19,8 +19,10 @@ export function useCategories() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [newIcon, setNewIcon] = useState('')
   const [newName, setNewName] = useState('')
+  const [newColor, setNewColor] = useState('indigo')
   const [editIcon, setEditIcon] = useState('')
   const [editName, setEditName] = useState('')
+  const [editColor, setEditColor] = useState('indigo')
 
   useEffect(() => {
     getCategories().then(data => {
@@ -30,11 +32,11 @@ export function useCategories() {
   }, [])
 
   function openAdd() { setAdding(true); setAddError(null); setEditingId(null); setDeletingId(null) }
-  function closeAdd() { setAdding(false); setAddError(null); setNewIcon(''); setNewName('') }
+  function closeAdd() { setAdding(false); setAddError(null); setNewIcon(''); setNewName(''); setNewColor('indigo') }
 
   async function handleAdd() {
     if (!newName.trim()) return
-    const result = await createCategory({ name: newName.trim(), emoticon: newIcon.trim() || '🔗' })
+    const result = await createCategory({ name: newName.trim(), emoticon: newIcon.trim() || '🔗', color: newColor })
     if (result.error === 'name_taken') {
       setAddError('A category with that name already exists.')
       return
@@ -47,6 +49,7 @@ export function useCategories() {
     setEditingId(cat.id)
     setEditIcon(cat.emoticon ?? '')
     setEditName(cat.name)
+    setEditColor(cat.color ?? 'indigo')
     setEditError(null)
     setDeletingId(null)
     setAdding(false)
@@ -54,7 +57,7 @@ export function useCategories() {
 
   async function handleSaveEdit() {
     if (!editName.trim() || !editingId) return
-    const result = await updateCategory({ id: editingId, name: editName.trim(), emoticon: editIcon.trim() || '🔗' })
+    const result = await updateCategory({ id: editingId, name: editName.trim(), emoticon: editIcon.trim() || '🔗', color: editColor })
     if (result.error === 'name_taken') {
       setEditError('A category with that name already exists.')
       return
@@ -86,10 +89,14 @@ export function useCategories() {
     setNewIcon,
     newName,
     setNewName,
+    newColor,
+    setNewColor,
     editIcon,
     setEditIcon,
     editName,
     setEditName,
+    editColor,
+    setEditColor,
     openAdd,
     closeAdd,
     handleAdd,

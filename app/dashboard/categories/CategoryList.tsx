@@ -18,10 +18,14 @@ export default function CategoryList() {
     setNewIcon,
     newName,
     setNewName,
+    newColor,
+    setNewColor,
     editIcon,
     setEditIcon,
     editName,
     setEditName,
+    editColor,
+    setEditColor,
     openAdd,
     closeAdd,
     handleAdd,
@@ -54,6 +58,8 @@ export default function CategoryList() {
           onIconChange={setNewIcon}
           name={newName}
           onNameChange={setNewName}
+          color={newColor}
+          onColorChange={setNewColor}
           onSubmit={handleAdd}
           onCancel={closeAdd}
           submitLabel="Add category"
@@ -71,6 +77,8 @@ export default function CategoryList() {
               onIconChange={setEditIcon}
               name={editName}
               onNameChange={setEditName}
+              color={editColor}
+              onColorChange={setEditColor}
               onSubmit={handleSaveEdit}
               onCancel={() => setEditingId(null)}
               submitLabel="Save"
