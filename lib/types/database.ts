@@ -48,6 +48,7 @@ export interface Database {
           image_url: string | null
           site_name: string | null
           content_type: ContentType
+          category_id: string | null
           notes: string | null
           status: LinkStatus
           is_favorite: boolean
@@ -63,6 +64,7 @@ export interface Database {
           image_url?: string | null
           site_name?: string | null
           content_type?: ContentType
+          category_id?: string | null
           notes?: string | null
           status?: LinkStatus
           is_favorite?: boolean
@@ -76,6 +78,7 @@ export interface Database {
           image_url?: string | null
           site_name?: string | null
           content_type?: ContentType
+          category_id?: string | null
           notes?: string | null
           status?: LinkStatus
           is_favorite?: boolean
