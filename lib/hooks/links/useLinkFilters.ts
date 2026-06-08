@@ -8,7 +8,7 @@ import type { SortBy } from '@/app/dashboard/link/FilterSheet'
 type Filter = string | 'all'
 
 const STATUS_ORDER: Record<LinkStatus, number> = {
-  unread: 0, watching: 1, read: 2, favorite: 3, archived: 4,
+  unread: 0, watching: 1, read: 2, archived: 3,
 }
 
 export function useLinkFilters(links: LinkWithTags[]) {

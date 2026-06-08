@@ -98,7 +98,7 @@ begin
       'https://www.instagram.com/p/abc123',
       'UI Design Tips for Developers',
       'Quick visual tips for making your interfaces look polished and professional without a design background.',
-      'instagram.com', v_c_instagram, 'Great color palette tips in here', 'favorite', true,
+      'instagram.com', v_c_instagram, 'Great color palette tips in here', 'read', true,
       '2026-05-07T09:00:00Z', '2026-05-07T09:00:00Z'),
 
     (v_l6, v_user,

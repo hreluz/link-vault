@@ -111,9 +111,9 @@ describe('useLinkList (integration)', () => {
       const { result } = await renderLoaded()
 
       act(() => result.current.setActiveLink(LINK_A))
-      act(() => result.current.handleStatusChange('1', 'favorite'))
+      act(() => result.current.handleStatusChange('1', 'read'))
 
-      expect(result.current.activeLink?.status).toBe('favorite')
+      expect(result.current.activeLink?.status).toBe('read')
     })
 
     it('leaves activeLink unchanged when it is not the target', async () => {
