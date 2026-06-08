@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { getLinks, createLink, updateLink } from '@/lib/services/links'
+import { getLinks, createLink, updateLink, toggleLinkFavorite } from '@/lib/services/links'
 
 // ── shared mocks ──────────────────────────────────────────────────────────────
 
@@ -12,6 +12,8 @@ const {
   mockLinksInsert, mockLinksSingle,
   // updateLink – links update chain: from('links').update().eq().select().single()
   mockLinksUpdate, mockLinksUpdateEq, mockLinksUpdateSingle,
+  // toggleLinkFavorite – from('links').update().eq()
+  mockFavoriteToggleEq,
   // tags upsert: from('tags').upsert()
   mockTagsUpsert,
   // tags select chain: from('tags').select().eq().in()
@@ -34,7 +36,11 @@ const {
   const mockLinksUpdateSingle = vi.fn()
   const mockLinksUpdateSelect = vi.fn(() => ({ single: mockLinksUpdateSingle }))
   const mockLinksUpdateEq = vi.fn(() => ({ select: mockLinksUpdateSelect }))
-  const mockLinksUpdate = vi.fn(() => ({ eq: mockLinksUpdateEq }))
+  const mockFavoriteToggleEq = vi.fn()
+  const mockLinksUpdate = vi.fn((args: Record<string, unknown>) => {
+    if (args && 'is_favorite' in args) return { eq: mockFavoriteToggleEq }
+    return { eq: mockLinksUpdateEq }
+  })
 
   const mockTagsUpsert = vi.fn()
 
@@ -51,6 +57,7 @@ const {
     mockGetUser,
     mockLinksInsert, mockLinksSingle,
     mockLinksUpdate, mockLinksUpdateEq, mockLinksUpdateSingle,
+    mockFavoriteToggleEq,
     mockTagsUpsert, mockTagsSelect, mockTagsIn,
     mockLinkTagsInsert, mockLinkTagsDelete, mockLinkTagsDeleteEq,
   }
@@ -81,6 +88,7 @@ beforeEach(() => {
   mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1' } } })
   mockLinksSingle.mockResolvedValue({ data: RAW_LINK, error: null })
   mockLinksUpdateSingle.mockResolvedValue({ data: RAW_LINK, error: null })
+  mockFavoriteToggleEq.mockResolvedValue({ error: null })
   mockTagsUpsert.mockResolvedValue({ error: null })
   mockTagsIn.mockResolvedValue({ data: [] })
   mockLinkTagsInsert.mockResolvedValue({ error: null })
@@ -362,5 +370,35 @@ describe('updateLink', () => {
 
     expect(mockLinkTagsDelete).toHaveBeenCalled()
     expect(mockLinkTagsDeleteEq).toHaveBeenCalledWith('link_id', '1')
+  })
+})
+
+// ── toggleLinkFavorite ────────────────────────────────────────────────────────
+
+describe('toggleLinkFavorite', () => {
+  it('returns true when the update succeeds', async () => {
+    const result = await toggleLinkFavorite('1', true)
+
+    expect(result).toBe(true)
+  })
+
+  it('returns false when the update fails', async () => {
+    mockFavoriteToggleEq.mockResolvedValue({ error: { message: 'update failed' } })
+
+    const result = await toggleLinkFavorite('1', true)
+
+    expect(result).toBe(false)
+  })
+
+  it('calls update with the correct is_favorite value', async () => {
+    await toggleLinkFavorite('1', true)
+
+    expect(mockLinksUpdate).toHaveBeenCalledWith({ is_favorite: true })
+  })
+
+  it('targets the correct link id', async () => {
+    await toggleLinkFavorite('42', false)
+
+    expect(mockFavoriteToggleEq).toHaveBeenCalledWith('id', '42')
   })
 })

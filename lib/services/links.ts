@@ -91,6 +91,15 @@ export type UpdateLinkInput = {
   tags: string[]
 }
 
+export async function toggleLinkFavorite(id: string, isFavorite: boolean): Promise<boolean> {
+  const supabase = createClient()
+  const { error } = await supabase
+    .from('links')
+    .update({ is_favorite: isFavorite })
+    .eq('id', id)
+  return !error
+}
+
 export async function updateLink(input: UpdateLinkInput): Promise<LinkWithTags | null> {
   if (!input.url.trim() || !isValidUrl(input.url)) return null
   if (!input.category_id) return null
