@@ -29,14 +29,17 @@ vi.mock('@/components/ToastProvider', () => ({
 
 vi.mock('@/lib/services/links', () => ({
   getLinks: vi.fn(),
+  toggleLinkFavorite: vi.fn(),
 }))
 
-import { getLinks } from '@/lib/services/links'
+import { getLinks, toggleLinkFavorite } from '@/lib/services/links'
 const mockGetLinks = vi.mocked(getLinks)
+const mockToggleFavorite = vi.mocked(toggleLinkFavorite)
 
 beforeEach(() => {
   vi.clearAllMocks()
   mockGetLinks.mockResolvedValue([LINK_A, LINK_B])
+  mockToggleFavorite.mockResolvedValue(true)
 })
 
 async function renderLoaded() {
@@ -136,7 +139,7 @@ describe('useLinks', () => {
     it('toggles is_favorite from false to true', async () => {
       const { result } = await renderLoaded()
 
-      act(() => result.current.handleFavoriteToggle('1'))
+      await act(async () => { await result.current.handleFavoriteToggle('1') })
 
       expect(result.current.links.find(l => l.id === '1')?.is_favorite).toBe(true)
     })
@@ -144,15 +147,23 @@ describe('useLinks', () => {
     it('toggles is_favorite from true to false', async () => {
       const { result } = await renderLoaded()
 
-      act(() => result.current.handleFavoriteToggle('2'))
+      await act(async () => { await result.current.handleFavoriteToggle('2') })
 
       expect(result.current.links.find(l => l.id === '2')?.is_favorite).toBe(false)
+    })
+
+    it('calls toggleLinkFavorite with the new value', async () => {
+      const { result } = await renderLoaded()
+
+      await act(async () => { await result.current.handleFavoriteToggle('1') })
+
+      expect(mockToggleFavorite).toHaveBeenCalledWith('1', true)
     })
 
     it('toasts "Added to favorites" when not yet favorited', async () => {
       const { result } = await renderLoaded()
 
-      act(() => result.current.handleFavoriteToggle('1'))
+      await act(async () => { await result.current.handleFavoriteToggle('1') })
 
       expect(mockAddToast).toHaveBeenCalledWith('Added to favorites')
     })
@@ -160,9 +171,27 @@ describe('useLinks', () => {
     it('toasts "Removed from favorites" when already favorited', async () => {
       const { result } = await renderLoaded()
 
-      act(() => result.current.handleFavoriteToggle('2'))
+      await act(async () => { await result.current.handleFavoriteToggle('2') })
 
       expect(mockAddToast).toHaveBeenCalledWith('Removed from favorites')
+    })
+
+    it('rolls back optimistic update on service failure', async () => {
+      mockToggleFavorite.mockResolvedValue(false)
+      const { result } = await renderLoaded()
+
+      await act(async () => { await result.current.handleFavoriteToggle('1') })
+
+      expect(result.current.links.find(l => l.id === '1')?.is_favorite).toBe(false)
+    })
+
+    it('toasts an error on service failure', async () => {
+      mockToggleFavorite.mockResolvedValue(false)
+      const { result } = await renderLoaded()
+
+      await act(async () => { await result.current.handleFavoriteToggle('1') })
+
+      expect(mockAddToast).toHaveBeenCalledWith('Failed to update favorite', 'destructive')
     })
   })
 

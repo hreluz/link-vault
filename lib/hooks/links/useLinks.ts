@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { getLinks, type LinkWithTags } from '@/lib/services/links'
+import { getLinks, toggleLinkFavorite, type LinkWithTags } from '@/lib/services/links'
 import type { LinkStatus } from '@/lib/types/database'
 import { STATUS_CONFIG } from '@/app/dashboard/config'
 import { useToast } from '@/components/ToastProvider'
@@ -33,10 +33,16 @@ export function useLinks() {
     addToast('Link deleted', 'destructive')
   }
 
-  function handleFavoriteToggle(id: string) {
+  async function handleFavoriteToggle(id: string) {
     const isFav = links.find(l => l.id === id)?.is_favorite
     setLinks(prev => prev.map(l => l.id === id ? { ...l, is_favorite: !l.is_favorite } : l))
-    addToast(isFav ? 'Removed from favorites' : 'Added to favorites')
+    const ok = await toggleLinkFavorite(id, !isFav)
+    if (!ok) {
+      setLinks(prev => prev.map(l => l.id === id ? { ...l, is_favorite: !!isFav } : l))
+      addToast('Failed to update favorite', 'destructive')
+    } else {
+      addToast(isFav ? 'Removed from favorites' : 'Added to favorites')
+    }
   }
 
   function handleCreate(link: LinkWithTags) {
