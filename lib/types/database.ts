@@ -1,4 +1,4 @@
-export type LinkStatus = 'unread' | 'watching' | 'read' | 'favorite' | 'archived'
+export type LinkStatus = 'unread' | 'watching' | 'read' | 'archived'
 
 export interface Database {
   public: {

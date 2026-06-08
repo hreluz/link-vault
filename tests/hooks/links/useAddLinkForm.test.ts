@@ -55,8 +55,8 @@ describe('useAddLinkForm', () => {
 
     it('updates status', () => {
       const { result } = renderHook(() => useAddLinkForm())
-      act(() => result.current.setStatus('favorite'))
-      expect(result.current.status).toBe('favorite')
+      act(() => result.current.setStatus('read'))
+      expect(result.current.status).toBe('read')
     })
 
     it('updates tags', () => {

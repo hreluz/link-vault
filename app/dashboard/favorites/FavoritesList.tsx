@@ -1,43 +1,28 @@
 'use client'
 
 import { useState } from 'react'
-import { MOCK_LINKS, type MockLink } from '@/lib/mock-data'
-import type { LinkStatus } from '@/lib/types/database'
-import { STATUS_CONFIG } from '../config'
+import { useFavorites } from '@/lib/hooks/links'
 import LinkCard from '../link/LinkCard'
 import BottomSheet from '../link/BottomSheet'
 import EditLinkModal from '../link/EditLinkModal'
-import { useToast } from '@/components/ToastProvider'
+import type { LinkWithTags } from '@/lib/services/links'
 
 export default function FavoritesList() {
-  const [links, setLinks] = useState<MockLink[]>(MOCK_LINKS.filter(l => l.is_favorite))
-  const [activeLink, setActiveLink] = useState<MockLink | null>(null)
-  const [editingLink, setEditingLink] = useState<MockLink | null>(null)
-  const { addToast } = useToast()
+  const { links, loading, handleStatusChange, handleEdit, handleDelete, handleFavoriteToggle } = useFavorites()
+  const [activeLink, setActiveLink] = useState<LinkWithTags | null>(null)
+  const [editingLink, setEditingLink] = useState<LinkWithTags | null>(null)
 
-  function handleStatusChange(id: string, status: LinkStatus) {
-    setLinks(prev => prev.map(l => l.id === id ? { ...l, status } : l))
-    setActiveLink(prev => prev?.id === id ? { ...prev, status } : prev)
-    addToast(`Moved to ${STATUS_CONFIG[status].label}`)
-  }
-
-  function handleEdit(updated: MockLink) {
-    setLinks(prev => prev.map(l => l.id === updated.id ? updated : l))
-    setEditingLink(null)
-    addToast('Changes saved')
-  }
-
-  function handleDelete() {
-    if (!activeLink) return
-    setLinks(prev => prev.filter(l => l.id !== activeLink.id))
-    setActiveLink(null)
-    addToast('Link deleted', 'destructive')
-  }
-
-  function handleFavoriteToggle(id: string) {
-    setLinks(prev => prev.filter(l => l.id !== id))
-    setActiveLink(null)
-    addToast('Removed from favorites')
+  if (loading) {
+    return (
+      <main className="mx-auto max-w-5xl px-4 py-8">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-slate-900">Favorites</h1>
+        </div>
+        <div className="flex justify-center py-20">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
+        </div>
+      </main>
+    )
   }
 
   return (
@@ -52,7 +37,12 @@ export default function FavoritesList() {
       {links.length > 0 ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {links.map(link => (
-            <LinkCard key={link.id} link={link} onMenuOpen={() => setActiveLink(link)} onFavoriteToggle={() => handleFavoriteToggle(link.id)} />
+            <LinkCard
+              key={link.id}
+              link={link}
+              onMenuOpen={() => setActiveLink(link)}
+              onFavoriteToggle={() => handleFavoriteToggle(link.id)}
+            />
           ))}
         </div>
       ) : (
@@ -65,16 +55,16 @@ export default function FavoritesList() {
       <EditLinkModal
         key={editingLink?.id}
         link={editingLink}
-        onSave={handleEdit}
+        onSave={updated => { handleEdit(updated); setEditingLink(null) }}
         onClose={() => setEditingLink(null)}
       />
 
       <BottomSheet
         link={activeLink}
-        onStatusChange={handleStatusChange}
+        onStatusChange={(id, status) => { handleStatusChange(id, status); setActiveLink(null) }}
         onFavoriteToggle={() => activeLink && handleFavoriteToggle(activeLink.id)}
         onEdit={() => setEditingLink(activeLink)}
-        onDelete={handleDelete}
+        onDelete={() => { if (activeLink) handleDelete(activeLink.id); setActiveLink(null) }}
         onClose={() => setActiveLink(null)}
       />
     </main>

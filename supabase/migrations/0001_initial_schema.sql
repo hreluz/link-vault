@@ -6,7 +6,6 @@ create type public.link_status as enum (
   'unread',
   'watching',
   'read',
-  'favorite',
   'archived'
 );
 

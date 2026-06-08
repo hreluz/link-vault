@@ -9,7 +9,6 @@ const STATUS_ICONS: Record<LinkStatus, string> = {
   unread:   '📥',
   watching: '👀',
   read:     '✅',
-  favorite: '⭐',
   archived: '🗄️',
 }
 
