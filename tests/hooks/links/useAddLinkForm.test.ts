@@ -9,7 +9,7 @@ const SAVED_LINK: LinkWithTags = {
   id: '1', url: 'https://example.com', title: 'Example',
   content_type: 'article', status: 'unread', is_favorite: false,
   tags: ['react'], description: '', notes: null, image_url: null,
-  site_name: 'example.com', user_id: 'user-1',
+  site_name: 'example.com', user_id: 'user-1', category_id: null,
   created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
 }
 

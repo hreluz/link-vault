@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { getCategories, createCategory, updateCategory, deleteCategory, seedDefaultCategories, DEFAULT_CATEGORIES, PROTECTED_CATEGORY_NAME } from '@/lib/services/categories'
+import { getCategories, createCategory, updateCategory, deleteCategory, seedDefaultCategories, SEED_CATEGORIES, PROTECTED_CATEGORY_NAME } from '@/lib/services/categories'
 import type { Category } from '@/lib/services/categories'
 
 // ── hoisted mocks ─────────────────────────────────────────────────────────────
@@ -71,12 +71,19 @@ function makeSeedClient({
   count?: number | null
   countError?: object | null
 } = {}) {
-  const mockInsertSeed = vi.fn().mockResolvedValue({ error: null })
+  const seededRows = SEED_CATEGORIES.map((cat, i) => ({ ...cat, id: `seeded-${i}`, user_id: 'user-123' }))
+  const mockCatInsertSelect = vi.fn().mockResolvedValue({ data: count === 0 ? seededRows : null })
+  const mockCatInsert = vi.fn().mockReturnValue({ select: mockCatInsertSelect })
+  const mockDomainInsert = vi.fn().mockResolvedValue({ error: null })
   const mockEq = vi.fn().mockResolvedValue({ count, error: countError })
-  const mockSelect = vi.fn().mockReturnValue({ eq: mockEq })
-  const from = vi.fn().mockReturnValue({ select: mockSelect, insert: mockInsertSeed })
+  const mockSelectCount = vi.fn().mockReturnValue({ eq: mockEq })
 
-  return { client: { from } as unknown as ReturnType<typeof import('@/lib/supabase/client').createClient>, mockInsert: mockInsertSeed, from }
+  const from = vi.fn().mockImplementation((table: string) => {
+    if (table === 'category_domains') return { insert: mockDomainInsert }
+    return { select: mockSelectCount, insert: mockCatInsert }
+  })
+
+  return { client: { from } as unknown as ReturnType<typeof import('@/lib/supabase/client').createClient>, mockInsert: mockCatInsert, from }
 }
 
 const MOCK_CAT: Category = {
@@ -277,7 +284,7 @@ describe('seedDefaultCategories', () => {
 
     expect(mockInsertSeed).toHaveBeenCalledOnce()
     expect(mockInsertSeed).toHaveBeenCalledWith(
-      DEFAULT_CATEGORIES.map(cat => ({ ...cat, user_id: 'user-123' })),
+      SEED_CATEGORIES.map(cat => ({ ...cat, user_id: 'user-123' })),
     )
   })
 

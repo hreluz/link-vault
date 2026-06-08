@@ -10,7 +10,7 @@ import type { LinkWithTags } from '@/lib/services/links'
 const mockAddToast = vi.fn()
 
 const { LINK_A, LINK_B, LINK_C } = vi.hoisted(() => {
-  const base = { user_id: 'user-1', image_url: null, description: '', notes: null }
+  const base = { user_id: 'user-1', image_url: null, description: '', notes: null, category_id: null }
   const LINK_A: LinkWithTags = {
     ...base, id: '1', title: 'Alpha Article', site_name: 'alpha.com',
     content_type: 'article', status: 'unread', is_favorite: false,
