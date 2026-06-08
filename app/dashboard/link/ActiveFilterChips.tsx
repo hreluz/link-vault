@@ -1,8 +1,9 @@
 'use client'
 
-import { CONTENT_TYPE_CONFIG, STATUS_CONFIG } from '../config'
+import { STATUS_CONFIG } from '../config'
 import type { SortBy } from './FilterSheet'
 import { useLinkListContext } from './LinkListContext'
+import { useCategoryList } from '@/lib/hooks/categories/useCategoryList'
 
 const SORT_LABELS: Record<SortBy, string> = {
   newest: 'Newest first', oldest: 'Oldest first', alphabetical: 'A → Z', status: 'By status',
@@ -17,6 +18,8 @@ export default function ActiveFilterChips() {
     selectedTags, setSelectedTags,
     resetFilters,
   } = useLinkListContext()
+  const { categories } = useCategoryList()
+  const activeCategory = categories.find(c => c.id === category)
 
   if (!hasActiveFilters) return null
 
@@ -31,12 +34,12 @@ export default function ActiveFilterChips() {
           <span className="text-indigo-400" aria-hidden="true">✕</span>
         </button>
       )}
-      {category !== 'all' && (
+      {category !== 'all' && activeCategory && (
         <button
           onClick={() => setCategory('all')}
           className="flex items-center gap-1.5 rounded-full bg-indigo-100 px-3 py-1 text-sm font-medium text-indigo-700 transition hover:bg-indigo-200"
         >
-          {CONTENT_TYPE_CONFIG[category].icon} {CONTENT_TYPE_CONFIG[category].label}
+          {activeCategory.emoticon} {activeCategory.name}
           <span className="text-indigo-400" aria-hidden="true">✕</span>
         </button>
       )}

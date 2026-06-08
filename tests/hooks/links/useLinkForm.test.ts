@@ -20,7 +20,6 @@ describe('useLinkForm', () => {
       expect(result.current.url).toBe('')
       expect(result.current.title).toBe('')
       expect(result.current.description).toBe('')
-      expect(result.current.contentType).toBe('other')
       expect(result.current.status).toBe('unread')
       expect(result.current.tags).toBe('')
       expect(result.current.notes).toBe('')
@@ -29,11 +28,10 @@ describe('useLinkForm', () => {
     })
 
     it('accepts custom initial values', () => {
-      const { result } = render({ url: 'https://example.com', title: 'Hello', contentType: 'youtube' })
+      const { result } = render({ url: 'https://example.com', title: 'Hello' })
 
       expect(result.current.url).toBe('https://example.com')
       expect(result.current.title).toBe('Hello')
-      expect(result.current.contentType).toBe('youtube')
     })
   })
 
@@ -56,12 +54,6 @@ describe('useLinkForm', () => {
       const { result } = render()
       act(() => result.current.setDescription('A desc'))
       expect(result.current.description).toBe('A desc')
-    })
-
-    it('setContentType updates contentType', () => {
-      const { result } = render()
-      act(() => result.current.setContentType('github'))
-      expect(result.current.contentType).toBe('github')
     })
 
     it('setStatus updates status', () => {
@@ -136,7 +128,6 @@ describe('useLinkForm', () => {
       act(() => {
         result.current.setUrl('https://example.com')
         result.current.setTitle('Title')
-        result.current.setContentType('youtube')
         result.current.setStatus('read')
         result.current.setTags('react')
         result.current.setNotes('note')
@@ -145,7 +136,6 @@ describe('useLinkForm', () => {
 
       expect(result.current.url).toBe('')
       expect(result.current.title).toBe('')
-      expect(result.current.contentType).toBe('other')
       expect(result.current.status).toBe('unread')
       expect(result.current.tags).toBe('')
       expect(result.current.notes).toBe('')

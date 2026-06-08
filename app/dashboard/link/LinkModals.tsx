@@ -1,5 +1,6 @@
 'use client'
 
+import { useCategoryList } from '@/lib/hooks/categories/useCategoryList'
 import { useLinkListContext } from './LinkListContext'
 import AddLinkModal from './AddLinkModal'
 import EditLinkModal from './EditLinkModal'
@@ -7,6 +8,7 @@ import FilterSheet from './FilterSheet'
 import BottomSheet from './BottomSheet'
 
 export default function LinkModals() {
+  const { categories } = useCategoryList()
   const {
     modalOpen, setModalOpen,
     filterOpen, setFilterOpen,
@@ -47,6 +49,7 @@ export default function LinkModals() {
         isOpen={filterOpen}
         sortBy={sortBy}
         category={category}
+        categories={categories}
         selectedStatuses={selectedStatuses}
         selectedTags={selectedTags}
         tagMode={tagMode}

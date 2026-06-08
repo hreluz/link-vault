@@ -4,21 +4,24 @@ import { describe, it, expect } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useLinkFilters } from '@/lib/hooks/links/useLinkFilters'
 
-const BASE = { user_id: 'user-1', image_url: null, description: '', notes: null, updated_at: '2026-01-01T00:00:00Z', category_id: null }
+const BASE = { user_id: 'user-1', image_url: null, description: '', notes: null, updated_at: '2026-01-01T00:00:00Z' }
 
 const LINK_A = {
   ...BASE, id: '1', title: 'Alpha Article', site_name: 'alpha.com',
-  content_type: 'article' as const, status: 'unread' as const, is_favorite: false,
+  content_type: 'article' as const, category_id: 'cat-article',
+  status: 'unread' as const, is_favorite: false,
   tags: ['react'], created_at: '2026-01-01T00:00:00Z', url: 'https://alpha.com',
 }
 const LINK_B = {
   ...BASE, id: '2', title: 'Beta Video', site_name: 'beta.com',
-  content_type: 'youtube' as const, status: 'read' as const, is_favorite: true,
+  content_type: 'youtube' as const, category_id: 'cat-youtube',
+  status: 'read' as const, is_favorite: true,
   tags: ['vue', 'css'], created_at: '2026-01-02T00:00:00Z', url: 'https://beta.com',
 }
 const LINK_C = {
   ...BASE, id: '3', title: 'Gamma Article', site_name: 'gamma.com',
-  content_type: 'article' as const, status: 'watching' as const, is_favorite: false,
+  content_type: 'article' as const, category_id: 'cat-article',
+  status: 'watching' as const, is_favorite: false,
   tags: ['react', 'css'], created_at: '2026-01-03T00:00:00Z', url: 'https://gamma.com',
 }
 
@@ -44,18 +47,26 @@ describe('useLinkFilters', () => {
   })
 
   describe('category filter', () => {
-    it('filters by content type', () => {
+    it('filters by category_id', () => {
       const { result } = renderFilters()
 
-      act(() => result.current.setCategory('youtube'))
+      act(() => result.current.setCategory('cat-youtube'))
 
       expect(result.current.results.map(l => l.id)).toEqual(['2'])
+    })
+
+    it('filters multiple links sharing a category', () => {
+      const { result } = renderFilters()
+
+      act(() => result.current.setCategory('cat-article'))
+
+      expect(result.current.results.map(l => l.id)).toEqual(['3', '1'])
     })
 
     it('counts category filter toward activeFilterCount', () => {
       const { result } = renderFilters()
 
-      act(() => result.current.setCategory('article'))
+      act(() => result.current.setCategory('cat-article'))
 
       expect(result.current.activeFilterCount).toBe(1)
     })
@@ -216,8 +227,8 @@ describe('useLinkFilters', () => {
 
     it('returns an empty array when no links have tags', () => {
       const { result } = renderHook(() => useLinkFilters([
-        { ...LINK_A, tags: [] },
-        { ...LINK_B, tags: [] },
+        { ...LINK_A, tags: [], category_id: 'cat-article' },
+        { ...LINK_B, tags: [], category_id: 'cat-youtube' },
       ]))
       expect(result.current.allTags).toEqual([])
     })

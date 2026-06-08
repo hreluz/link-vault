@@ -69,7 +69,7 @@ describe('useAutoAssignCategory', () => {
           useAutoAssignCategory(form, cats, true)
           return form
         },
-        { initialProps: { cats: [] } },
+        { initialProps: { cats: [] as Category[] } },
       )
 
       expect(result.current.categoryId).toBeNull()

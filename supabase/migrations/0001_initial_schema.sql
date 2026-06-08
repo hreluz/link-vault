@@ -2,17 +2,6 @@
 -- Enums
 -- ============================================================
 
-create type public.content_type as enum (
-  'youtube',
-  'instagram',
-  'tiktok',
-  'article',
-  'course',
-  'tweet',
-  'github',
-  'other'
-);
-
 create type public.link_status as enum (
   'unread',
   'watching',
@@ -42,7 +31,6 @@ create table public.links (
   description  text,
   image_url    text,
   site_name    text,
-  content_type public.content_type default 'other' not null,
   notes        text,
   status       public.link_status  default 'unread' not null,
   is_favorite  boolean     default false not null,
@@ -87,7 +75,6 @@ alter table public.links
 
 create index links_user_id_idx       on public.links(user_id);
 create index links_status_idx        on public.links(status);
-create index links_content_type_idx  on public.links(content_type);
 create index links_category_id_idx   on public.links(category_id);
 create index tags_user_id_idx        on public.tags(user_id);
 create index link_tags_link_id_idx   on public.link_tags(link_id);

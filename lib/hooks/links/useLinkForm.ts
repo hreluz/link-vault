@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import type { ContentType, LinkStatus } from '@/lib/types/database'
+import type { LinkStatus } from '@/lib/types/database'
 
 function parseTags(raw: string): string[] {
   return raw.split(',').map(t => t.trim()).filter(Boolean)
@@ -11,7 +11,6 @@ type Fields = {
   url: string
   title: string
   description: string
-  contentType: ContentType
   categoryId: string | null
   status: LinkStatus
   tags: string
@@ -22,7 +21,6 @@ export const DEFAULT_FIELDS: Fields = {
   url: '',
   title: '',
   description: '',
-  contentType: 'other',
   categoryId: null,
   status: 'unread',
   tags: '',
@@ -70,7 +68,6 @@ export function useLinkForm(initial: Fields = DEFAULT_FIELDS) {
     url: form.url, setUrl: (url: string) => setForm(f => ({ ...f, url })),
     title: form.title, setTitle: (title: string) => setForm(f => ({ ...f, title })),
     description: form.description, setDescription: (description: string) => setForm(f => ({ ...f, description })),
-    contentType: form.contentType, setContentType: (contentType: ContentType) => setForm(f => ({ ...f, contentType })),
     categoryId: form.categoryId, setCategoryId: (categoryId: string | null) => setForm(f => ({ ...f, categoryId })),
     status: form.status, setStatus: (status: LinkStatus) => setForm(f => ({ ...f, status })),
     tags: form.tags, setTags: (tags: string) => setForm(f => ({ ...f, tags })),
