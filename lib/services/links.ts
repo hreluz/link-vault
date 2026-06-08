@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/client'
-import type { ContentType, LinkStatus, Tables } from '@/lib/types/database'
+import type { LinkStatus, Tables } from '@/lib/types/database'
 
 export type LinkWithTags = Tables<'links'> & { tags: string[] }
 
@@ -10,7 +10,6 @@ type LinkQueryRow = Tables<'links'> & {
 export type CreateLinkInput = {
   url: string
   title?: string | null
-  content_type: ContentType
   category_id: string
   status: LinkStatus
   notes?: string | null
@@ -68,7 +67,6 @@ export async function createLink(input: CreateLinkInput): Promise<LinkWithTags |
       user_id: user.id,
       url: input.url,
       title: input.title ?? null,
-      content_type: input.content_type,
       category_id: input.category_id ?? null,
       status: input.status,
       notes: input.notes ?? null,
@@ -87,7 +85,6 @@ export type UpdateLinkInput = {
   url: string
   title?: string | null
   description?: string | null
-  content_type: ContentType
   category_id: string
   status: LinkStatus
   notes?: string | null
@@ -109,7 +106,6 @@ export async function updateLink(input: UpdateLinkInput): Promise<LinkWithTags |
       url: input.url,
       title: input.title ?? null,
       description: input.description ?? null,
-      content_type: input.content_type,
       category_id: input.category_id ?? null,
       status: input.status,
       notes: input.notes ?? null,

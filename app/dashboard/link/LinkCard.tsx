@@ -1,22 +1,25 @@
 import type { LinkWithTags } from '@/lib/services/links'
-import { CONTENT_TYPE_CONFIG, STATUS_CONFIG } from '../config'
+import type { Category } from '@/lib/services/categories'
+import { STATUS_CONFIG } from '../config'
 
 interface Props {
   link: LinkWithTags
+  category?: Category | null
   onMenuOpen: () => void
   onFavoriteToggle: () => void
 }
 
-export default function LinkCard({ link, onMenuOpen, onFavoriteToggle }: Props) {
-  const type = CONTENT_TYPE_CONFIG[link.content_type]
+export default function LinkCard({ link, category, onMenuOpen, onFavoriteToggle }: Props) {
   const status = STATUS_CONFIG[link.status]
 
   return (
     <article className="relative flex flex-col gap-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 transition hover:shadow-md hover:ring-slate-300">
       <div className="flex items-start justify-between gap-2">
-        <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${type.badge}`}>
-          <span aria-hidden="true">{type.icon}</span>
-          {type.label}
+        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
+          {category
+            ? <>{category.emoticon && <span aria-hidden="true">{category.emoticon}</span>}{category.name}</>
+            : <span className="text-slate-400">Uncategorized</span>
+          }
         </span>
         <div className="relative z-10 flex items-center gap-1">
           <button

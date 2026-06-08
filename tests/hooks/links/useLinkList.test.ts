@@ -10,22 +10,22 @@ import type { LinkWithTags } from '@/lib/services/links'
 const mockAddToast = vi.fn()
 
 const { LINK_A, LINK_B, LINK_C } = vi.hoisted(() => {
-  const base = { user_id: 'user-1', image_url: null, description: '', notes: null, category_id: null }
+  const base = { user_id: 'user-1', image_url: null, description: '', notes: null }
   const LINK_A: LinkWithTags = {
     ...base, id: '1', title: 'Alpha Article', site_name: 'alpha.com',
-    content_type: 'article', status: 'unread', is_favorite: false,
+    category_id: 'cat-article', status: 'unread', is_favorite: false,
     tags: ['react'], created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
     url: 'https://alpha.com',
   }
   const LINK_B: LinkWithTags = {
     ...base, id: '2', title: 'Beta Video', site_name: 'beta.com',
-    content_type: 'youtube', status: 'read', is_favorite: true,
+    category_id: 'cat-youtube', status: 'read', is_favorite: true,
     tags: ['vue', 'css'], created_at: '2026-01-02T00:00:00Z', updated_at: '2026-01-02T00:00:00Z',
     url: 'https://beta.com',
   }
   const LINK_C: LinkWithTags = {
     ...base, id: '3', title: 'Gamma Article', site_name: 'gamma.com',
-    content_type: 'article', status: 'watching', is_favorite: false,
+    category_id: 'cat-article', status: 'watching', is_favorite: false,
     tags: ['react', 'css'], created_at: '2026-01-03T00:00:00Z', updated_at: '2026-01-03T00:00:00Z',
     url: 'https://gamma.com',
   }
@@ -64,7 +64,7 @@ describe('useLinkList (integration)', () => {
   it('results reflect active filters (links and filters are wired together)', async () => {
     const { result } = await renderLoaded()
 
-    act(() => result.current.setCategory('youtube'))
+    act(() => result.current.setCategory('cat-youtube'))
 
     expect(result.current.results.map(l => l.id)).toEqual(['2'])
   })

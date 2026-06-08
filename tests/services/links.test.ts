@@ -71,7 +71,7 @@ vi.mock('@/lib/supabase/client', () => ({
 const RAW_LINK = {
   id: '1', url: 'https://example.com', title: 'Example',
   description: 'A description', site_name: 'example.com',
-  content_type: 'article', status: 'unread', is_favorite: false,
+  status: 'unread', is_favorite: false,
   notes: null, image_url: null, user_id: 'user-1',
   created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
 }
@@ -165,21 +165,21 @@ describe('getLinks', () => {
 
 describe('createLink', () => {
   it('returns null when url is empty', async () => {
-    const result = await createLink({ url: '  ', content_type: 'article', category_id: 'cat-1', status: 'unread', tags: [] })
+    const result = await createLink({ url: '  ', category_id: 'cat-1', status: 'unread', tags: [] })
 
     expect(result).toBeNull()
     expect(mockGetUser).not.toHaveBeenCalled()
   })
 
   it('returns null when url is not a valid URL', async () => {
-    const result = await createLink({ url: 'not-a-url', content_type: 'article', category_id: 'cat-1', status: 'unread', tags: [] })
+    const result = await createLink({ url: 'not-a-url', category_id: 'cat-1', status: 'unread', tags: [] })
 
     expect(result).toBeNull()
     expect(mockGetUser).not.toHaveBeenCalled()
   })
 
   it('returns null when category_id is empty', async () => {
-    const result = await createLink({ url: 'https://x.com', content_type: 'article', category_id: '', status: 'unread', tags: [] })
+    const result = await createLink({ url: 'https://x.com', category_id: '', status: 'unread', tags: [] })
 
     expect(result).toBeNull()
     expect(mockGetUser).not.toHaveBeenCalled()
@@ -188,7 +188,7 @@ describe('createLink', () => {
   it('returns null when the user is not authenticated', async () => {
     mockGetUser.mockResolvedValue({ data: { user: null } })
 
-    const result = await createLink({ url: 'https://x.com', content_type: 'article', category_id: 'cat-1', status: 'unread', tags: [] })
+    const result = await createLink({ url: 'https://x.com', category_id: 'cat-1', status: 'unread', tags: [] })
 
     expect(result).toBeNull()
   })
@@ -196,7 +196,7 @@ describe('createLink', () => {
   it('returns null when the link insert fails', async () => {
     mockLinksSingle.mockResolvedValue({ data: null, error: { message: 'insert failed' } })
 
-    const result = await createLink({ url: 'https://x.com', content_type: 'article', category_id: 'cat-1', status: 'unread', tags: [] })
+    const result = await createLink({ url: 'https://x.com', category_id: 'cat-1', status: 'unread', tags: [] })
 
     expect(result).toBeNull()
   })
@@ -204,7 +204,7 @@ describe('createLink', () => {
   it('defaults to "no-tag" when no tags are provided', async () => {
     mockTagsIn.mockResolvedValue({ data: [{ id: 't1', name: 'no-tag' }] })
 
-    const result = await createLink({ url: 'https://x.com', content_type: 'article', category_id: 'cat-1', status: 'unread', tags: [] })
+    const result = await createLink({ url: 'https://x.com', category_id: 'cat-1', status: 'unread', tags: [] })
 
     expect(result?.tags).toEqual(['no-tag'])
     expect(mockTagsUpsert).toHaveBeenCalledWith(
@@ -216,7 +216,7 @@ describe('createLink', () => {
   it('returns the link with tags when tags are resolved', async () => {
     mockTagsIn.mockResolvedValue({ data: [{ id: 't1', name: 'react' }, { id: 't2', name: 'css' }] })
 
-    const result = await createLink({ url: 'https://x.com', content_type: 'article', category_id: 'cat-1', status: 'unread', tags: ['react', 'css'] })
+    const result = await createLink({ url: 'https://x.com', category_id: 'cat-1', status: 'unread', tags: ['react', 'css'] })
 
     expect(result?.tags).toEqual(['react', 'css'])
   })
@@ -224,19 +224,18 @@ describe('createLink', () => {
   it('returns the link with empty tags when tag fetch returns nothing', async () => {
     mockTagsIn.mockResolvedValue({ data: null })
 
-    const result = await createLink({ url: 'https://x.com', content_type: 'article', category_id: 'cat-1', status: 'unread', tags: ['react'] })
+    const result = await createLink({ url: 'https://x.com', category_id: 'cat-1', status: 'unread', tags: ['react'] })
 
     expect(result?.tags).toEqual([])
   })
 
   it('inserts the link with the correct fields', async () => {
-    await createLink({ url: 'https://x.com', title: 'My Link', content_type: 'article', category_id: 'cat-1', status: 'watching', notes: 'note', tags: [] })
+    await createLink({ url: 'https://x.com', title: 'My Link', category_id: 'cat-1', status: 'watching', notes: 'note', tags: [] })
 
     expect(mockLinksInsert).toHaveBeenCalledWith(expect.objectContaining({
       user_id: 'user-1',
       url: 'https://x.com',
       title: 'My Link',
-      content_type: 'article',
       status: 'watching',
       notes: 'note',
     }))
@@ -245,7 +244,7 @@ describe('createLink', () => {
   it('upserts tags before fetching their ids', async () => {
     mockTagsIn.mockResolvedValue({ data: [{ id: 't1', name: 'react' }] })
 
-    await createLink({ url: 'https://x.com', content_type: 'article', category_id: 'cat-1', status: 'unread', tags: ['react'] })
+    await createLink({ url: 'https://x.com', category_id: 'cat-1', status: 'unread', tags: ['react'] })
 
     expect(mockTagsUpsert).toHaveBeenCalledWith(
       [{ user_id: 'user-1', name: 'react' }],
@@ -256,7 +255,7 @@ describe('createLink', () => {
   it('inserts link_tag rows for each resolved tag', async () => {
     mockTagsIn.mockResolvedValue({ data: [{ id: 't1', name: 'react' }, { id: 't2', name: 'css' }] })
 
-    await createLink({ url: 'https://x.com', content_type: 'article', category_id: 'cat-1', status: 'unread', tags: ['react', 'css'] })
+    await createLink({ url: 'https://x.com', category_id: 'cat-1', status: 'unread', tags: ['react', 'css'] })
 
     expect(mockLinkTagsInsert).toHaveBeenCalledWith([
       { link_id: RAW_LINK.id, tag_id: 't1' },
@@ -268,7 +267,7 @@ describe('createLink', () => {
 // ── updateLink ────────────────────────────────────────────────────────────────
 
 describe('updateLink', () => {
-  const INPUT = { id: '1', url: 'https://example.com', content_type: 'article' as const, category_id: 'cat-1', status: 'unread' as const, tags: [] }
+  const INPUT = { id: '1', url: 'https://example.com', category_id: 'cat-1', status: 'unread' as const, tags: [] }
 
   it('returns null when url is empty', async () => {
     const result = await updateLink({ ...INPUT, url: '   ' })
@@ -332,12 +331,11 @@ describe('updateLink', () => {
   })
 
   it('updates the link with the correct fields', async () => {
-    await updateLink({ ...INPUT, url: 'https://new.com', title: 'New Title', content_type: 'youtube', status: 'read', notes: 'a note' })
+    await updateLink({ ...INPUT, url: 'https://new.com', title: 'New Title', status: 'read', notes: 'a note' })
 
     expect(mockLinksUpdate).toHaveBeenCalledWith(expect.objectContaining({
       url: 'https://new.com',
       title: 'New Title',
-      content_type: 'youtube',
       status: 'read',
       notes: 'a note',
     }))

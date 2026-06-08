@@ -7,7 +7,7 @@ import type { LinkWithTags } from '@/lib/services/links'
 
 const LINK: LinkWithTags = {
   id: '1', url: 'https://example.com', title: 'Example', description: 'A description',
-  content_type: 'article', category_id: 'cat-1', status: 'unread', is_favorite: false,
+  category_id: 'cat-1', status: 'unread', is_favorite: false,
   tags: ['react', 'css'], notes: 'my notes', image_url: null,
   site_name: 'example.com', user_id: 'user-1',
   created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
@@ -35,7 +35,6 @@ describe('useEditLinkForm', () => {
       expect(result.current.url).toBe('https://example.com')
       expect(result.current.title).toBe('Example')
       expect(result.current.description).toBe('A description')
-      expect(result.current.contentType).toBe('article')
       expect(result.current.status).toBe('unread')
       expect(result.current.tags).toBe('react, css')
       expect(result.current.notes).toBe('my notes')
@@ -69,12 +68,6 @@ describe('useEditLinkForm', () => {
       const { result } = renderHook(() => useEditLinkForm(LINK))
       act(() => result.current.setDescription('New desc'))
       expect(result.current.description).toBe('New desc')
-    })
-
-    it('updates contentType', () => {
-      const { result } = renderHook(() => useEditLinkForm(LINK))
-      act(() => result.current.setContentType('youtube'))
-      expect(result.current.contentType).toBe('youtube')
     })
 
     it('updates status', () => {

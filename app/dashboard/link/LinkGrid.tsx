@@ -1,10 +1,12 @@
 'use client'
 
+import { useCategoryList } from '@/lib/hooks/categories/useCategoryList'
 import { useLinkListContext } from './LinkListContext'
 import LinkCard from './LinkCard'
 
 export default function LinkGrid() {
   const { loading, results, hasActiveFilters, setActiveLink, handleFavoriteToggle, resetFilters } = useLinkListContext()
+  const { categories } = useCategoryList()
 
   if (loading) {
     return (
@@ -39,6 +41,7 @@ export default function LinkGrid() {
         <LinkCard
           key={link.id}
           link={link}
+          category={categories.find(c => c.id === link.category_id) ?? null}
           onMenuOpen={() => setActiveLink(link)}
           onFavoriteToggle={() => handleFavoriteToggle(link.id)}
         />

@@ -7,9 +7,9 @@ import type { LinkWithTags } from '@/lib/services/links'
 
 const SAVED_LINK: LinkWithTags = {
   id: '1', url: 'https://example.com', title: 'Example',
-  content_type: 'article', status: 'unread', is_favorite: false,
+  status: 'unread', is_favorite: false,
   tags: ['react'], description: '', notes: null, image_url: null,
-  site_name: 'example.com', user_id: 'user-1', category_id: null,
+  site_name: 'example.com', user_id: 'user-1', category_id: 'cat-1',
   created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
 }
 
@@ -34,7 +34,6 @@ describe('useAddLinkForm', () => {
       expect(result.current.title).toBe('')
       expect(result.current.tags).toBe('')
       expect(result.current.notes).toBe('')
-      expect(result.current.contentType).toBe('other')
       expect(result.current.status).toBe('unread')
       expect(result.current.submitting).toBe(false)
       expect(result.current.error).toBeNull()
@@ -52,12 +51,6 @@ describe('useAddLinkForm', () => {
       const { result } = renderHook(() => useAddLinkForm())
       act(() => result.current.setTitle('My Title'))
       expect(result.current.title).toBe('My Title')
-    })
-
-    it('updates contentType', () => {
-      const { result } = renderHook(() => useAddLinkForm())
-      act(() => result.current.setContentType('youtube'))
-      expect(result.current.contentType).toBe('youtube')
     })
 
     it('updates status', () => {
@@ -86,7 +79,6 @@ describe('useAddLinkForm', () => {
       act(() => {
         result.current.setUrl('https://example.com')
         result.current.setTitle('Title')
-        result.current.setContentType('youtube')
         result.current.setStatus('read')
         result.current.setTags('react')
         result.current.setNotes('notes')
@@ -95,7 +87,6 @@ describe('useAddLinkForm', () => {
 
       expect(result.current.url).toBe('')
       expect(result.current.title).toBe('')
-      expect(result.current.contentType).toBe('other')
       expect(result.current.status).toBe('unread')
       expect(result.current.tags).toBe('')
       expect(result.current.notes).toBe('')

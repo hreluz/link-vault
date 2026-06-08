@@ -1,10 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { CONTENT_TYPE_FILTERS, STATUS_CONFIG } from '../config'
-import type { ContentType, LinkStatus } from '@/lib/types/database'
+import { STATUS_CONFIG } from '../config'
+import type { LinkStatus } from '@/lib/types/database'
+import type { Category } from '@/lib/services/categories'
 
-type Filter = ContentType | 'all'
+type Filter = string | 'all'
 type TagMode = 'any' | 'all'
 export type SortBy = 'newest' | 'oldest' | 'alphabetical' | 'status'
 
@@ -19,6 +20,7 @@ interface Props {
   isOpen: boolean
   sortBy: SortBy
   category: Filter
+  categories: Category[]
   selectedStatuses: LinkStatus[]
   selectedTags: string[]
   tagMode: TagMode
@@ -79,7 +81,7 @@ function AccordionSection({
 }
 
 export default function FilterSheet({
-  isOpen, sortBy, category, selectedStatuses, selectedTags, tagMode, allTags, resultCount,
+  isOpen, sortBy, category, categories, selectedStatuses, selectedTags, tagMode, allTags, resultCount,
   onSortChange, onCategoryChange, onStatusesChange, onTagsChange, onTagModeChange, onReset, onClose,
 }: Props) {
   const [openSections, setOpenSections] = useState<Set<SectionKey>>(
@@ -115,7 +117,8 @@ export default function FilterSheet({
   const hasFilters = sortBy !== 'newest' || category !== 'all' || selectedStatuses.length > 0 || selectedTags.length > 0
 
   const sortLabel = SORT_OPTIONS.find(o => o.value === sortBy)?.label
-  const categoryLabel = CONTENT_TYPE_FILTERS.find(f => f.value === category)?.label
+  const activeCategory = categories.find(c => c.id === category)
+  const categoryLabel = activeCategory ? `${activeCategory.emoticon ?? ''} ${activeCategory.name}`.trim() : undefined
 
   return (
     <div
@@ -151,17 +154,27 @@ export default function FilterSheet({
             }
           >
             <div className="flex flex-wrap gap-2">
-              {CONTENT_TYPE_FILTERS.map(tab => (
+              <button
+                onClick={() => onCategoryChange('all')}
+                className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                  category === 'all'
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                All
+              </button>
+              {categories.map(cat => (
                 <button
-                  key={tab.value}
-                  onClick={() => onCategoryChange(tab.value as Filter)}
+                  key={cat.id}
+                  onClick={() => onCategoryChange(cat.id)}
                   className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
-                    category === tab.value
+                    category === cat.id
                       ? 'bg-indigo-600 text-white shadow-sm'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
                 >
-                  {tab.label}
+                  {cat.emoticon} {cat.name}
                 </button>
               ))}
             </div>

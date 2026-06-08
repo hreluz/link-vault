@@ -2,10 +2,10 @@
 
 import { useState } from 'react'
 import type { LinkWithTags } from '@/lib/services/links'
-import type { ContentType, LinkStatus } from '@/lib/types/database'
+import type { LinkStatus } from '@/lib/types/database'
 import type { SortBy } from '@/app/dashboard/link/FilterSheet'
 
-type Filter = ContentType | 'all'
+type Filter = string | 'all'
 
 const STATUS_ORDER: Record<LinkStatus, number> = {
   unread: 0, watching: 1, read: 2, favorite: 3, archived: 4,
@@ -28,7 +28,7 @@ export function useLinkFilters(links: LinkWithTags[]) {
     setSearchQuery('')
   }
 
-  const byCategory = category === 'all' ? links : links.filter(l => l.content_type === category)
+  const byCategory = category === 'all' ? links : links.filter(l => l.category_id === category)
 
   const query = searchQuery.trim().toLowerCase()
   const hashTagTerms = query.match(/#(\w+)/g)?.map(t => t.slice(1)) ?? []

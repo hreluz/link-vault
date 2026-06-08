@@ -10,13 +10,13 @@ const mockAddToast = vi.fn()
 const { LINK_A, LINK_B } = vi.hoisted(() => {
   const LINK_A: LinkWithTags = {
     id: '1', title: 'Alpha', site_name: 'alpha.com',
-    content_type: 'article', status: 'unread', is_favorite: false,
+    status: 'unread', is_favorite: false,
     tags: ['react'], created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
     url: 'https://alpha.com', description: '', notes: null, user_id: 'user-1', image_url: null, category_id: null,
   }
   const LINK_B: LinkWithTags = {
     id: '2', title: 'Beta', site_name: 'beta.com',
-    content_type: 'youtube', status: 'read', is_favorite: true,
+    status: 'read', is_favorite: true,
     tags: ['vue'], created_at: '2026-01-02T00:00:00Z', updated_at: '2026-01-02T00:00:00Z',
     url: 'https://beta.com', description: '', notes: null, user_id: 'user-1', image_url: null, category_id: null,
   }

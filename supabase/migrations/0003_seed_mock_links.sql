@@ -65,61 +65,61 @@ begin
   -- ----------------------------------------------------------
   -- Links
   -- ----------------------------------------------------------
-  insert into public.links (id, user_id, url, title, description, site_name, content_type, category_id, notes, status, is_favorite, created_at, updated_at) values
+  insert into public.links (id, user_id, url, title, description, site_name, category_id, notes, status, is_favorite, created_at, updated_at) values
     (v_l1, v_user,
       'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
       'React 19 Deep Dive — New Features Explained',
       'A comprehensive walkthrough of everything new in React 19 including Server Components, Actions, and the new hooks.',
-      'youtube.com', 'youtube', v_c_youtube, null, 'unread', false,
+      'youtube.com', v_c_youtube, null, 'unread', false,
       '2026-05-10T10:00:00Z', '2026-05-10T10:00:00Z'),
 
     (v_l2, v_user,
       'https://github.com/vercel/next.js',
       'Next.js — The React Framework for the Web',
       'The React Framework for the Web. Used by some of the world''s largest companies, Next.js enables high-quality web applications.',
-      'github.com', 'github', v_c_github, 'Track for Next.js 16 updates', 'watching', true,
+      'github.com', v_c_github, 'Track for Next.js 16 updates', 'watching', true,
       '2026-05-09T08:00:00Z', '2026-05-09T08:00:00Z'),
 
     (v_l3, v_user,
       'https://www.typescriptlang.org/docs/',
       'TypeScript Official Documentation',
       'Official TypeScript documentation covering all language features, the type system, and configuration options.',
-      'typescriptlang.org', 'course', v_c_course, null, 'read', false,
+      'typescriptlang.org', v_c_course, null, 'read', false,
       '2026-05-08T12:00:00Z', '2026-05-08T12:00:00Z'),
 
     (v_l4, v_user,
       'https://x.com/dan_abramov/status/1234567890',
       'Dan Abramov on React Server Components',
       'Thread explaining the mental model behind React Server Components and why they matter for the future of web development.',
-      'x.com', 'tweet', v_c_tweet, null, 'unread', false,
+      'x.com', v_c_tweet, null, 'unread', false,
       '2026-05-12T15:30:00Z', '2026-05-12T15:30:00Z'),
 
     (v_l5, v_user,
       'https://www.instagram.com/p/abc123',
       'UI Design Tips for Developers',
       'Quick visual tips for making your interfaces look polished and professional without a design background.',
-      'instagram.com', 'instagram', v_c_instagram, 'Great color palette tips in here', 'favorite', true,
+      'instagram.com', v_c_instagram, 'Great color palette tips in here', 'favorite', true,
       '2026-05-07T09:00:00Z', '2026-05-07T09:00:00Z'),
 
     (v_l6, v_user,
       'https://css-tricks.com/a-complete-guide-to-flexbox/',
       'A Complete Guide to Flexbox',
       'A comprehensive reference for the CSS flexbox layout module, with visual examples for every property and combination.',
-      'css-tricks.com', 'article', v_c_article, null, 'read', false,
+      'css-tricks.com', v_c_article, null, 'read', false,
       '2026-05-06T11:00:00Z', '2026-05-06T11:00:00Z'),
 
     (v_l7, v_user,
       'https://www.tiktok.com/@codewithreact/video/123456',
       '5 TypeScript Tricks You Probably Don''t Know',
       'Short video covering advanced TypeScript patterns that most developers miss, from conditional types to template literals.',
-      'tiktok.com', 'tiktok', v_c_tiktok, null, 'watching', false,
+      'tiktok.com', v_c_tiktok, null, 'watching', false,
       '2026-05-11T20:00:00Z', '2026-05-11T20:00:00Z'),
 
     (v_l8, v_user,
       'https://supabase.com/docs/guides/auth',
       'Supabase Auth — SSR Guide',
       'Complete guide to authentication with Supabase in server-side rendered apps, covering cookie management and row-level security.',
-      'supabase.com', 'article', v_c_article, 'Check the new SSR section', 'archived', false,
+      'supabase.com', v_c_article, 'Check the new SSR section', 'archived', false,
       '2026-05-05T14:00:00Z', '2026-05-05T14:00:00Z');
 
   -- ----------------------------------------------------------

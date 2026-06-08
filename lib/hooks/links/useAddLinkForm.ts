@@ -11,7 +11,6 @@ export function useAddLinkForm() {
       () => createLink({
         url: form.url,
         title: form.resolvedTitle,
-        content_type: form.contentType,
         category_id: form.categoryId!,
         status: form.status,
         notes: form.notes || null,

@@ -1,13 +1,3 @@
-export type ContentType =
-  | 'youtube'
-  | 'instagram'
-  | 'tiktok'
-  | 'article'
-  | 'course'
-  | 'tweet'
-  | 'github'
-  | 'other'
-
 export type LinkStatus = 'unread' | 'watching' | 'read' | 'favorite' | 'archived'
 
 export interface Database {
@@ -47,7 +37,6 @@ export interface Database {
           description: string | null
           image_url: string | null
           site_name: string | null
-          content_type: ContentType
           category_id: string | null
           notes: string | null
           status: LinkStatus
@@ -63,7 +52,6 @@ export interface Database {
           description?: string | null
           image_url?: string | null
           site_name?: string | null
-          content_type?: ContentType
           category_id?: string | null
           notes?: string | null
           status?: LinkStatus
@@ -77,7 +65,6 @@ export interface Database {
           description?: string | null
           image_url?: string | null
           site_name?: string | null
-          content_type?: ContentType
           category_id?: string | null
           notes?: string | null
           status?: LinkStatus
@@ -178,7 +165,6 @@ export interface Database {
     Views: Record<string, never>
     Functions: Record<string, never>
     Enums: {
-      content_type: ContentType
       link_status: LinkStatus
     }
   }
