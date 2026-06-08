@@ -13,7 +13,7 @@ export type DefaultCategory = {
 
 export const PROTECTED_CATEGORY_NAME = 'Not defined'
 
-export const DEFAULT_CATEGORIES: DefaultCategory[] = [
+export const SEED_CATEGORIES: DefaultCategory[] = [
   { name: PROTECTED_CATEGORY_NAME, description: 'Uncategorized links',        color: '#94A3B8', emoticon: '🔖' },
   { name: 'YouTube',               description: 'Videos and tutorials',       color: '#FF0000', emoticon: '📺' },
   { name: 'Instagram',             description: 'Photos, reels and stories',  color: '#E1306C', emoticon: '📸' },
@@ -24,6 +24,14 @@ export const DEFAULT_CATEGORIES: DefaultCategory[] = [
   { name: 'GitHub',                description: 'Repositories and code',      color: '#24292E', emoticon: '💻' },
   { name: 'Other',                 description: 'Everything else',            color: '#6B7280', emoticon: '🔗' },
 ]
+
+const SEED_DOMAINS: Record<string, string[]> = {
+  'YouTube':   ['youtube.com', 'youtu.be'],
+  'Instagram': ['instagram.com'],
+  'TikTok':    ['tiktok.com', 'vm.tiktok.com'],
+  'Tweet':     ['twitter.com', 'x.com', 't.co'],
+  'GitHub':    ['github.com'],
+}
 
 export async function getCategories(): Promise<Category[]> {
   const supabase = createClient()
@@ -127,7 +135,19 @@ export async function seedDefaultCategories(
 
   if (error || count === null || count > 0) return
 
-  await supabase
+  const { data: inserted } = await supabase
     .from('categories')
-    .insert(DEFAULT_CATEGORIES.map(cat => ({ ...cat, user_id: userId })))
+    .insert(SEED_CATEGORIES.map(cat => ({ ...cat, user_id: userId })))
+    .select()
+
+  if (!inserted) return
+
+  const domainRows = inserted.flatMap(cat => {
+    const domains = SEED_DOMAINS[cat.name] ?? []
+    return domains.map(domain => ({ category_id: cat.id, user_id: userId, domain }))
+  })
+
+  if (domainRows.length > 0) {
+    await supabase.from('category_domains').insert(domainRows)
+  }
 }

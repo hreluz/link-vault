@@ -4,7 +4,7 @@ import { describe, it, expect } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useLinkFilters } from '@/lib/hooks/links/useLinkFilters'
 
-const BASE = { user_id: 'user-1', image_url: null, description: '', notes: null, updated_at: '2026-01-01T00:00:00Z' }
+const BASE = { user_id: 'user-1', image_url: null, description: '', notes: null, updated_at: '2026-01-01T00:00:00Z', category_id: null }
 
 const LINK_A = {
   ...BASE, id: '1', title: 'Alpha Article', site_name: 'alpha.com',

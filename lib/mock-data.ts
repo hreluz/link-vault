@@ -9,6 +9,7 @@ export interface MockLink {
   image_url: string | null
   site_name: string | null
   content_type: ContentType
+  category_id: string | null
   status: LinkStatus
   is_favorite: boolean
   tags: string[]
@@ -17,7 +18,7 @@ export interface MockLink {
   updated_at: string
 }
 
-const BASE = { user_id: 'mock-user', image_url: null, updated_at: '2026-05-24T00:00:00Z' }
+const BASE = { user_id: 'mock-user', image_url: null, category_id: null, updated_at: '2026-05-24T00:00:00Z' }
 
 export const MOCK_LINKS: MockLink[] = [
   {

@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import type { LinkStatus } from '@/lib/types/database'
 import { STATUS_CONFIG } from '../config'
 import { useLinkFormContext } from './LinkFormContext'
@@ -9,9 +10,11 @@ const LABEL = 'block text-sm font-medium text-slate-700 mb-1.5'
 
 interface Props {
   scrollable?: boolean
+  collapsible?: boolean
 }
 
-export default function LinkForm({ scrollable = false }: Props) {
+export default function LinkForm({ scrollable = false, collapsible = false }: Props) {
+  const [expanded, setExpanded] = useState(!collapsible)
   const {
     url, setUrl,
     title, setTitle,
@@ -49,68 +52,88 @@ export default function LinkForm({ scrollable = false }: Props) {
           />
         </div>
 
-        <div>
-          <label className={LABEL}>Title</label>
-          <input
-            type="text"
-            placeholder="Optional — auto-fetched later"
-            className={INPUT}
-            value={title}
-            onChange={e => setTitle(e.target.value)}
-          />
-        </div>
+        {expanded && (
+          <>
+            <div>
+              <label className={LABEL}>Title</label>
+              <input
+                type="text"
+                placeholder="Optional — auto-fetched later"
+                className={INPUT}
+                value={title}
+                onChange={e => setTitle(e.target.value)}
+              />
+            </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className={LABEL}>Category</label>
-            <select
-              className={INPUT}
-              value={categoryId ?? ''}
-              onChange={e => setCategoryId(e.target.value || null)}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={LABEL}>Category</label>
+                <select
+                  className={INPUT}
+                  value={categoryId ?? ''}
+                  onChange={e => setCategoryId(e.target.value || null)}
+                >
+                  {categories.map(cat => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.emoticon} {cat.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className={LABEL}>Status</label>
+                <select
+                  className={INPUT}
+                  value={status}
+                  onChange={e => setStatus(e.target.value as LinkStatus)}
+                >
+                  {(Object.keys(STATUS_CONFIG) as LinkStatus[]).map(s => (
+                    <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className={LABEL}>Tags</label>
+              <input
+                type="text"
+                placeholder="react, frontend, learning"
+                className={INPUT}
+                value={tags}
+                onChange={e => setTags(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className={LABEL}>Notes</label>
+              <textarea
+                placeholder="Personal notes..."
+                rows={3}
+                className={`${INPUT} resize-none`}
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+              />
+            </div>
+          </>
+        )}
+
+        {collapsible && (
+          <button
+            type="button"
+            onClick={() => setExpanded(v => !v)}
+            className="flex items-center gap-1 text-sm font-medium text-indigo-600 hover:text-indigo-500 transition"
+          >
+            <svg
+              className={`h-4 w-4 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
             >
-              {categories.map(cat => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.emoticon} {cat.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className={LABEL}>Status</label>
-            <select
-              className={INPUT}
-              value={status}
-              onChange={e => setStatus(e.target.value as LinkStatus)}
-            >
-              {(Object.keys(STATUS_CONFIG) as LinkStatus[]).map(s => (
-                <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div>
-          <label className={LABEL}>Tags</label>
-          <input
-            type="text"
-            placeholder="react, frontend, learning"
-            className={INPUT}
-            value={tags}
-            onChange={e => setTags(e.target.value)}
-          />
-        </div>
-
-        <div>
-          <label className={LABEL}>Notes</label>
-          <textarea
-            placeholder="Personal notes..."
-            rows={3}
-            className={`${INPUT} resize-none`}
-            value={notes}
-            onChange={e => setNotes(e.target.value)}
-          />
-        </div>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+            {expanded ? 'Fewer options' : 'More options'}
+          </button>
+        )}
 
         {error && (
           <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>

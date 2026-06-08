@@ -5,6 +5,7 @@ import Picker from "@emoji-mart/react"
 import data from "@emoji-mart/data"
 import { useCategoriesContext } from "./CategoriesContext"
 import { COLORS, colorFor as colorForCategory, ColorPicker } from "@/components/ColorPicker"
+import CategoryDomainsModal from "./CategoryDomainsModal"
 
 export { colorForCategory, COLORS as CATEGORY_COLORS }
 
@@ -14,9 +15,14 @@ interface Props {
 
 export default function CategoryForm({ mode }: Props) {
   const {
+    categories,
+    editingId,
     newIcon, setNewIcon, newName, setNewName, newColor, setNewColor, handleAdd, closeAdd, addError,
     editIcon, setEditIcon, editName, setEditName, editColor, setEditColor, handleSaveEdit, setEditingId, editError,
   } = useCategoriesContext()
+
+  const [domainsOpen, setDomainsOpen] = useState(false)
+  const editingCategory = mode === 'edit' ? (categories.find(c => c.id === editingId) ?? null) : null
 
   const isAdd = mode === 'add'
   const icon = isAdd ? newIcon : editIcon
@@ -46,6 +52,7 @@ export default function CategoryForm({ mode }: Props) {
   }, [open])
 
   return (
+    <>
     <div className="mb-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
       {title && <p className="mb-3 text-sm font-semibold text-slate-700">{title}</p>}
       <div className="flex gap-3">
@@ -102,7 +109,25 @@ export default function CategoryForm({ mode }: Props) {
         >
           {submitLabel}
         </button>
+        {mode === 'edit' && editingCategory && (
+          <button
+            type="button"
+            onClick={() => setDomainsOpen(true)}
+            title="Manage domains"
+            className="ml-auto rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:bg-slate-50"
+          >
+            🌐 Domains
+          </button>
+        )}
       </div>
     </div>
+
+    {domainsOpen && editingCategory && (
+      <CategoryDomainsModal
+        category={editingCategory}
+        onClose={() => setDomainsOpen(false)}
+      />
+    )}
+    </>
   )
 }

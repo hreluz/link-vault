@@ -154,6 +154,26 @@ export interface Database {
         }
         Relationships: []
       }
+      category_domains: {
+        Row: {
+          id: string
+          category_id: string
+          user_id: string
+          domain: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          category_id: string
+          user_id: string
+          domain: string
+          created_at?: string
+        }
+        Update: {
+          domain?: string
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
@@ -172,3 +192,4 @@ export type Link = Tables<'links'>
 export type Tag = Tables<'tags'>
 export type LinkTag = Tables<'link_tags'>
 export type Category = Tables<'categories'>
+export type CategoryDomain = Tables<'category_domains'>
