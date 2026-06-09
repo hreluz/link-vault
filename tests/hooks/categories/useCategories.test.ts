@@ -10,14 +10,16 @@ vi.mock('@/lib/services/categories', () => ({
   createCategory: vi.fn(),
   updateCategory: vi.fn(),
   deleteCategory: vi.fn(),
+  getCategoryLinksCount: vi.fn(),
   PROTECTED_CATEGORY_NAME: 'Not defined',
 }))
 
-import { getCategories, createCategory, updateCategory, deleteCategory } from '@/lib/services/categories'
+import { getCategories, createCategory, updateCategory, deleteCategory, getCategoryLinksCount } from '@/lib/services/categories'
 const mockGetCategories = vi.mocked(getCategories)
 const mockCreateCategory = vi.mocked(createCategory)
 const mockUpdateCategory = vi.mocked(updateCategory)
 const mockDeleteCategory = vi.mocked(deleteCategory)
+const mockGetCategoryLinksCount = vi.mocked(getCategoryLinksCount)
 
 const CAT_A: Category = {
   id: '1', user_id: 'u1', name: 'Article', description: 'Blog posts and articles',
@@ -35,6 +37,7 @@ const CAT_PROTECTED: Category = {
 beforeEach(() => {
   vi.clearAllMocks()
   mockGetCategories.mockResolvedValue([CAT_A, CAT_B])
+  mockGetCategoryLinksCount.mockResolvedValue(0)
 })
 
 async function renderLoaded() {
@@ -385,6 +388,66 @@ describe('useCategories', () => {
 
       expect(mockDeleteCategory).not.toHaveBeenCalled()
       expect(result.current.categories).toHaveLength(3)
+    })
+
+    it('deleteError is null initially', async () => {
+      const { result } = await renderLoaded()
+
+      expect(result.current.deleteError).toBeNull()
+    })
+
+    it('handleDelete sets deleteError and does not delete when category has links', async () => {
+      mockGetCategoryLinksCount.mockResolvedValue(3)
+      const { result } = await renderLoaded()
+
+      act(() => { result.current.confirmDelete(CAT_A.id) })
+      await act(() => result.current.handleDelete(CAT_A.id))
+
+      expect(mockDeleteCategory).not.toHaveBeenCalled()
+      expect(result.current.categories).toHaveLength(2)
+      expect(result.current.deleteError).toBe('This category has 3 links and cannot be deleted.')
+    })
+
+    it('handleDelete uses singular "link" when count is 1', async () => {
+      mockGetCategoryLinksCount.mockResolvedValue(1)
+      const { result } = await renderLoaded()
+
+      act(() => { result.current.confirmDelete(CAT_A.id) })
+      await act(() => result.current.handleDelete(CAT_A.id))
+
+      expect(result.current.deleteError).toBe('This category has 1 link and cannot be deleted.')
+    })
+
+    it('handleDelete keeps deletingId set when category has links', async () => {
+      mockGetCategoryLinksCount.mockResolvedValue(2)
+      const { result } = await renderLoaded()
+
+      act(() => { result.current.confirmDelete(CAT_A.id) })
+      await act(() => result.current.handleDelete(CAT_A.id))
+
+      expect(result.current.deletingId).toBe(CAT_A.id)
+    })
+
+    it('confirmDelete clears a previous deleteError', async () => {
+      mockGetCategoryLinksCount.mockResolvedValue(1)
+      const { result } = await renderLoaded()
+
+      act(() => { result.current.confirmDelete(CAT_A.id) })
+      await act(() => result.current.handleDelete(CAT_A.id))
+      expect(result.current.deleteError).not.toBeNull()
+
+      act(() => { result.current.confirmDelete(CAT_B.id) })
+      expect(result.current.deleteError).toBeNull()
+    })
+
+    it('handleDelete clears deleteError after a successful deletion', async () => {
+      mockDeleteCategory.mockResolvedValue(true)
+      const { result } = await renderLoaded()
+
+      act(() => { result.current.confirmDelete(CAT_A.id) })
+      await act(() => result.current.handleDelete(CAT_A.id))
+
+      expect(result.current.deleteError).toBeNull()
     })
   })
 })

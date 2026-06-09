@@ -6,6 +6,7 @@ import {
   createCategory,
   updateCategory,
   deleteCategory,
+  getCategoryLinksCount,
   PROTECTED_CATEGORY_NAME,
   type Category,
 } from '@/lib/services/categories'
@@ -18,6 +19,7 @@ export function useCategories() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editError, setEditError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const [newIcon, setNewIcon] = useState('')
   const [newName, setNewName] = useState('')
   const [newColor, setNewColor] = useState('indigo')
@@ -71,15 +73,21 @@ export function useCategories() {
   function confirmDelete(id: string) {
     const cat = categories.find(c => c.id === id)
     if (cat?.name === PROTECTED_CATEGORY_NAME) return
-    setDeletingId(id); setEditingId(null); setAdding(false)
+    setDeletingId(id); setEditingId(null); setAdding(false); setDeleteError(null)
   }
 
   async function handleDelete(id: string) {
     const cat = categories.find(c => c.id === id)
     if (cat?.name === PROTECTED_CATEGORY_NAME) return
+    const count = await getCategoryLinksCount(id)
+    if (count > 0) {
+      setDeleteError(`This category has ${count} link${count === 1 ? '' : 's'} and cannot be deleted.`)
+      return
+    }
     const ok = await deleteCategory(id)
     if (ok) setCategories(prev => prev.filter(c => c.id !== id))
     setDeletingId(null)
+    setDeleteError(null)
   }
 
   return {
@@ -92,6 +100,8 @@ export function useCategories() {
     setEditingId,
     deletingId,
     setDeletingId,
+    deleteError,
+    setDeleteError,
     newIcon,
     setNewIcon,
     newName,

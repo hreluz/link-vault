@@ -118,6 +118,15 @@ export async function updateCategory(input: UpdateCategoryInput): Promise<Update
   return { data, error: null }
 }
 
+export async function getCategoryLinksCount(id: string): Promise<number> {
+  const supabase = createClient()
+  const { count } = await supabase
+    .from('links')
+    .select('*', { count: 'exact', head: true })
+    .eq('category_id', id)
+  return count ?? 0
+}
+
 export async function deleteCategory(id: string): Promise<boolean> {
   const supabase = createClient()
   const { error } = await supabase.from('categories').delete().eq('id', id)
