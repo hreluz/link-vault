@@ -6,7 +6,7 @@ import { colorFor } from '@/components/ColorPicker'
 import type { TagWithCount } from '@/lib/services/tags'
 
 export function TagRow({ tag }: { tag: TagWithCount }) {
-  const { editingId, deletingId, startEdit, confirmDelete, deleteTag, setDeletingId } = useTagContext()
+  const { editingId, deletingId, deleteError, startEdit, confirmDelete, deleteTag, setDeletingId, setDeleteError } = useTagContext()
   const color = colorFor(tag.color)
   const count = tag.link_count
   const isEditing = editingId === tag.id
@@ -23,19 +23,25 @@ export function TagRow({ tag }: { tag: TagWithCount }) {
       <div className="ml-auto flex items-center gap-1">
         {isDeleting ? (
           <>
-            <span className="mr-1 text-xs text-slate-500">Delete?</span>
+            {deleteError ? (
+              <span className="mr-1 text-xs text-red-600">{deleteError}</span>
+            ) : (
+              <span className="mr-1 text-xs text-slate-500">Delete?</span>
+            )}
             <button
-              onClick={() => setDeletingId(null)}
+              onClick={() => { setDeletingId(null); setDeleteError(null) }}
               className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-500 transition hover:bg-slate-100"
             >
-              Cancel
+              {deleteError ? 'OK' : 'Cancel'}
             </button>
-            <button
-              onClick={() => deleteTag(tag.id)}
-              className="rounded-lg bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-100"
-            >
-              Delete
-            </button>
+            {!deleteError && (
+              <button
+                onClick={() => deleteTag(tag.id)}
+                className="rounded-lg bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-100"
+              >
+                Delete
+              </button>
+            )}
           </>
         ) : (
           <>

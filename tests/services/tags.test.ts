@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { getTags, createTag, updateTag, deleteTag, toKebabCase } from '@/lib/services/tags'
+import { getTags, createTag, updateTag, deleteTag, getTagLinksCount, toKebabCase } from '@/lib/services/tags'
 import type { Tag } from '@/lib/services/tags'
 
 // ── hoisted mocks ─────────────────────────────────────────────────────────────
@@ -14,6 +14,7 @@ const {
   mockInsert, mockInsertSingle,
   mockUpdate, mockUpdateEq, mockUpdateSingle,
   mockDeleteEq,
+  mockLinkTagsCountEq,
 } = vi.hoisted(() => {
   const mockOrder = vi.fn()
   const mockGetUser = vi.fn()
@@ -33,6 +34,7 @@ const {
   const mockUpdate = vi.fn(() => ({ eq: mockUpdateEq }))
 
   const mockDeleteEq = vi.fn()
+  const mockLinkTagsCountEq = vi.fn()
 
   return {
     mockGetUser,
@@ -44,18 +46,22 @@ const {
     mockInsert, mockInsertSingle,
     mockUpdate, mockUpdateEq, mockUpdateSingle,
     mockDeleteEq,
+    mockLinkTagsCountEq,
   }
 })
 
 vi.mock('@/lib/supabase/client', () => ({
   createClient: vi.fn(() => ({
     auth: { getUser: mockGetUser },
-    from: vi.fn(() => ({
-      select: vi.fn(() => ({ order: mockOrder, eq: mockNameCheckEq })),
-      insert: mockInsert,
-      update: mockUpdate,
-      delete: vi.fn(() => ({ eq: mockDeleteEq })),
-    })),
+    from: vi.fn((table: string) => {
+      if (table === 'link_tags') return { select: vi.fn(() => ({ eq: mockLinkTagsCountEq })) }
+      return {
+        select: vi.fn(() => ({ order: mockOrder, eq: mockNameCheckEq })),
+        insert: mockInsert,
+        update: mockUpdate,
+        delete: vi.fn(() => ({ eq: mockDeleteEq })),
+      }
+    }),
   })),
 }))
 
@@ -306,6 +312,36 @@ describe('updateTag', () => {
     const result = await updateTag({ id: '1', name: 'X' })
 
     expect(result).toEqual({ data: null, error: 'db_error' })
+  })
+})
+
+// ── getTagLinksCount ──────────────────────────────────────────────────────────
+
+describe('getTagLinksCount', () => {
+  it('returns the count when links exist', async () => {
+    mockLinkTagsCountEq.mockResolvedValue({ count: 3 })
+
+    expect(await getTagLinksCount('tag-1')).toBe(3)
+  })
+
+  it('returns 0 when no links exist', async () => {
+    mockLinkTagsCountEq.mockResolvedValue({ count: 0 })
+
+    expect(await getTagLinksCount('tag-1')).toBe(0)
+  })
+
+  it('returns 0 when count is null', async () => {
+    mockLinkTagsCountEq.mockResolvedValue({ count: null })
+
+    expect(await getTagLinksCount('tag-1')).toBe(0)
+  })
+
+  it('filters by tag_id', async () => {
+    mockLinkTagsCountEq.mockResolvedValue({ count: 0 })
+
+    await getTagLinksCount('tag-42')
+
+    expect(mockLinkTagsCountEq).toHaveBeenCalledWith('tag_id', 'tag-42')
   })
 })
 
