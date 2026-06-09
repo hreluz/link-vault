@@ -16,7 +16,7 @@ export default function TagsField() {
     <div>
       <label className={LABEL}>Tags</label>
       <div
-        className="flex flex-wrap items-center gap-x-1.5 gap-y-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm transition cursor-text focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/20"
+        className="flex flex-wrap items-center gap-x-1.5 gap-y-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm transition cursor-text focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800"
         onClick={() => inputRef.current?.focus()}
       >
         {confirmedTags.map((tag, i) => (
@@ -36,7 +36,7 @@ export default function TagsField() {
             onPaste(e.clipboardData.getData('text'))
           }}
           placeholder={confirmedTags.length === 0 ? 'react, frontend, learning' : ''}
-          className="flex-1 min-w-32 outline-none bg-transparent text-slate-900 placeholder-slate-400"
+          className="flex-1 min-w-32 outline-none bg-transparent text-slate-900 placeholder-slate-400 dark:text-slate-100 dark:placeholder-slate-500"
         />
       </div>
     </div>

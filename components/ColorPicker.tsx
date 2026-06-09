@@ -18,7 +18,7 @@ export function colorFor(value: string | null | undefined) {
 export function ColorPicker({ selected, onChange }: { selected: string; onChange: (v: string) => void }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-xs text-slate-500">Color</span>
+      <span className="text-xs text-slate-500 dark:text-slate-400">Color</span>
       {COLORS.map(c => (
         <button
           key={c.value}

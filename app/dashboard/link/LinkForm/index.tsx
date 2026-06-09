@@ -24,7 +24,7 @@ export default function LinkForm({ scrollable = false, collapsible = false }: Pr
     : 'space-y-4'
 
   const footerCls = scrollable
-    ? 'flex gap-3 border-t border-slate-100 px-6 py-4'
+    ? 'flex gap-3 border-t border-slate-100 px-6 py-4 dark:border-slate-800'
     : 'mt-6 flex gap-3'
 
   return (
@@ -46,7 +46,7 @@ export default function LinkForm({ scrollable = false, collapsible = false }: Pr
         )}
 
         {error && (
-          <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>
+          <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">{error}</p>
         )}
       </div>
 

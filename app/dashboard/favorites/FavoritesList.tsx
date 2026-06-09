@@ -16,7 +16,7 @@ export default function FavoritesList() {
     return (
       <main className="mx-auto max-w-5xl px-4 py-8">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-slate-900">Favorites</h1>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">Favorites</h1>
         </div>
         <div className="flex justify-center py-20">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
@@ -28,8 +28,8 @@ export default function FavoritesList() {
   return (
     <main className="mx-auto max-w-5xl px-4 py-8">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Favorites</h1>
-        <p className="mt-0.5 text-sm text-slate-500">
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">Favorites</h1>
+        <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
           {links.length} link{links.length !== 1 ? 's' : ''}
         </p>
       </div>
@@ -48,7 +48,7 @@ export default function FavoritesList() {
       ) : (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <div className="mb-4 text-4xl" aria-hidden="true">⭐</div>
-          <p className="text-slate-500">No favorites yet. Star a link to see it here.</p>
+          <p className="text-slate-500 dark:text-slate-400">No favorites yet. Star a link to see it here.</p>
         </div>
       )}
 

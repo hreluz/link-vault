@@ -8,8 +8,8 @@ export default function LinkListHeader() {
   return (
     <div className="mb-5 flex items-center justify-between gap-4">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Your Links</h1>
-        <p className="mt-0.5 text-sm text-slate-500">
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">Your Links</h1>
+        <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
           {results.length} link{results.length !== 1 ? 's' : ''}
         </p>
       </div>

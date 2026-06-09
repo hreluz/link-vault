@@ -53,14 +53,14 @@ export default function CategoryForm({ mode }: Props) {
 
   return (
     <>
-    <div className="mb-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-      {title && <p className="mb-3 text-sm font-semibold text-slate-700">{title}</p>}
+    <div className="mb-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-700">
+      {title && <p className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-300">{title}</p>}
       <div className="flex gap-3">
         <div className="relative" ref={pickerRef}>
           <button
             type="button"
             onClick={() => setOpen(v => !v)}
-            className="flex h-full w-20 items-center justify-center rounded-xl border border-slate-200 bg-white text-2xl outline-none transition hover:bg-slate-50 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+            className="flex h-full w-20 items-center justify-center rounded-xl border border-slate-200 bg-white text-2xl outline-none transition hover:bg-slate-50 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700"
           >
             {icon || "🔗"}
           </button>
@@ -86,19 +86,19 @@ export default function CategoryForm({ mode }: Props) {
           value={name}
           onChange={e => onNameChange(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') onSubmit(); if (e.key === 'Escape') onCancel() }}
-          className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+          className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500"
         />
       </div>
       <div className="mt-3">
         <ColorPicker selected={color} onChange={onColorChange} />
       </div>
       {error && (
-        <p className="mt-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>
+        <p className="mt-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">{error}</p>
       )}
       <div className="mt-4 flex gap-2">
         <button
           onClick={onCancel}
-          className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:bg-slate-50"
+          className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
         >
           Cancel
         </button>
@@ -114,7 +114,7 @@ export default function CategoryForm({ mode }: Props) {
             type="button"
             onClick={() => setDomainsOpen(true)}
             title="Manage domains"
-            className="ml-auto rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:bg-slate-50"
+            className="ml-auto rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
           >
             🌐 Domains
           </button>

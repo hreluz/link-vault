@@ -16,7 +16,7 @@ export default function DashboardNav() {
   return (
     <>
       {/* Mobile: fixed bottom tab bar */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white sm:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 sm:hidden">
         <div className="flex">
           {NAV_ITEMS.map(({ label, icon, href }) => {
             const active = pathname === href
@@ -25,7 +25,9 @@ export default function DashboardNav() {
                 key={href}
                 href={href}
                 className={`flex flex-1 flex-col items-center gap-1 py-3 text-xs font-medium transition ${
-                  active ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'
+                  active
+                    ? 'text-indigo-600 dark:text-indigo-400'
+                    : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'
                 }`}
               >
                 <span className="text-xl" aria-hidden="true">{icon}</span>
@@ -37,7 +39,7 @@ export default function DashboardNav() {
       </nav>
 
       {/* Desktop: underline tab bar below header */}
-      <nav className="hidden border-b border-slate-200 bg-white sm:block">
+      <nav className="hidden border-b border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 sm:block">
         <div className="mx-auto flex max-w-5xl gap-1 px-4">
           {NAV_ITEMS.map(({ label, icon, href }) => {
             const active = pathname === href
@@ -47,8 +49,8 @@ export default function DashboardNav() {
                 href={href}
                 className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition ${
                   active
-                    ? 'border-indigo-600 text-indigo-600'
-                    : 'border-transparent text-slate-500 hover:text-slate-700'
+                    ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
+                    : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
                 }`}
               >
                 <span aria-hidden="true">{icon}</span>
