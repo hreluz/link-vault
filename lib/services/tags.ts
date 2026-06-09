@@ -109,6 +109,15 @@ export async function updateTag(input: UpdateTagInput): Promise<UpdateTagResult>
   return { data, error: null }
 }
 
+export async function getTagLinksCount(id: string): Promise<number> {
+  const supabase = createClient()
+  const { count } = await supabase
+    .from('link_tags')
+    .select('*', { count: 'exact', head: true })
+    .eq('tag_id', id)
+  return count ?? 0
+}
+
 export async function deleteTag(id: string): Promise<boolean> {
   const supabase = createClient()
   const { error } = await supabase.from('tags').delete().eq('id', id)

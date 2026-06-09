@@ -7,6 +7,7 @@ import {
   createTag,
   updateTag,
   deleteTag as deleteTagService,
+  getTagLinksCount,
   toKebabCase,
   type TagWithCount,
 } from '@/lib/services/tags'
@@ -21,6 +22,7 @@ export function useTagList() {
   const [adding, setAdding] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const [newName, setNewName] = useState('')
   const [newColor, setNewColor] = useState(COLORS[0].value)
   const [editName, setEditName] = useState('')
@@ -69,19 +71,25 @@ export function useTagList() {
     setEditingId(null)
   }
 
-  function confirmDelete(id: string) { setDeletingId(id); setEditingId(null); setAdding(false) }
+  function confirmDelete(id: string) { setDeletingId(id); setEditingId(null); setAdding(false); setDeleteError(null) }
 
   async function removeTag(id: string) {
+    const count = await getTagLinksCount(id)
+    if (count > 0) {
+      setDeleteError(`This tag has ${count} link${count === 1 ? '' : 's'} and cannot be deleted.`)
+      return
+    }
     const ok = await deleteTagService(id)
-    if (!ok) { setAddError('Could not delete tag. Please try again.'); return }
+    if (!ok) { setDeleteError('Could not delete tag. Please try again.'); return }
     setTags(prev => prev.filter(t => t.id !== id))
     setDeletingId(null)
+    setDeleteError(null)
   }
 
   return {
-    tags, loading, addError, editError, adding, editingId, deletingId,
+    tags, loading, addError, editError, adding, editingId, deletingId, deleteError,
     newName, newColor, editName, editColor,
-    setNewName, setNewColor, setEditName, setEditColor, setEditingId, setDeletingId,
+    setNewName, setNewColor, setEditName, setEditColor, setEditingId, setDeletingId, setDeleteError,
     openAdd, closeAdd, addTag, startEdit, saveEdit, confirmDelete,
     deleteTag: removeTag,
   }
