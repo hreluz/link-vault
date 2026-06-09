@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { label: 'Favorites',  icon: '⭐', href: '/dashboard/favorites' },
   { label: 'Tags',       icon: '🏷️',  href: '/dashboard/tags' },
   { label: 'Categories', icon: '📂', href: '/dashboard/categories' },
+  { label: 'Config',     icon: '⚙️', href: '/dashboard/config' },
 ]
 
 export default function DashboardNav() {
@@ -19,7 +20,7 @@ export default function DashboardNav() {
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 sm:hidden">
         <div className="flex">
           {NAV_ITEMS.map(({ label, icon, href }) => {
-            const active = pathname === href
+            const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
             return (
               <Link
                 key={href}
@@ -42,7 +43,7 @@ export default function DashboardNav() {
       <nav className="hidden border-b border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 sm:block">
         <div className="mx-auto flex max-w-5xl gap-1 px-4">
           {NAV_ITEMS.map(({ label, icon, href }) => {
-            const active = pathname === href
+            const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
             return (
               <Link
                 key={href}
