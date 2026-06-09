@@ -11,8 +11,8 @@ function CategoryListInner() {
     <main className="mx-auto max-w-2xl px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Categories</h1>
-          <p className="mt-0.5 text-sm text-slate-500">{categories.length} categor{categories.length !== 1 ? 'ies' : 'y'}</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">Categories</h1>
+          <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{categories.length} categor{categories.length !== 1 ? 'ies' : 'y'}</p>
         </div>
         {!adding && (
           <button
@@ -39,7 +39,7 @@ function CategoryListInner() {
       {categories.length === 0 && (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <div className="mb-4 text-4xl" aria-hidden="true">📂</div>
-          <p className="text-slate-500">No categories yet. Create your first one.</p>
+          <p className="text-slate-500 dark:text-slate-400">No categories yet. Create your first one.</p>
         </div>
       )}
     </main>

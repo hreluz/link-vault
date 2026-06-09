@@ -39,8 +39,8 @@ export default function AddLinkModal({ isOpen, onSuccess, onClose }: Props) {
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
       onClick={handleBackdropClick}
     >
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl ring-1 ring-slate-200">
-        <h2 className="mb-6 text-lg font-semibold text-slate-900">Add a link</h2>
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-700">
+        <h2 className="mb-6 text-lg font-semibold text-slate-900 dark:text-slate-50">Add a link</h2>
         <LinkFormContext.Provider value={{ ...form, categories, onSubmit: handleSave, onCancel: onClose, submitLabel: 'Save link' }}>
           <LinkForm collapsible />
         </LinkFormContext.Provider>
