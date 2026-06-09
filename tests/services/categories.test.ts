@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { getCategories, createCategory, updateCategory, deleteCategory, seedDefaultCategories, SEED_CATEGORIES, PROTECTED_CATEGORY_NAME } from '@/lib/services/categories'
+import { getCategories, createCategory, updateCategory, deleteCategory, getCategoryLinksCount, seedDefaultCategories, SEED_CATEGORIES, PROTECTED_CATEGORY_NAME } from '@/lib/services/categories'
 import type { Category } from '@/lib/services/categories'
 
 // ── hoisted mocks ─────────────────────────────────────────────────────────────
@@ -14,6 +14,7 @@ const {
   mockUpdate, mockUpdateEq, mockUpdateSingle,
   mockDeleteEq,
   mockNameCheckEq,
+  mockLinksCountEq,
 } = vi.hoisted(() => {
   const mockOrder = vi.fn()
   const mockGetUser = vi.fn()
@@ -37,6 +38,8 @@ const {
   const mockDeleteEq = vi.fn()
   const mockDelete = vi.fn(() => ({ eq: mockDeleteEq }))
 
+  const mockLinksCountEq = vi.fn()
+
   return {
     mockGetUser,
     mockOrder,
@@ -47,18 +50,22 @@ const {
     mockInsert, mockInsertSingle,
     mockUpdate, mockUpdateEq, mockUpdateSingle,
     mockDeleteEq, mockDelete,
+    mockLinksCountEq,
   }
 })
 
 vi.mock('@/lib/supabase/client', () => ({
   createClient: vi.fn(() => ({
     auth: { getUser: mockGetUser },
-    from: vi.fn(() => ({
-      select: vi.fn(() => ({ order: mockOrder, eq: mockNameCheckEq })),
-      insert: mockInsert,
-      update: mockUpdate,
-      delete: vi.fn(() => ({ eq: mockDeleteEq })),
-    })),
+    from: vi.fn((table: string) => {
+      if (table === 'links') return { select: vi.fn(() => ({ eq: mockLinksCountEq })) }
+      return {
+        select: vi.fn(() => ({ order: mockOrder, eq: mockNameCheckEq })),
+        insert: mockInsert,
+        update: mockUpdate,
+        delete: vi.fn(() => ({ eq: mockDeleteEq })),
+      }
+    }),
   })),
 }))
 
@@ -271,6 +278,36 @@ describe('deleteCategory', () => {
     mockDeleteEq.mockResolvedValue({ error: { message: 'DB error' } })
 
     expect(await deleteCategory('cat-1')).toBe(false)
+  })
+})
+
+// ── getCategoryLinksCount ─────────────────────────────────────────────────────
+
+describe('getCategoryLinksCount', () => {
+  it('returns the count when links exist', async () => {
+    mockLinksCountEq.mockResolvedValue({ count: 5 })
+
+    expect(await getCategoryLinksCount('cat-1')).toBe(5)
+  })
+
+  it('returns 0 when no links exist', async () => {
+    mockLinksCountEq.mockResolvedValue({ count: 0 })
+
+    expect(await getCategoryLinksCount('cat-1')).toBe(0)
+  })
+
+  it('returns 0 when count is null', async () => {
+    mockLinksCountEq.mockResolvedValue({ count: null })
+
+    expect(await getCategoryLinksCount('cat-1')).toBe(0)
+  })
+
+  it('filters by category_id', async () => {
+    mockLinksCountEq.mockResolvedValue({ count: 0 })
+
+    await getCategoryLinksCount('cat-42')
+
+    expect(mockLinksCountEq).toHaveBeenCalledWith('category_id', 'cat-42')
   })
 })
 

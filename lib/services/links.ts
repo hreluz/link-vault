@@ -147,3 +147,9 @@ export async function getLinks(): Promise<LinkWithTags[]> {
     tags: link_tags.flatMap(lt => lt.tags?.name ? [lt.tags.name] : []),
   }))
 }
+
+export async function deleteLink(id: string): Promise<boolean> {
+  const supabase = createClient()
+  const { error } = await supabase.from('links').delete().eq('id', id)
+  return !error
+}

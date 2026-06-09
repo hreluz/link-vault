@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { getLinks, createLink, updateLink, toggleLinkFavorite } from '@/lib/services/links'
+import { getLinks, createLink, updateLink, toggleLinkFavorite, deleteLink } from '@/lib/services/links'
 
 // ── shared mocks ──────────────────────────────────────────────────────────────
 
@@ -14,6 +14,8 @@ const {
   mockLinksUpdate, mockLinksUpdateEq, mockLinksUpdateSingle,
   // toggleLinkFavorite – from('links').update().eq()
   mockFavoriteToggleEq,
+  // deleteLink – from('links').delete().eq()
+  mockLinksDeleteEq,
   // tags upsert: from('tags').upsert()
   mockTagsUpsert,
   // tags select chain: from('tags').select().eq().in()
@@ -52,12 +54,16 @@ const {
   const mockLinkTagsDeleteEq = vi.fn()
   const mockLinkTagsDelete = vi.fn(() => ({ eq: mockLinkTagsDeleteEq }))
 
+  const mockLinksDeleteEq = vi.fn()
+  const mockLinksDelete = vi.fn(() => ({ eq: mockLinksDeleteEq }))
+
   return {
     mockGetLinksSelect, mockOrder, mockReturns,
     mockGetUser,
     mockLinksInsert, mockLinksSingle,
     mockLinksUpdate, mockLinksUpdateEq, mockLinksUpdateSingle,
     mockFavoriteToggleEq,
+    mockLinksDeleteEq, mockLinksDelete,
     mockTagsUpsert, mockTagsSelect, mockTagsIn,
     mockLinkTagsInsert, mockLinkTagsDelete, mockLinkTagsDeleteEq,
   }
@@ -67,7 +73,7 @@ vi.mock('@/lib/supabase/client', () => ({
   createClient: vi.fn(() => ({
     auth: { getUser: mockGetUser },
     from: vi.fn((table: string) => {
-      if (table === 'links') return { select: mockGetLinksSelect, insert: mockLinksInsert, update: mockLinksUpdate }
+      if (table === 'links') return { select: mockGetLinksSelect, insert: mockLinksInsert, update: mockLinksUpdate, delete: vi.fn(() => ({ eq: mockLinksDeleteEq })) }
       if (table === 'tags') return { upsert: mockTagsUpsert, select: mockTagsSelect }
       if (table === 'link_tags') return { insert: mockLinkTagsInsert, delete: mockLinkTagsDelete }
       return {}
@@ -370,6 +376,30 @@ describe('updateLink', () => {
 
     expect(mockLinkTagsDelete).toHaveBeenCalled()
     expect(mockLinkTagsDeleteEq).toHaveBeenCalledWith('link_id', '1')
+  })
+})
+
+// ── deleteLink ────────────────────────────────────────────────────────────────
+
+describe('deleteLink', () => {
+  it('returns true when the delete succeeds', async () => {
+    mockLinksDeleteEq.mockResolvedValue({ error: null })
+
+    expect(await deleteLink('link-1')).toBe(true)
+  })
+
+  it('returns false on DB error', async () => {
+    mockLinksDeleteEq.mockResolvedValue({ error: { message: 'DB error' } })
+
+    expect(await deleteLink('link-1')).toBe(false)
+  })
+
+  it('filters by id', async () => {
+    mockLinksDeleteEq.mockResolvedValue({ error: null })
+
+    await deleteLink('link-42')
+
+    expect(mockLinksDeleteEq).toHaveBeenCalledWith('id', 'link-42')
   })
 })
 
