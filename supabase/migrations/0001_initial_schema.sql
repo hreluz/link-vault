@@ -33,7 +33,8 @@ create table public.links (
   status       public.link_status  default 'unread' not null,
   is_favorite  boolean     default false not null,
   created_at   timestamptz default now() not null,
-  updated_at   timestamptz default now() not null
+  updated_at   timestamptz default now() not null,
+  deleted_at   timestamptz
 );
 
 create table public.tags (
@@ -74,6 +75,7 @@ alter table public.links
 create index links_user_id_idx       on public.links(user_id);
 create index links_status_idx        on public.links(status);
 create index links_category_id_idx   on public.links(category_id);
+create index links_deleted_at_idx    on public.links(deleted_at);
 create index tags_user_id_idx        on public.tags(user_id);
 create index link_tags_link_id_idx   on public.link_tags(link_id);
 create index link_tags_tag_id_idx    on public.link_tags(tag_id);

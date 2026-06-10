@@ -3,12 +3,13 @@ import { getFavorites } from '@/lib/services/favorites'
 
 // ── shared mocks ──────────────────────────────────────────────────────────────
 
-const { mockSelect, mockEq, mockOrder, mockReturns } = vi.hoisted(() => {
+const { mockSelect, mockEq, mockIs, mockOrder, mockReturns } = vi.hoisted(() => {
   const mockReturns = vi.fn()
   const mockOrder = vi.fn(() => ({ returns: mockReturns }))
-  const mockEq = vi.fn(() => ({ order: mockOrder }))
+  const mockIs = vi.fn(() => ({ order: mockOrder }))
+  const mockEq = vi.fn(() => ({ is: mockIs }))
   const mockSelect = vi.fn(() => ({ eq: mockEq }))
-  return { mockSelect, mockEq, mockOrder, mockReturns }
+  return { mockSelect, mockEq, mockIs, mockOrder, mockReturns }
 })
 
 vi.mock('@/lib/supabase/client', () => ({
@@ -92,6 +93,14 @@ describe('getFavorites', () => {
     await getFavorites()
 
     expect(mockEq).toHaveBeenCalledWith('is_favorite', true)
+  })
+
+  it('excludes soft-deleted links', async () => {
+    mockReturns.mockResolvedValue({ data: [], error: null })
+
+    await getFavorites()
+
+    expect(mockIs).toHaveBeenCalledWith('deleted_at', null)
   })
 
   it('queries with descending created_at order', async () => {

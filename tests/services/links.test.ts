@@ -4,8 +4,8 @@ import { getLinks, createLink, updateLink, toggleLinkFavorite, deleteLink } from
 // ── shared mocks ──────────────────────────────────────────────────────────────
 
 const {
-  // getLinks chain: from('links').select().order().returns()
-  mockGetLinksSelect, mockOrder, mockReturns,
+  // getLinks chain: from('links').select().is().order().returns()
+  mockGetLinksSelect, mockGetLinksIs, mockOrder, mockReturns,
   // auth
   mockGetUser,
   // createLink – links insert chain: from('links').insert().select().single()
@@ -14,7 +14,7 @@ const {
   mockLinksUpdate, mockLinksUpdateEq, mockLinksUpdateSingle,
   // toggleLinkFavorite – from('links').update().eq()
   mockFavoriteToggleEq,
-  // deleteLink – from('links').delete().eq()
+  // deleteLink – from('links').update({ deleted_at }).eq()
   mockLinksDeleteEq,
   // tags upsert: from('tags').upsert()
   mockTagsUpsert,
@@ -27,7 +27,8 @@ const {
 } = vi.hoisted(() => {
   const mockReturns = vi.fn()
   const mockOrder = vi.fn(() => ({ returns: mockReturns }))
-  const mockGetLinksSelect = vi.fn(() => ({ order: mockOrder }))
+  const mockGetLinksIs = vi.fn(() => ({ order: mockOrder }))
+  const mockGetLinksSelect = vi.fn(() => ({ is: mockGetLinksIs }))
 
   const mockGetUser = vi.fn()
 
@@ -41,6 +42,7 @@ const {
   const mockFavoriteToggleEq = vi.fn()
   const mockLinksUpdate = vi.fn((args: Record<string, unknown>) => {
     if (args && 'is_favorite' in args) return { eq: mockFavoriteToggleEq }
+    if (args && 'deleted_at' in args) return { eq: mockLinksDeleteEq }
     return { eq: mockLinksUpdateEq }
   })
 
@@ -55,15 +57,14 @@ const {
   const mockLinkTagsDelete = vi.fn(() => ({ eq: mockLinkTagsDeleteEq }))
 
   const mockLinksDeleteEq = vi.fn()
-  const mockLinksDelete = vi.fn(() => ({ eq: mockLinksDeleteEq }))
 
   return {
-    mockGetLinksSelect, mockOrder, mockReturns,
+    mockGetLinksSelect, mockGetLinksIs, mockOrder, mockReturns,
     mockGetUser,
     mockLinksInsert, mockLinksSingle,
     mockLinksUpdate, mockLinksUpdateEq, mockLinksUpdateSingle,
     mockFavoriteToggleEq,
-    mockLinksDeleteEq, mockLinksDelete,
+    mockLinksDeleteEq,
     mockTagsUpsert, mockTagsSelect, mockTagsIn,
     mockLinkTagsInsert, mockLinkTagsDelete, mockLinkTagsDeleteEq,
   }
@@ -73,7 +74,7 @@ vi.mock('@/lib/supabase/client', () => ({
   createClient: vi.fn(() => ({
     auth: { getUser: mockGetUser },
     from: vi.fn((table: string) => {
-      if (table === 'links') return { select: mockGetLinksSelect, insert: mockLinksInsert, update: mockLinksUpdate, delete: vi.fn(() => ({ eq: mockLinksDeleteEq })) }
+      if (table === 'links') return { select: mockGetLinksSelect, insert: mockLinksInsert, update: mockLinksUpdate }
       if (table === 'tags') return { upsert: mockTagsUpsert, select: mockTagsSelect }
       if (table === 'link_tags') return { insert: mockLinkTagsInsert, delete: mockLinkTagsDelete }
       return {}
@@ -172,6 +173,14 @@ describe('getLinks', () => {
     await getLinks()
 
     expect(mockGetLinksSelect).toHaveBeenCalledWith('*, link_tags(tags(name))')
+  })
+
+  it('excludes soft-deleted links', async () => {
+    mockReturns.mockResolvedValue({ data: [], error: null })
+
+    await getLinks()
+
+    expect(mockGetLinksIs).toHaveBeenCalledWith('deleted_at', null)
   })
 })
 
@@ -391,7 +400,7 @@ describe('updateLink', () => {
 // ── deleteLink ────────────────────────────────────────────────────────────────
 
 describe('deleteLink', () => {
-  it('returns true when the delete succeeds', async () => {
+  it('returns true when the soft-delete succeeds', async () => {
     mockLinksDeleteEq.mockResolvedValue({ error: null })
 
     expect(await deleteLink('link-1')).toBe(true)
@@ -403,12 +412,30 @@ describe('deleteLink', () => {
     expect(await deleteLink('link-1')).toBe(false)
   })
 
-  it('filters by id', async () => {
+  it('targets the correct link id', async () => {
     mockLinksDeleteEq.mockResolvedValue({ error: null })
 
     await deleteLink('link-42')
 
     expect(mockLinksDeleteEq).toHaveBeenCalledWith('id', 'link-42')
+  })
+
+  it('sets deleted_at to a non-null ISO timestamp', async () => {
+    mockLinksDeleteEq.mockResolvedValue({ error: null })
+
+    await deleteLink('link-1')
+
+    expect(mockLinksUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ deleted_at: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/) }),
+    )
+  })
+
+  it('uses update (soft delete) not hard delete', async () => {
+    mockLinksDeleteEq.mockResolvedValue({ error: null })
+
+    await deleteLink('link-1')
+
+    expect(mockLinksUpdate).toHaveBeenCalledWith(expect.objectContaining({ deleted_at: expect.any(String) }))
   })
 })
 
