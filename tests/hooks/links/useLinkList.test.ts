@@ -38,6 +38,8 @@ vi.mock('@/components/ToastProvider', () => ({
 
 vi.mock('@/lib/services/links', () => ({
   getLinks: vi.fn(),
+  deleteLink: vi.fn().mockResolvedValue(true),
+  toggleLinkFavorite: vi.fn().mockResolvedValue(true),
 }))
 
 import { getLinks } from '@/lib/services/links'
@@ -182,6 +184,34 @@ describe('useLinkList (integration)', () => {
       act(() => result.current.handleEdit({ ...LINK_A, title: 'Updated' }))
 
       expect(result.current.editingLink).toBeNull()
+    })
+  })
+
+  describe('handleDeleteById', () => {
+    it('removes the link with the given id from results without requiring activeLink', async () => {
+      const { result } = await renderLoaded()
+
+      act(() => result.current.handleDeleteById('1'))
+
+      expect(result.current.results.find(l => l.id === '1')).toBeUndefined()
+    })
+
+    it('leaves other links intact', async () => {
+      const { result } = await renderLoaded()
+
+      act(() => result.current.handleDeleteById('2'))
+
+      expect(result.current.results).toHaveLength(2)
+      expect(result.current.results.map(l => l.id)).toEqual(expect.arrayContaining(['1', '3']))
+    })
+
+    it('does not clear or require activeLink', async () => {
+      const { result } = await renderLoaded()
+
+      act(() => result.current.setActiveLink(LINK_B))
+      act(() => result.current.handleDeleteById('1'))
+
+      expect(result.current.activeLink?.id).toBe('2')
     })
   })
 

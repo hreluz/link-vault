@@ -6,7 +6,7 @@ import { useFavoritesContext } from './FavoritesContext'
 export default function FavoritesGrid() {
   const {
     results, hasActiveFilters, categories,
-    resetFilters, setActiveLink, handleFavoriteToggle,
+    resetFilters, setActiveLink, handleFavoriteToggle, handleDelete,
   } = useFavoritesContext()
 
   if (results.length === 0) {
@@ -37,6 +37,7 @@ export default function FavoritesGrid() {
           category={categories.find(c => c.id === link.category_id) ?? null}
           onMenuOpen={() => setActiveLink(link)}
           onFavoriteToggle={() => handleFavoriteToggle(link.id)}
+          onDelete={() => handleDelete(link.id)}
         />
       ))}
     </div>
