@@ -61,12 +61,15 @@ export async function createLink(input: CreateLinkInput): Promise<LinkWithTags |
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
+  const site_name = new URL(input.url).hostname
+
   const { data: link, error } = await supabase
     .from('links')
     .insert({
       user_id: user.id,
       url: input.url,
       title: input.title ?? null,
+      site_name,
       category_id: input.category_id ?? null,
       status: input.status,
       notes: input.notes ?? null,
