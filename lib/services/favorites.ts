@@ -12,6 +12,7 @@ export async function getFavorites(): Promise<LinkWithTags[]> {
     .from('links')
     .select('*, link_tags(tags(name))')
     .eq('is_favorite', true)
+    .is('deleted_at', null)
     .order('created_at', { ascending: false })
     .returns<LinkQueryRow[]>()
 

@@ -140,6 +140,7 @@ export async function getLinks(): Promise<LinkWithTags[]> {
   const { data, error } = await supabase
     .from('links')
     .select('*, link_tags(tags(name))')
+    .is('deleted_at', null)
     .order('created_at', { ascending: false })
     .returns<LinkQueryRow[]>()
 
@@ -153,6 +154,9 @@ export async function getLinks(): Promise<LinkWithTags[]> {
 
 export async function deleteLink(id: string): Promise<boolean> {
   const supabase = createClient()
-  const { error } = await supabase.from('links').delete().eq('id', id)
+  const { error } = await supabase
+    .from('links')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', id)
   return !error
 }

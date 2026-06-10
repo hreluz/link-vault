@@ -1149,4 +1149,16 @@ begin
     -- 100 Web.dev Performance
     (v_l100, v_t_perf), (v_l100, v_t_frontend), (v_l100, v_t_docs);
 
+  -- ----------------------------------------------------------
+  -- Soft-deleted links (~8% of total for realistic test data)
+  -- ----------------------------------------------------------
+  update public.links set deleted_at = '2026-03-10T08:00:00Z' where id = v_l003;  -- Tailwind CSS v4 video (YouTube)
+  update public.links set deleted_at = '2026-04-22T11:30:00Z' where id = v_l009;  -- Docker for Developers (YouTube)
+  update public.links set deleted_at = '2026-02-14T09:00:00Z' where id = v_l033;  -- tRPC repo (GitHub)
+  update public.links set deleted_at = '2026-05-01T16:00:00Z' where id = v_l047;  -- Supabase Auth SSR guide (Article)
+  update public.links set deleted_at = '2025-09-20T14:00:00Z' where id = v_l054;  -- Micro Frontends (Article)
+  update public.links set deleted_at = '2026-04-05T10:00:00Z' where id = v_l068;  -- Full Stack Open (Course)
+  update public.links set deleted_at = '2026-03-29T19:00:00Z' where id = v_l085;  -- Glassmorphism (Instagram)
+  update public.links set deleted_at = '2026-02-01T21:00:00Z' where id = v_l094;  -- Linux Terminal (TikTok)
+
 end $$;
