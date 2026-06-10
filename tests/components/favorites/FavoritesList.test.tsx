@@ -10,7 +10,7 @@ import type { LinkWithTags } from '@/lib/services/links'
 const BASE: Omit<LinkWithTags, 'id' | 'title'> = {
   url: 'https://example.com', site_name: 'example.com',
   status: 'unread', is_favorite: true, tags: [],
-  description: null, notes: null, image_url: null,
+  description: null, notes: null,
   user_id: 'user-1', category_id: null,
   created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
 }

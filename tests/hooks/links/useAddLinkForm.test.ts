@@ -8,7 +8,7 @@ import type { LinkWithTags } from '@/lib/services/links'
 const SAVED_LINK: LinkWithTags = {
   id: '1', url: 'https://example.com', title: 'Example',
   status: 'unread', is_favorite: false,
-  tags: ['react'], description: '', notes: null, image_url: null,
+  tags: ['react'], description: '', notes: null,
   site_name: 'example.com', user_id: 'user-1', category_id: 'cat-1',
   created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
 }
