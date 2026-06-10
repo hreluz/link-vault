@@ -33,17 +33,20 @@ vi.mock('@/lib/services/favorites', () => ({
 
 vi.mock('@/lib/services/links', () => ({
   toggleLinkFavorite: vi.fn(),
+  deleteLink: vi.fn(),
 }))
 
 import { getFavorites } from '@/lib/services/favorites'
-import { toggleLinkFavorite } from '@/lib/services/links'
+import { toggleLinkFavorite, deleteLink } from '@/lib/services/links'
 const mockGetFavorites = vi.mocked(getFavorites)
 const mockToggleFavorite = vi.mocked(toggleLinkFavorite)
+const mockDeleteLink = vi.mocked(deleteLink)
 
 beforeEach(() => {
   vi.clearAllMocks()
   mockGetFavorites.mockResolvedValue([LINK_A, LINK_B])
   mockToggleFavorite.mockResolvedValue(true)
+  mockDeleteLink.mockResolvedValue(true)
 })
 
 async function renderLoaded() {
@@ -113,10 +116,10 @@ describe('useFavorites', () => {
   })
 
   describe('handleDelete', () => {
-    it('removes the link by id', async () => {
+    it('removes the link by id optimistically', async () => {
       const { result } = await renderLoaded()
 
-      act(() => result.current.handleDelete('1'))
+      await act(async () => { await result.current.handleDelete('1') })
 
       expect(result.current.links.find(l => l.id === '1')).toBeUndefined()
     })
@@ -124,18 +127,44 @@ describe('useFavorites', () => {
     it('leaves other links untouched', async () => {
       const { result } = await renderLoaded()
 
-      act(() => result.current.handleDelete('1'))
+      await act(async () => { await result.current.handleDelete('1') })
 
       expect(result.current.links).toHaveLength(1)
       expect(result.current.links[0].id).toBe('2')
     })
 
-    it('calls addToast with destructive variant', async () => {
+    it('calls deleteLink service with the correct id', async () => {
       const { result } = await renderLoaded()
 
-      act(() => result.current.handleDelete('1'))
+      await act(async () => { await result.current.handleDelete('1') })
+
+      expect(mockDeleteLink).toHaveBeenCalledWith('1')
+    })
+
+    it('toasts "Link deleted" on success', async () => {
+      const { result } = await renderLoaded()
+
+      await act(async () => { await result.current.handleDelete('1') })
 
       expect(mockAddToast).toHaveBeenCalledWith('Link deleted', 'destructive')
+    })
+
+    it('rolls back the optimistic removal on service failure', async () => {
+      mockDeleteLink.mockResolvedValue(false)
+      const { result } = await renderLoaded()
+
+      await act(async () => { await result.current.handleDelete('1') })
+
+      expect(result.current.links.find(l => l.id === '1')).toBeDefined()
+    })
+
+    it('toasts an error on service failure', async () => {
+      mockDeleteLink.mockResolvedValue(false)
+      const { result } = await renderLoaded()
+
+      await act(async () => { await result.current.handleDelete('1') })
+
+      expect(mockAddToast).toHaveBeenCalledWith('Failed to delete link', 'destructive')
     })
   })
 
