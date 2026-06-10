@@ -250,8 +250,17 @@ describe('createLink', () => {
       user_id: 'user-1',
       url: 'https://x.com',
       title: 'My Link',
+      site_name: 'x.com',
       status: 'watching',
       notes: 'note',
+    }))
+  })
+
+  it('derives site_name from the URL hostname', async () => {
+    await createLink({ url: 'https://www.youtube.com/watch?v=abc', category_id: 'cat-1', status: 'unread', tags: [] })
+
+    expect(mockLinksInsert).toHaveBeenCalledWith(expect.objectContaining({
+      site_name: 'www.youtube.com',
     }))
   })
 
