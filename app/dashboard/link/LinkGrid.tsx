@@ -5,7 +5,7 @@ import { useLinkListContext } from './LinkListContext'
 import LinkCard from './LinkCard'
 
 export default function LinkGrid() {
-  const { loading, results, hasActiveFilters, setActiveLink, handleFavoriteToggle, handleLinkOpen, resetFilters } = useLinkListContext()
+  const { loading, results, hasActiveFilters, setActiveLink, handleFavoriteToggle, handleLinkOpen, handleDeleteById, resetFilters } = useLinkListContext()
   const { categories } = useCategoryList()
 
   if (loading) {
@@ -45,6 +45,7 @@ export default function LinkGrid() {
           onMenuOpen={() => setActiveLink(link)}
           onFavoriteToggle={() => handleFavoriteToggle(link.id)}
           onOpen={() => handleLinkOpen(link.id, link.status)}
+          onDelete={() => handleDeleteById(link.id)}
         />
       ))}
     </div>

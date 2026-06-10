@@ -29,6 +29,10 @@ export function useLinkList() {
     modals.setActiveLink(null)
   }
 
+  function handleDeleteById(id: string) {
+    deleteLink(id)
+  }
+
   function handleLinkOpen(id: string, currentStatus: LinkStatus) {
     if (currentStatus === 'unread') changeStatus(id, 'watching')
   }
@@ -47,6 +51,7 @@ export function useLinkList() {
     handleLinkOpen,
     handleEdit,
     handleDelete,
+    handleDeleteById,
     handleFavoriteToggle,
     handleCreate,
     addToast,
