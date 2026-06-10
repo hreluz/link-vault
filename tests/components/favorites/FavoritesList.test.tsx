@@ -14,8 +14,9 @@ const BASE: Omit<LinkWithTags, 'id' | 'title'> = {
   user_id: 'user-1', category_id: null,
   created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
 }
-const LINK_A: LinkWithTags = { ...BASE, id: '1', title: 'Alpha' }
-const LINK_B: LinkWithTags = { ...BASE, id: '2', title: 'Beta' }
+const LINK_A: LinkWithTags = { ...BASE, id: '1', title: 'Alpha', status: 'unread' }
+const LINK_B: LinkWithTags = { ...BASE, id: '2', title: 'Beta', status: 'unread' }
+const LINK_READ: LinkWithTags = { ...BASE, id: '3', title: 'Read Link', status: 'read' }
 
 // ── mocks ─────────────────────────────────────────────────────────────────────
 
@@ -61,6 +62,16 @@ vi.mock('@/app/dashboard/link/BottomSheet', () => ({
       <button data-testid="sheet-close" onClick={onClose}>close</button>
     </div>
   ) : null,
+}))
+
+vi.mock('@/app/dashboard/link/StatusTabBar', () => ({
+  StatusTabBar: ({ value, onChange }: { value: string | null; onChange: (s: string | null) => void }) => (
+    <div data-testid="status-tab-bar">
+      <button data-testid="tab-all" onClick={() => onChange(null)}>All</button>
+      <button data-testid="tab-unread" onClick={() => onChange('unread')}>Unread</button>
+      <button data-testid="tab-read" onClick={() => onChange('read')}>Read</button>
+    </div>
+  ),
 }))
 
 vi.mock('@/app/dashboard/link/EditLinkModal', () => ({
@@ -250,6 +261,54 @@ describe('FavoritesList', () => {
       fireEvent.click(screen.getByTestId('toggle-fav-2'))
 
       expect(mockHandleFavoriteToggle).toHaveBeenCalledWith('2')
+    })
+  })
+
+  describe('StatusTabBar filter', () => {
+    it('renders the status tab bar', () => {
+      setup()
+
+      expect(screen.getByTestId('status-tab-bar')).not.toBeNull()
+    })
+
+    it('shows all links when no status is selected', () => {
+      setup({ links: [LINK_A, LINK_READ] })
+
+      expect(screen.getByTestId('card-1')).not.toBeNull()
+      expect(screen.getByTestId('card-3')).not.toBeNull()
+    })
+
+    it('filters to matching links when a status is selected', () => {
+      setup({ links: [LINK_A, LINK_READ] })
+
+      fireEvent.click(screen.getByTestId('tab-read'))
+
+      expect(screen.queryByTestId('card-1')).toBeNull()
+      expect(screen.getByTestId('card-3')).not.toBeNull()
+    })
+
+    it('shows all links again when All is selected', () => {
+      setup({ links: [LINK_A, LINK_READ] })
+      fireEvent.click(screen.getByTestId('tab-read'))
+
+      fireEvent.click(screen.getByTestId('tab-all'))
+
+      expect(screen.getByTestId('card-1')).not.toBeNull()
+      expect(screen.getByTestId('card-3')).not.toBeNull()
+    })
+
+    it('shows a status-specific empty message when no links match the filter', () => {
+      setup({ links: [LINK_A] })
+
+      fireEvent.click(screen.getByTestId('tab-read'))
+
+      expect(screen.getByText('No favorites match this status.')).not.toBeNull()
+    })
+
+    it('shows the default empty message when no status is selected and there are no links', () => {
+      setup({ links: [] })
+
+      expect(screen.getByText('No favorites yet. Star a link to see it here.')).not.toBeNull()
     })
   })
 })

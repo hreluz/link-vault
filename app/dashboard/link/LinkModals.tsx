@@ -16,7 +16,6 @@ export default function LinkModals() {
     activeLink, setActiveLink,
     sortBy, setSortBy,
     category, setCategory,
-    selectedStatuses, setSelectedStatuses,
     selectedTags, setSelectedTags,
     tagMode, setTagMode,
     allTags,
@@ -50,14 +49,12 @@ export default function LinkModals() {
         sortBy={sortBy}
         category={category}
         categories={categories}
-        selectedStatuses={selectedStatuses}
         selectedTags={selectedTags}
         tagMode={tagMode}
         allTags={allTags}
         resultCount={results.length}
         onSortChange={setSortBy}
         onCategoryChange={setCategory}
-        onStatusesChange={setSelectedStatuses}
         onTagsChange={setSelectedTags}
         onTagModeChange={setTagMode}
         onReset={resetFilters}

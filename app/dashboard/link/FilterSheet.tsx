@@ -1,8 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { STATUS_CONFIG } from '../config'
-import type { LinkStatus } from '@/lib/types/database'
 import type { Category } from '@/lib/services/categories'
 
 type Filter = string | 'all'
@@ -21,27 +19,24 @@ interface Props {
   sortBy: SortBy
   category: Filter
   categories: Category[]
-  selectedStatuses: LinkStatus[]
   selectedTags: string[]
   tagMode: TagMode
   allTags: string[]
   resultCount: number
   onSortChange: (s: SortBy) => void
   onCategoryChange: (c: Filter) => void
-  onStatusesChange: (statuses: LinkStatus[]) => void
   onTagsChange: (tags: string[]) => void
   onTagModeChange: (mode: TagMode) => void
   onReset: () => void
   onClose: () => void
 }
 
-type SectionKey = 'sort' | 'category' | 'status' | 'tags'
+type SectionKey = 'sort' | 'category' | 'tags'
 
-function initOpen(props: Pick<Props, 'sortBy' | 'category' | 'selectedStatuses' | 'selectedTags'>): Set<SectionKey> {
+function initOpen(props: Pick<Props, 'sortBy' | 'category' | 'selectedTags'>): Set<SectionKey> {
   const open = new Set<SectionKey>()
   if (props.sortBy !== 'newest') open.add('sort')
   if (props.category !== 'all') open.add('category')
-  if (props.selectedStatuses.length > 0) open.add('status')
   if (props.selectedTags.length > 0) open.add('tags')
   return open
 }
@@ -81,11 +76,11 @@ function AccordionSection({
 }
 
 export default function FilterSheet({
-  isOpen, sortBy, category, categories, selectedStatuses, selectedTags, tagMode, allTags, resultCount,
-  onSortChange, onCategoryChange, onStatusesChange, onTagsChange, onTagModeChange, onReset, onClose,
+  isOpen, sortBy, category, categories, selectedTags, tagMode, allTags, resultCount,
+  onSortChange, onCategoryChange, onTagsChange, onTagModeChange, onReset, onClose,
 }: Props) {
   const [openSections, setOpenSections] = useState<Set<SectionKey>>(
-    () => initOpen({ sortBy, category, selectedStatuses, selectedTags })
+    () => initOpen({ sortBy, category, selectedTags })
   )
 
   if (!isOpen) return null
@@ -106,15 +101,7 @@ export default function FilterSheet({
     )
   }
 
-  function toggleStatus(s: LinkStatus) {
-    onStatusesChange(
-      selectedStatuses.includes(s)
-        ? selectedStatuses.filter(x => x !== s)
-        : [...selectedStatuses, s]
-    )
-  }
-
-  const hasFilters = sortBy !== 'newest' || category !== 'all' || selectedStatuses.length > 0 || selectedTags.length > 0
+  const hasFilters = sortBy !== 'newest' || category !== 'all' || selectedTags.length > 0
 
   const sortLabel = SORT_OPTIONS.find(o => o.value === sortBy)?.label
   const activeCategory = categories.find(c => c.id === category)
@@ -175,33 +162,6 @@ export default function FilterSheet({
                   }`}
                 >
                   {cat.emoticon} {cat.name}
-                </button>
-              ))}
-            </div>
-          </AccordionSection>
-
-          <AccordionSection
-            label="Status"
-            open={openSections.has('status')}
-            onToggle={() => toggle('status')}
-            badge={
-              selectedStatuses.length > 0
-                ? <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">{selectedStatuses.length}</span>
-                : undefined
-            }
-          >
-            <div className="flex flex-wrap gap-2">
-              {(Object.keys(STATUS_CONFIG) as LinkStatus[]).map(s => (
-                <button
-                  key={s}
-                  onClick={() => toggleStatus(s)}
-                  className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
-                    selectedStatuses.includes(s)
-                      ? `${STATUS_CONFIG[s].badge} ring-2 ring-indigo-500 ring-offset-1`
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700'
-                  }`}
-                >
-                  {STATUS_CONFIG[s].label}
                 </button>
               ))}
             </div>
