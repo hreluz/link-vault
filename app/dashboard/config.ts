@@ -7,3 +7,7 @@ export const STATUS_CONFIG: Record<LinkStatus, { label: string; badge: string }>
   archived: { label: 'Archived', badge: 'bg-slate-100 text-slate-400' },
 }
 
+export const STATUS_ORDER: Record<LinkStatus, number> = {
+  unread: 0, watching: 1, read: 2, archived: 3,
+}
+
