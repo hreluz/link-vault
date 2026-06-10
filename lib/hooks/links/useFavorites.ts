@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { getFavorites } from '@/lib/services/favorites'
-import { toggleLinkFavorite, type LinkWithTags } from '@/lib/services/links'
+import { toggleLinkFavorite, deleteLink, type LinkWithTags } from '@/lib/services/links'
 import type { LinkStatus } from '@/lib/types/database'
 import { STATUS_CONFIG } from '@/app/dashboard/config'
 import { useToast } from '@/components/ToastProvider'
@@ -29,9 +29,16 @@ export function useFavorites() {
     addToast('Changes saved')
   }
 
-  function handleDelete(id: string) {
+  async function handleDelete(id: string) {
+    const snapshot = links.find(l => l.id === id)
     setLinks(prev => prev.filter(l => l.id !== id))
-    addToast('Link deleted', 'destructive')
+    const ok = await deleteLink(id)
+    if (!ok) {
+      if (snapshot) setLinks(prev => [snapshot, ...prev])
+      addToast('Failed to delete link', 'destructive')
+    } else {
+      addToast('Link deleted', 'destructive')
+    }
   }
 
   async function handleFavoriteToggle(id: string) {

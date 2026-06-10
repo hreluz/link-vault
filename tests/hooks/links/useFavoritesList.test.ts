@@ -42,6 +42,7 @@ vi.mock('@/lib/services/favorites', () => ({
 
 vi.mock('@/lib/services/links', () => ({
   toggleLinkFavorite: vi.fn(),
+  deleteLink: vi.fn().mockResolvedValue(true),
 }))
 
 import { getFavorites } from '@/lib/services/favorites'
@@ -190,7 +191,7 @@ describe('useFavoritesList (integration)', () => {
     it('handleDelete removes the link from results', async () => {
       const { result } = await renderLoaded()
 
-      act(() => result.current.handleDelete('1'))
+      await act(async () => { await result.current.handleDelete('1') })
 
       expect(result.current.links.find(l => l.id === '1')).toBeUndefined()
     })
