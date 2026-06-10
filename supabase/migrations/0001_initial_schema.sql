@@ -28,7 +28,6 @@ create table public.links (
   url          text        not null,
   title        text,
   description  text,
-  image_url    text,
   site_name    text,
   notes        text,
   status       public.link_status  default 'unread' not null,

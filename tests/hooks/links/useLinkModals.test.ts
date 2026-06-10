@@ -8,7 +8,7 @@ const LINK = {
   id: '1', title: 'Test', site_name: 'test.com',
   content_type: 'article' as const, status: 'unread' as const, is_favorite: false,
   tags: [], created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
-  url: 'https://test.com', description: '', notes: null, user_id: 'user-1', image_url: null, category_id: null,
+  url: 'https://test.com', description: '', notes: null, user_id: 'user-1', category_id: null,
 }
 
 describe('useLinkModals', () => {

@@ -11,7 +11,7 @@ const mockAddToast = vi.fn()
 
 const { LINK_A, LINK_B, LINK_C } = vi.hoisted(() => {
   const base = {
-    user_id: 'user-1', image_url: null, description: '', notes: null,
+    user_id: 'user-1', description: '', notes: null,
     is_favorite: true, url: 'https://example.com',
   }
   const LINK_A: LinkWithTags = {
