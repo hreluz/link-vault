@@ -89,12 +89,13 @@ describe('useLinkFilters', () => {
       expect(result.current.results.map(l => l.id)).toEqual(['3', '1'])
     })
 
-    it('each selected status counts individually', () => {
+    it('does not count selected statuses in activeFilterCount', () => {
       const { result } = renderFilters()
 
       act(() => result.current.setSelectedStatuses(['unread', 'read']))
 
-      expect(result.current.activeFilterCount).toBe(2)
+      expect(result.current.activeFilterCount).toBe(0)
+      expect(result.current.hasActiveFilters).toBe(true)
     })
   })
 

@@ -72,8 +72,8 @@ export function useLinkFilters(links: LinkWithTags[]) {
     }
   })
 
-  const activeFilterCount = (sortBy !== 'newest' ? 1 : 0) + (category !== 'all' ? 1 : 0) + selectedStatuses.length + selectedTags.length
-  const hasActiveFilters = activeFilterCount > 0 || query.length > 0
+  const activeFilterCount = (sortBy !== 'newest' ? 1 : 0) + (category !== 'all' ? 1 : 0) + selectedTags.length
+  const hasActiveFilters = activeFilterCount > 0 || selectedStatuses.length > 0 || query.length > 0
   const allTags = Array.from(new Set(links.flatMap(l => l.tags))).sort()
 
   return {
