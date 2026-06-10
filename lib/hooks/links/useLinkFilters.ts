@@ -4,12 +4,9 @@ import { useState } from 'react'
 import type { LinkWithTags } from '@/lib/services/links'
 import type { LinkStatus } from '@/lib/types/database'
 import type { SortBy } from '@/app/dashboard/link/FilterSheet'
+import { STATUS_ORDER } from '@/app/dashboard/config'
 
 type Filter = string | 'all'
-
-const STATUS_ORDER: Record<LinkStatus, number> = {
-  unread: 0, watching: 1, read: 2, archived: 3,
-}
 
 export function useLinkFilters(links: LinkWithTags[]) {
   const [category, setCategory] = useState<Filter>('all')

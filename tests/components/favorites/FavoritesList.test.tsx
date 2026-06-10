@@ -27,8 +27,13 @@ const mockHandleFavoriteToggle = vi.fn()
 
 const mockUseFavorites = vi.fn()
 
-vi.mock('@/lib/hooks/links', () => ({
+// Mock useFavorites at its direct path so useFavoritesList + useLinkFilters run for real
+vi.mock('@/lib/hooks/links/useFavorites', () => ({
   useFavorites: () => mockUseFavorites(),
+}))
+
+vi.mock('@/lib/hooks/categories/useCategoryList', () => ({
+  useCategoryList: () => ({ categories: [], loading: false }),
 }))
 
 vi.mock('@/app/dashboard/link/LinkCard', () => ({
@@ -64,6 +69,23 @@ vi.mock('@/app/dashboard/link/BottomSheet', () => ({
   ) : null,
 }))
 
+vi.mock('@/components/SearchBar', () => ({
+  default: ({ value, onChange, onFilterOpen }: {
+    value: string
+    onChange: (q: string) => void
+    onFilterOpen?: () => void
+  }) => (
+    <>
+      <input
+        data-testid="search-bar"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+      />
+      {onFilterOpen && <button data-testid="open-filters" onClick={onFilterOpen}>Filters</button>}
+    </>
+  ),
+}))
+
 vi.mock('@/app/dashboard/link/StatusTabBar', () => ({
   StatusTabBar: ({ value, onChange }: { value: string | null; onChange: (s: string | null) => void }) => (
     <div data-testid="status-tab-bar">
@@ -72,6 +94,19 @@ vi.mock('@/app/dashboard/link/StatusTabBar', () => ({
       <button data-testid="tab-read" onClick={() => onChange('read')}>Read</button>
     </div>
   ),
+}))
+
+vi.mock('@/app/dashboard/link/FilterSheet', () => ({
+  default: ({ isOpen, onReset, onClose }: {
+    isOpen: boolean
+    onReset: () => void
+    onClose: () => void
+  }) => isOpen ? (
+    <div data-testid="filter-sheet">
+      <button data-testid="filter-reset" onClick={onReset}>reset</button>
+      <button data-testid="filter-close" onClick={onClose}>close</button>
+    </div>
+  ) : null,
 }))
 
 vi.mock('@/app/dashboard/link/EditLinkModal', () => ({
@@ -297,18 +332,128 @@ describe('FavoritesList', () => {
       expect(screen.getByTestId('card-3')).not.toBeNull()
     })
 
-    it('shows a status-specific empty message when no links match the filter', () => {
+    it('shows the active-filter empty message when no links match the status', () => {
       setup({ links: [LINK_A] })
 
       fireEvent.click(screen.getByTestId('tab-read'))
 
-      expect(screen.getByText('No favorites match this status.')).not.toBeNull()
+      expect(screen.getByText('No favorites match your search.')).not.toBeNull()
     })
 
     it('shows the default empty message when no status is selected and there are no links', () => {
       setup({ links: [] })
 
       expect(screen.getByText('No favorites yet. Star a link to see it here.')).not.toBeNull()
+    })
+  })
+
+  describe('search bar', () => {
+    it('renders the search bar', () => {
+      setup()
+
+      expect(screen.getByTestId('search-bar')).not.toBeNull()
+    })
+
+    it('filters links by title', () => {
+      setup({ links: [LINK_A, LINK_B] })
+
+      fireEvent.change(screen.getByTestId('search-bar'), { target: { value: 'Alpha' } })
+
+      expect(screen.getByTestId('card-1')).not.toBeNull()
+      expect(screen.queryByTestId('card-2')).toBeNull()
+    })
+
+    it('filters links by site_name', () => {
+      const LINK_SITE: LinkWithTags = { ...BASE, id: '4', title: 'Site Link', status: 'unread', site_name: 'youtube.com' }
+      setup({ links: [LINK_A, LINK_SITE] })
+
+      fireEvent.change(screen.getByTestId('search-bar'), { target: { value: 'youtube' } })
+
+      expect(screen.queryByTestId('card-1')).toBeNull()
+      expect(screen.getByTestId('card-4')).not.toBeNull()
+    })
+
+    it('filters links by tag', () => {
+      const LINK_TAGGED: LinkWithTags = { ...BASE, id: '5', title: 'Tagged', status: 'unread', tags: ['typescript'] }
+      setup({ links: [LINK_A, LINK_TAGGED] })
+
+      fireEvent.change(screen.getByTestId('search-bar'), { target: { value: 'typescript' } })
+
+      expect(screen.queryByTestId('card-1')).toBeNull()
+      expect(screen.getByTestId('card-5')).not.toBeNull()
+    })
+
+    it('shows the active-filter empty message when no links match the query', () => {
+      setup({ links: [LINK_A] })
+
+      fireEvent.change(screen.getByTestId('search-bar'), { target: { value: 'zzznomatch' } })
+
+      expect(screen.getByText('No favorites match your search.')).not.toBeNull()
+    })
+
+    it('stacks with the status filter', () => {
+      setup({ links: [LINK_A, LINK_READ] })
+
+      fireEvent.change(screen.getByTestId('search-bar'), { target: { value: 'Alpha' } })
+      fireEvent.click(screen.getByTestId('tab-unread'))
+
+      expect(screen.getByTestId('card-1')).not.toBeNull()
+      expect(screen.queryByTestId('card-3')).toBeNull()
+    })
+
+    it('shows a clear filters button when filters are active', () => {
+      setup({ links: [LINK_A] })
+
+      fireEvent.change(screen.getByTestId('search-bar'), { target: { value: 'zzz' } })
+
+      expect(screen.getByRole('button', { name: 'Clear filters' })).not.toBeNull()
+    })
+
+    it('clears all filters when clear filters is clicked', () => {
+      setup({ links: [LINK_A, LINK_READ] })
+      fireEvent.click(screen.getByTestId('tab-read'))
+      fireEvent.change(screen.getByTestId('search-bar'), { target: { value: 'zzz' } })
+
+      fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
+
+      expect(screen.getByTestId('card-1')).not.toBeNull()
+      expect(screen.getByTestId('card-3')).not.toBeNull()
+    })
+  })
+
+  describe('FilterSheet', () => {
+    it('is not rendered initially', () => {
+      setup()
+
+      expect(screen.queryByTestId('filter-sheet')).toBeNull()
+    })
+
+    it('opens when the Filters button is clicked', () => {
+      setup()
+
+      fireEvent.click(screen.getByTestId('open-filters'))
+
+      expect(screen.getByTestId('filter-sheet')).not.toBeNull()
+    })
+
+    it('closes when onClose is called', () => {
+      setup()
+      fireEvent.click(screen.getByTestId('open-filters'))
+
+      fireEvent.click(screen.getByTestId('filter-close'))
+
+      expect(screen.queryByTestId('filter-sheet')).toBeNull()
+    })
+
+    it('resets all filters when onReset is called', () => {
+      setup({ links: [LINK_A, LINK_READ] })
+      fireEvent.click(screen.getByTestId('tab-read'))
+      fireEvent.click(screen.getByTestId('open-filters'))
+
+      fireEvent.click(screen.getByTestId('filter-reset'))
+
+      expect(screen.getByTestId('card-1')).not.toBeNull()
+      expect(screen.getByTestId('card-3')).not.toBeNull()
     })
   })
 })
