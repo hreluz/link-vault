@@ -148,6 +148,32 @@ describe('useLinkList (integration)', () => {
     })
   })
 
+  describe('handleLinkOpen', () => {
+    it('changes status to watching when link is unread', async () => {
+      const { result } = await renderLoaded()
+
+      act(() => result.current.handleLinkOpen('1', 'unread'))
+
+      expect(result.current.links.find(l => l.id === '1')?.status).toBe('watching')
+    })
+
+    it('does nothing when status is not unread', async () => {
+      const { result } = await renderLoaded()
+
+      act(() => result.current.handleLinkOpen('2', 'read'))
+
+      expect(result.current.links.find(l => l.id === '2')?.status).toBe('read')
+    })
+
+    it('does nothing when status is watching', async () => {
+      const { result } = await renderLoaded()
+
+      act(() => result.current.handleLinkOpen('3', 'watching'))
+
+      expect(result.current.links.find(l => l.id === '3')?.status).toBe('watching')
+    })
+  })
+
   describe('handleEdit', () => {
     it('clears editingLink (cross-hook coordination)', async () => {
       const { result } = await renderLoaded()

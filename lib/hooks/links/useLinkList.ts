@@ -29,6 +29,10 @@ export function useLinkList() {
     modals.setActiveLink(null)
   }
 
+  function handleLinkOpen(id: string, currentStatus: LinkStatus) {
+    if (currentStatus === 'unread') changeStatus(id, 'watching')
+  }
+
   function handleFavoriteToggle(id: string) {
     toggleFavorite(id)
     modals.setActiveLink(prev => prev?.id === id ? { ...prev, is_favorite: !prev.is_favorite } : prev)
@@ -40,6 +44,7 @@ export function useLinkList() {
     links,
     loading,
     handleStatusChange,
+    handleLinkOpen,
     handleEdit,
     handleDelete,
     handleFavoriteToggle,

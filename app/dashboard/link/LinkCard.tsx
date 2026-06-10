@@ -7,9 +7,10 @@ interface Props {
   category?: Category | null
   onMenuOpen: () => void
   onFavoriteToggle: () => void
+  onOpen?: () => void
 }
 
-export default function LinkCard({ link, category, onMenuOpen, onFavoriteToggle }: Props) {
+export default function LinkCard({ link, category, onMenuOpen, onFavoriteToggle, onOpen }: Props) {
   const status = STATUS_CONFIG[link.status]
 
   return (
@@ -49,6 +50,7 @@ export default function LinkCard({ link, category, onMenuOpen, onFavoriteToggle 
             href={link.url}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={onOpen}
             className="after:absolute after:inset-0 after:rounded-2xl after:content-[''] focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-indigo-500"
           >
             {link.title}
