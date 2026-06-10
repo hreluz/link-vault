@@ -16,6 +16,12 @@ const SECTIONS = [
     title: 'Tags',
     description: 'Create and manage tags for your links',
   },
+  {
+    href: '/dashboard/organize/trash',
+    icon: '🗑️',
+    title: 'Trash',
+    description: 'View and restore your deleted links',
+  },
 ]
 
 export default function OrganizePage() {
@@ -24,7 +30,7 @@ export default function OrganizePage() {
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">Organize</h1>
         <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
-          Manage your categories and tags
+          Manage your categories, tags, and deleted links
         </p>
       </div>
 
