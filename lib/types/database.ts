@@ -1,14 +1,4 @@
-export type ContentType =
-  | 'youtube'
-  | 'instagram'
-  | 'tiktok'
-  | 'article'
-  | 'course'
-  | 'tweet'
-  | 'github'
-  | 'other'
-
-export type LinkStatus = 'unread' | 'watching' | 'read' | 'favorite' | 'archived'
+export type LinkStatus = 'unread' | 'watching' | 'read' | 'archived'
 
 export interface Database {
   public: {
@@ -36,6 +26,7 @@ export interface Database {
           avatar_url?: string | null
           updated_at?: string
         }
+        Relationships: []
       }
       links: {
         Row: {
@@ -44,14 +35,14 @@ export interface Database {
           url: string
           title: string | null
           description: string | null
-          image_url: string | null
           site_name: string | null
-          content_type: ContentType
+          category_id: string | null
           notes: string | null
           status: LinkStatus
           is_favorite: boolean
           created_at: string
           updated_at: string
+          deleted_at: string | null
         }
         Insert: {
           id?: string
@@ -59,27 +50,28 @@ export interface Database {
           url: string
           title?: string | null
           description?: string | null
-          image_url?: string | null
           site_name?: string | null
-          content_type?: ContentType
+          category_id?: string | null
           notes?: string | null
           status?: LinkStatus
           is_favorite?: boolean
           created_at?: string
           updated_at?: string
+          deleted_at?: string | null
         }
         Update: {
           url?: string
           title?: string | null
           description?: string | null
-          image_url?: string | null
           site_name?: string | null
-          content_type?: ContentType
+          category_id?: string | null
           notes?: string | null
           status?: LinkStatus
           is_favorite?: boolean
           updated_at?: string
+          deleted_at?: string | null
         }
+        Relationships: []
       }
       tags: {
         Row: {
@@ -100,6 +92,7 @@ export interface Database {
           name?: string
           color?: string | null
         }
+        Relationships: []
       }
       link_tags: {
         Row: {
@@ -112,11 +105,66 @@ export interface Database {
           link_id: string
           tag_id: string
         }
-        Update: never
+        Update: {
+          link_id?: string
+          tag_id?: string
+        }
+        Relationships: []
+      }
+      categories: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          description: string | null
+          color: string | null
+          emoticon: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name: string
+          description?: string | null
+          color?: string | null
+          emoticon?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          name?: string
+          description?: string | null
+          color?: string | null
+          emoticon?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      category_domains: {
+        Row: {
+          id: string
+          category_id: string
+          user_id: string
+          domain: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          category_id: string
+          user_id: string
+          domain: string
+          created_at?: string
+        }
+        Update: {
+          domain?: string
+        }
+        Relationships: []
       }
     }
+    Views: Record<string, never>
+    Functions: Record<string, never>
     Enums: {
-      content_type: ContentType
       link_status: LinkStatus
     }
   }
@@ -129,3 +177,5 @@ export type User = Tables<'users'>
 export type Link = Tables<'links'>
 export type Tag = Tables<'tags'>
 export type LinkTag = Tables<'link_tags'>
+export type Category = Tables<'categories'>
+export type CategoryDomain = Tables<'category_domains'>

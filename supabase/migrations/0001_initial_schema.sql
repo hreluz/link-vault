@@ -2,22 +2,10 @@
 -- Enums
 -- ============================================================
 
-create type public.content_type as enum (
-  'youtube',
-  'instagram',
-  'tiktok',
-  'article',
-  'course',
-  'tweet',
-  'github',
-  'other'
-);
-
 create type public.link_status as enum (
   'unread',
   'watching',
   'read',
-  'favorite',
   'archived'
 );
 
@@ -40,14 +28,13 @@ create table public.links (
   url          text        not null,
   title        text,
   description  text,
-  image_url    text,
   site_name    text,
-  content_type public.content_type default 'other' not null,
   notes        text,
   status       public.link_status  default 'unread' not null,
   is_favorite  boolean     default false not null,
   created_at   timestamptz default now() not null,
-  updated_at   timestamptz default now() not null
+  updated_at   timestamptz default now() not null,
+  deleted_at   timestamptz
 );
 
 create table public.tags (
@@ -66,25 +53,43 @@ create table public.link_tags (
   unique(link_id, tag_id)
 );
 
+create table public.categories (
+  id          uuid        default gen_random_uuid() primary key,
+  user_id     uuid        references public.users(id) on delete cascade not null,
+  name        text        not null,
+  description text,
+  color       text,
+  emoticon    text,
+  created_at  timestamptz default now() not null,
+  updated_at  timestamptz default now() not null,
+  unique(user_id, name)
+);
+
 -- ============================================================
 -- Indexes
 -- ============================================================
 
-create index links_user_id_idx    on public.links(user_id);
-create index links_status_idx     on public.links(status);
-create index links_content_type_idx on public.links(content_type);
-create index tags_user_id_idx     on public.tags(user_id);
-create index link_tags_link_id_idx on public.link_tags(link_id);
-create index link_tags_tag_id_idx  on public.link_tags(tag_id);
+alter table public.links
+  add column category_id uuid references public.categories(id) on delete set null;
+
+create index links_user_id_idx       on public.links(user_id);
+create index links_status_idx        on public.links(status);
+create index links_category_id_idx   on public.links(category_id);
+create index links_deleted_at_idx    on public.links(deleted_at);
+create index tags_user_id_idx        on public.tags(user_id);
+create index link_tags_link_id_idx   on public.link_tags(link_id);
+create index link_tags_tag_id_idx    on public.link_tags(tag_id);
+create index categories_user_id_idx  on public.categories(user_id);
 
 -- ============================================================
 -- Row Level Security
 -- ============================================================
 
-alter table public.users    enable row level security;
-alter table public.links    enable row level security;
-alter table public.tags     enable row level security;
-alter table public.link_tags enable row level security;
+alter table public.users       enable row level security;
+alter table public.links       enable row level security;
+alter table public.tags        enable row level security;
+alter table public.link_tags   enable row level security;
+alter table public.categories  enable row level security;
 
 -- users
 create policy "users: select own" on public.users
@@ -117,6 +122,19 @@ create policy "tags: update own" on public.tags
   for update using (auth.uid() = user_id);
 
 create policy "tags: delete own" on public.tags
+  for delete using (auth.uid() = user_id);
+
+-- categories
+create policy "categories: select own" on public.categories
+  for select using (auth.uid() = user_id);
+
+create policy "categories: insert own" on public.categories
+  for insert with check (auth.uid() = user_id);
+
+create policy "categories: update own" on public.categories
+  for update using (auth.uid() = user_id);
+
+create policy "categories: delete own" on public.categories
   for delete using (auth.uid() = user_id);
 
 -- link_tags (access is derived from the owning link)

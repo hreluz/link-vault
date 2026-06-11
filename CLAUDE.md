@@ -20,22 +20,40 @@ The central entity. Every saved link has:
 | Field | Type | Notes |
 |---|---|---|
 | `id` | string | unique identifier |
+| `user_id` | string | owner |
 | `url` | string | the saved URL |
-| `title` | string | user-editable or auto-fetched |
-| `description` | string | short summary |
-| `previewImage` | string | OG/thumbnail image URL |
-| `domain` | string | auto-extracted from URL (e.g. `youtube.com`) |
-| `tags` | string[] | user-defined labels |
-| `notes` | string | free-form personal notes |
+| `title` | string \| null | user-editable or auto-fetched |
+| `description` | string \| null | short summary |
+| `image_url` | string \| null | OG/thumbnail image URL |
+| `site_name` | string \| null | auto-extracted from URL (e.g. `youtube.com`) |
+| `content_type` | `ContentType` | see below |
+| `notes` | string \| null | free-form personal notes |
 | `status` | `LinkStatus` | see below |
-| `createdAt` | Date | |
-| `updatedAt` | Date | |
+| `is_favorite` | boolean | |
+| `created_at` | string | ISO timestamp |
+| `updated_at` | string | ISO timestamp |
+| `tags` | string[] | computed via `link_tags` join — not a DB column |
 
 ### LinkStatus
 
 ```ts
 type LinkStatus = "unread" | "watching" | "read" | "favorite" | "archived"
 ```
+
+### Category
+
+User-defined buckets for organizing links. 8 defaults are seeded automatically on first login via `seedDefaultCategories` (called from `signIn` in `lib/services/auth.ts`).
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | string | unique identifier |
+| `user_id` | string | owner |
+| `name` | string | e.g. `YouTube`, `Article` |
+| `description` | string \| null | short label |
+| `color` | string \| null | hex color (e.g. `#FF0000`) |
+| `emoticon` | string \| null | emoji icon (e.g. `📺`) |
+| `created_at` | string | ISO timestamp |
+| `updated_at` | string | ISO timestamp |
 
 ### Content types
 
@@ -56,6 +74,7 @@ The app should recognize and visually differentiate these source types:
 4. **Status management** — move links between unread → watching → read → favorite / archived
 5. **Tagging** — add/remove tags, browse by tag
 6. **Notes** — add personal notes to any link
+7. **Categories** — organize links into categories; 8 defaults seeded on first login
 
 ## Conventions
 
@@ -63,8 +82,20 @@ The app should recognize and visually differentiate these source types:
 - Shared UI components go in `components/`
 - Domain logic (types, helpers, data access) goes in `lib/`
 - Business logic (Supabase calls, no Next.js deps) goes in `lib/services/`
+- React hooks (client state / effects) go in `lib/hooks/<domain>/`
 - Keep components small and focused; co-locate styles with Tailwind classes
 - Prefer server components by default; use `"use client"` only when needed
+
+### Supabase client rules
+
+| Context | Client to use | Import |
+|---|---|---|
+| Server actions, middleware | Server client | `@/lib/supabase/server` |
+| Client hooks, browser services | Browser client | `@/lib/supabase/client` |
+
+Never import `@/lib/supabase/server` in a file that is (or can be) included in the client bundle — it uses `cookies()` from `next/headers` which is server-only and will break the build.
+
+When a service function is called from both server and client contexts, accept the Supabase client as a parameter (`SupabaseClient<Database>`) rather than creating it internally. See `seedDefaultCategories` in `lib/services/categories.ts` as an example.
 
 ## Design system
 

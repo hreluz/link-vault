@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { signIn, signUp, signOut } from '@/lib/services/auth'
 
-const { mockSignInWithPassword, mockSignUp, mockSignOut } = vi.hoisted(() => ({
+const { mockSignInWithPassword, mockSignUp, mockSignOut, mockSeedDefaultCategories } = vi.hoisted(() => ({
   mockSignInWithPassword: vi.fn(),
   mockSignUp: vi.fn(),
   mockSignOut: vi.fn(),
+  mockSeedDefaultCategories: vi.fn(),
 }))
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -17,13 +18,18 @@ vi.mock('@/lib/supabase/server', () => ({
   }),
 }))
 
+vi.mock('@/lib/services/categories', () => ({
+  seedDefaultCategories: mockSeedDefaultCategories,
+}))
+
 beforeEach(() => {
   vi.clearAllMocks()
 })
 
 describe('signIn', () => {
-  it('returns success when credentials are valid', async () => {
-    mockSignInWithPassword.mockResolvedValue({ error: null })
+  it('returns success and seeds default categories when credentials are valid', async () => {
+    mockSignInWithPassword.mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null })
+    mockSeedDefaultCategories.mockResolvedValue(undefined)
 
     const result = await signIn('user@example.com', 'password123')
 
@@ -32,16 +38,19 @@ describe('signIn', () => {
       email: 'user@example.com',
       password: 'password123',
     })
+    expect(mockSeedDefaultCategories).toHaveBeenCalledWith(expect.anything(), 'user-123')
   })
 
   it('returns the error message when credentials are invalid', async () => {
     mockSignInWithPassword.mockResolvedValue({
+      data: { user: null },
       error: { message: 'Invalid login credentials' },
     })
 
     const result = await signIn('user@example.com', 'wrong')
 
     expect(result).toEqual({ success: false, error: 'Invalid login credentials' })
+    expect(mockSeedDefaultCategories).not.toHaveBeenCalled()
   })
 })
 
