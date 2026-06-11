@@ -10,6 +10,10 @@ A personal "save for later" app for bookmarking links across content types — v
 - **React 19**
 - **TypeScript**
 - **Tailwind CSS v4**
+- **Supabase** (Postgres + Auth + SSR)
+- **Sonner** — toast notifications
+- **Emoji Mart** — emoji picker for categories / tags
+- **Vitest + Testing Library** — unit tests
 
 ## Core domain
 
@@ -24,25 +28,42 @@ The central entity. Every saved link has:
 | `url` | string | the saved URL |
 | `title` | string \| null | user-editable or auto-fetched |
 | `description` | string \| null | short summary |
-| `image_url` | string \| null | OG/thumbnail image URL |
 | `site_name` | string \| null | auto-extracted from URL (e.g. `youtube.com`) |
 | `content_type` | `ContentType` | see below |
 | `notes` | string \| null | free-form personal notes |
+| `category_id` | string \| null | FK → categories |
 | `status` | `LinkStatus` | see below |
 | `is_favorite` | boolean | |
 | `created_at` | string | ISO timestamp |
 | `updated_at` | string | ISO timestamp |
+| `deleted_at` | string \| null | set on soft-delete; `null` means not deleted |
 | `tags` | string[] | computed via `link_tags` join — not a DB column |
 
 ### LinkStatus
 
 ```ts
-type LinkStatus = "unread" | "watching" | "read" | "favorite" | "archived"
+type LinkStatus = "unread" | "watching" | "read" | "archived"
 ```
+
+Favorites use `is_favorite: boolean`, not a status value.
+
+### Tag
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | string | unique identifier |
+| `user_id` | string | owner |
+| `name` | string | unique per user; stored as kebab-case |
+| `color` | string \| null | hex color for UI (e.g. `#6366f1`) |
+| `is_private` | boolean | if true, links are hidden until tag is unlocked |
+| `password_hash` | string \| null | SHA-256 hash; required when `is_private=true` |
+| `created_at` | string | ISO timestamp |
+
+Private tags require a session-scoped password unlock via `UnlockTagModal`. Unlocked state lives in `UnlockedTagsContext` and is cleared on page refresh.
 
 ### Category
 
-User-defined buckets for organizing links. 8 defaults are seeded automatically on first login via `seedDefaultCategories` (called from `signIn` in `lib/services/auth.ts`).
+User-defined buckets for organizing links. **9 defaults** are seeded automatically on first login via `seedDefaultCategories` (called from `signIn` in `lib/services/auth.ts`).
 
 | Field | Type | Notes |
 |---|---|---|
@@ -54,6 +75,22 @@ User-defined buckets for organizing links. 8 defaults are seeded automatically o
 | `emoticon` | string \| null | emoji icon (e.g. `📺`) |
 | `created_at` | string | ISO timestamp |
 | `updated_at` | string | ISO timestamp |
+
+Default categories seeded: Not defined (🔖), YouTube (📺), Instagram (📸), TikTok (🎵), Article (📄), Course (🎓), Tweet (🐦), GitHub (💻), Other (🔗).
+
+### CategoryDomain
+
+Maps URL domains to categories for auto-assignment when creating a link.
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | string | unique identifier |
+| `category_id` | string | FK → categories |
+| `user_id` | string | owner |
+| `domain` | string | normalized hostname (e.g. `youtube.com`) |
+| `created_at` | string | ISO timestamp |
+
+Unique constraint: `(user_id, domain)`.
 
 ### Content types
 
@@ -68,13 +105,20 @@ The app should recognize and visually differentiate these source types:
 
 ## Key features
 
-1. **Save a link** — paste URL, auto-fetch title + preview image + domain
-2. **Browse & filter** — filter by status, tags, content type, or domain
-3. **Search** — full-text search across title, description, notes, tags
-4. **Status management** — move links between unread → watching → read → favorite / archived
-5. **Tagging** — add/remove tags, browse by tag
-6. **Notes** — add personal notes to any link
-7. **Categories** — organize links into categories; 8 defaults seeded on first login
+1. **Save a link** — paste URL, auto-extract `site_name` from hostname
+2. **Categorize** — auto-assign category by domain mapping; user can override
+3. **Tag** — add/remove tags using comma-separated input or `#tag` syntax; browse by tag
+4. **Private tags** — password-protect tags; session-scoped unlock; links hidden until unlocked
+5. **Status workflow** — Unread → Watching → Read → Archived
+6. **Favorites** — `is_favorite` toggle; dedicated `/dashboard/favorites` view with full filter/search parity
+7. **Search** — full-text across title, domain, notes, tags; `#tag` syntax jumps to tag filter
+8. **Filter & sort** — by category, tags (any/all), status; sort by newest/oldest/alphabetical/status
+9. **Trash** — soft-delete via `deleted_at`; 2-second undo toast; restore or permanently delete
+10. **Swipe-to-delete** — left swipe gesture on mobile via `SwipeableCard`
+11. **Organize hub** — `/dashboard/organize` with categories, tags, and trash sections
+12. **Import / Export** — export as JSON or CSV; import from file or paste
+13. **Change password** — re-verifies current password before updating
+14. **Dark mode** — theme toggle via `ThemeProvider`; inline script prevents flash on load
 
 ## Conventions
 
@@ -83,6 +127,7 @@ The app should recognize and visually differentiate these source types:
 - Domain logic (types, helpers, data access) goes in `lib/`
 - Business logic (Supabase calls, no Next.js deps) goes in `lib/services/`
 - React hooks (client state / effects) go in `lib/hooks/<domain>/`
+- React contexts go in `lib/context/`
 - Keep components small and focused; co-locate styles with Tailwind classes
 - Prefer server components by default; use `"use client"` only when needed
 
@@ -96,6 +141,14 @@ The app should recognize and visually differentiate these source types:
 Never import `@/lib/supabase/server` in a file that is (or can be) included in the client bundle — it uses `cookies()` from `next/headers` which is server-only and will break the build.
 
 When a service function is called from both server and client contexts, accept the Supabase client as a parameter (`SupabaseClient<Database>`) rather than creating it internally. See `seedDefaultCategories` in `lib/services/categories.ts` as an example.
+
+### Soft delete
+
+Links are never hard-deleted from the UI — set `deleted_at` to delete, `null` to restore. All queries for active links must include `deleted_at IS NULL`. Use `lib/services/trash.ts` for permanent deletion and `emptyTrash`.
+
+### Tag privacy
+
+Private tags use SHA-256 password hashing (`lib/services/tags.ts: verifyTagPassword`). The `UnlockedTagsContext` (`lib/context/UnlockedTagsContext.tsx`) tracks which tags have been unlocked in the current session. Filter logic in `useLinks` excludes links whose tags are all private and none are unlocked.
 
 ## Design system
 
