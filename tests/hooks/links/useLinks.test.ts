@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { useLinks } from '@/lib/hooks/links/useLinks'
 import type { LinkWithTags } from '@/lib/services/links'
 
 const mockAddToast = vi.fn()
+const mockDismissToast = vi.fn()
 
 const { LINK_A, LINK_B } = vi.hoisted(() => {
   const LINK_A: LinkWithTags = {
@@ -24,7 +25,7 @@ const { LINK_A, LINK_B } = vi.hoisted(() => {
 })
 
 vi.mock('@/components/ToastProvider', () => ({
-  useToast: () => ({ addToast: mockAddToast }),
+  useToast: () => ({ addToast: mockAddToast, dismissToast: mockDismissToast }),
 }))
 
 vi.mock('@/lib/services/links', () => ({
@@ -40,6 +41,7 @@ const mockDeleteLink = vi.mocked(deleteLink)
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mockAddToast.mockReturnValue('toast-id')
   mockGetLinks.mockResolvedValue([LINK_A, LINK_B])
   mockToggleFavorite.mockResolvedValue(true)
   mockDeleteLink.mockResolvedValue(true)
@@ -112,55 +114,81 @@ describe('useLinks', () => {
   })
 
   describe('handleDelete', () => {
-    it('removes the link by id', async () => {
-      const { result } = await renderLoaded()
+    afterEach(() => vi.useRealTimers())
 
-      await act(() => result.current.handleDelete('1'))
+    async function setupWithFakeTimers() {
+      const utils = await renderLoaded()
+      vi.useFakeTimers()
+      return utils
+    }
 
+    it('removes the link optimistically before the delay', async () => {
+      const { result } = await setupWithFakeTimers()
+      act(() => result.current.handleDelete('1'))
       expect(result.current.links.find(l => l.id === '1')).toBeUndefined()
     })
 
     it('leaves other links untouched', async () => {
-      const { result } = await renderLoaded()
-
-      await act(() => result.current.handleDelete('1'))
-
+      const { result } = await setupWithFakeTimers()
+      act(() => result.current.handleDelete('1'))
       expect(result.current.links).toHaveLength(1)
       expect(result.current.links[0].id).toBe('2')
     })
 
-    it('calls deleteLink with the correct id', async () => {
-      const { result } = await renderLoaded()
-
-      await act(() => result.current.handleDelete('1'))
-
-      expect(mockDeleteLink).toHaveBeenCalledWith('1')
+    it('shows undo toast immediately with correct args', async () => {
+      const { result } = await setupWithFakeTimers()
+      act(() => result.current.handleDelete('1'))
+      expect(mockAddToast).toHaveBeenCalledWith(
+        'Link deleted, tap to undo',
+        'destructive',
+        expect.objectContaining({ duration: 3000, onClick: expect.any(Function) }),
+      )
     })
 
-    it('calls addToast with destructive variant on success', async () => {
-      const { result } = await renderLoaded()
+    it('does not call deleteLink before 2s', async () => {
+      const { result } = await setupWithFakeTimers()
+      act(() => result.current.handleDelete('1'))
+      expect(mockDeleteLink).not.toHaveBeenCalled()
+    })
 
-      await act(() => result.current.handleDelete('2'))
-
-      expect(mockAddToast).toHaveBeenCalledWith('Link deleted', 'destructive')
+    it('calls deleteLink with the correct id after 2s', async () => {
+      const { result } = await setupWithFakeTimers()
+      act(() => result.current.handleDelete('1'))
+      await act(async () => { await vi.advanceTimersByTimeAsync(2000) })
+      expect(mockDeleteLink).toHaveBeenCalledWith('1')
     })
 
     it('rolls back the optimistic removal on service failure', async () => {
       mockDeleteLink.mockResolvedValue(false)
-      const { result } = await renderLoaded()
-
-      await act(() => result.current.handleDelete('1'))
-
+      const { result } = await setupWithFakeTimers()
+      act(() => result.current.handleDelete('1'))
+      await act(async () => { await vi.advanceTimersByTimeAsync(2000) })
       expect(result.current.links.some(l => l.id === '1')).toBe(true)
     })
 
     it('toasts an error on service failure', async () => {
       mockDeleteLink.mockResolvedValue(false)
-      const { result } = await renderLoaded()
-
-      await act(() => result.current.handleDelete('1'))
-
+      const { result } = await setupWithFakeTimers()
+      act(() => result.current.handleDelete('1'))
+      await act(async () => { await vi.advanceTimersByTimeAsync(2000) })
       expect(mockAddToast).toHaveBeenCalledWith('Failed to delete link', 'destructive')
+    })
+
+    it('cancels the delete when undo is tapped', async () => {
+      const { result } = await setupWithFakeTimers()
+      act(() => result.current.handleDelete('1'))
+      const { onClick } = mockAddToast.mock.calls[0][2]
+      act(() => onClick())
+      await act(async () => { await vi.advanceTimersByTimeAsync(2000) })
+      expect(mockDeleteLink).not.toHaveBeenCalled()
+    })
+
+    it('restores the link when undo is tapped', async () => {
+      const { result } = await setupWithFakeTimers()
+      act(() => result.current.handleDelete('1'))
+      const { onClick } = mockAddToast.mock.calls[0][2]
+      act(() => onClick())
+      expect(result.current.links.find(l => l.id === '1')).toBeDefined()
     })
   })
 

@@ -9,7 +9,7 @@ import { useToast } from '@/components/ToastProvider'
 export function useLinks() {
   const [links, setLinks] = useState<LinkWithTags[]>([])
   const [loading, setLoading] = useState(true)
-  const { addToast } = useToast()
+  const { addToast, dismissToast } = useToast()
 
   useEffect(() => {
     getLinks().then(data => {
@@ -28,16 +28,29 @@ export function useLinks() {
     addToast('Changes saved')
   }
 
-  async function handleDelete(id: string) {
+  function handleDelete(id: string) {
     const snapshot = links.find(l => l.id === id)
     setLinks(prev => prev.filter(l => l.id !== id))
-    const ok = await deleteLink(id)
-    if (!ok) {
+
+    let cancelled = false
+    let toastId: string
+
+    const undo = () => {
+      cancelled = true
       if (snapshot) setLinks(prev => [snapshot, ...prev])
-      addToast('Failed to delete link', 'destructive')
-    } else {
-      addToast('Link deleted', 'destructive')
+      dismissToast(toastId)
     }
+
+    toastId = addToast('Link deleted, tap to undo', 'destructive', { duration: 3000, onClick: undo })
+
+    setTimeout(async () => {
+      if (cancelled) return
+      const ok = await deleteLink(id)
+      if (!ok) {
+        if (snapshot) setLinks(prev => [snapshot, ...prev])
+        addToast('Failed to delete link', 'destructive')
+      }
+    }, 2000)
   }
 
   async function handleFavoriteToggle(id: string) {
