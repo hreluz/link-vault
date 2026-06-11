@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 export default function SignupPage() {
   return (
     <>
-      <h2 className="mb-6 text-lg font-semibold text-slate-900">Create account</h2>
+      <h2 className="mb-6 text-lg font-semibold text-slate-900 dark:text-slate-50">Create account</h2>
       <SignupForm />
     </>
   )
