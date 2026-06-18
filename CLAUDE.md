@@ -63,11 +63,11 @@ Favorites use `is_favorite: boolean`, not a status value.
 | `password_hash` | string \| null | SHA-256 hash; required when `is_private=true` |
 | `created_at` | string | ISO timestamp |
 
-Private tags require a session-scoped password unlock via `UnlockTagModal`. Unlocked state lives in `UnlockedTagsContext` and is cleared on page refresh.
+Private tags require a session-scoped password unlock via `UnlockTagModal`. Unlocked state lives in `UnlockedTagsContext` and is cleared on page refresh. The context exposes `unlockTag(name)`, `lockTag(name)`, and `lockAll()` — call `lockAll()` on logout or session clear.
 
 ### Category
 
-User-defined buckets for organizing links. **9 defaults** are seeded automatically on first login via `seedDefaultCategories` (called from `signIn` in `lib/services/auth.ts`).
+User-defined buckets for organizing links. **9 defaults** are seeded automatically on first login via `seedDefaultCategories` (called from `signIn` in `lib/services/auth.ts`). The same call also seeds `category_domains` rows mapping well-known hostnames (youtube.com, youtu.be, instagram.com, tiktok.com, vm.tiktok.com, twitter.com, x.com, t.co, github.com) to their respective categories.
 
 | Field | Type | Notes |
 |---|---|---|
@@ -98,7 +98,9 @@ Unique constraint: `(user_id, domain)`.
 
 ### Content types
 
-The app should recognize and visually differentiate these source types:
+> **Not yet implemented.** There is no `content_type` column in the `links` DB table (`lib/types/database.ts`). Visual differentiation by content type is a planned feature. The category system (user-defined with emoji) is the current mechanism for type organization. Do not reference or filter on `content_type` — the field does not exist on `LinkWithTags`.
+
+Planned types to eventually recognize:
 - YouTube / video
 - Instagram / Reels / TikTok
 - Articles / blog posts
@@ -113,14 +115,14 @@ The app should recognize and visually differentiate these source types:
 2. **Categorize** — auto-assign category by domain mapping; user can override
 3. **Tag** — add/remove tags using comma-separated input or `#tag` syntax; browse by tag
 4. **Private tags** — password-protect tags; session-scoped unlock; links hidden until unlocked
-5. **Status workflow** — Unread → Watching → Read → Archived
+5. **Status workflow** — Unread → Watching → Read → Archived; opening a link whose status is `unread` automatically advances it to `watching` via `handleLinkOpen` in `useLinkList`
 6. **Favorites** — `is_favorite` toggle; dedicated `/dashboard/favorites` view with full filter/search parity
 7. **Search** — full-text across title, domain, notes, tags; `#tag` syntax jumps to tag filter
 8. **Filter & sort** — by category, tags (any/all), status; sort by newest/oldest/alphabetical/status
 9. **Trash** — soft-delete via `deleted_at`; 2-second undo toast; restore or permanently delete
 10. **Swipe-to-delete** — left swipe gesture on mobile via `SwipeableCard`
 11. **Organize hub** — `/dashboard/organize` with categories, tags, and trash sections
-12. **Import / Export** — export as JSON or CSV; import from file or paste
+12. **Import / Export** — UI scaffold exists at `/dashboard/config/import-export`; not yet functional — no service layer, no export/import handlers implemented
 13. **Change password** — re-verifies current password before updating
 14. **Dark mode** — theme toggle via `ThemeProvider`; inline script prevents flash on load
 
@@ -130,7 +132,7 @@ The app should recognize and visually differentiate these source types:
 - Shared UI components go in `components/`
 - Domain logic (types, helpers, data access) goes in `lib/`
 - Business logic (Supabase calls, no Next.js deps) goes in `lib/services/`
-- React hooks (client state / effects) go in `lib/hooks/<domain>/`
+- React hooks (client state / effects) go in `lib/hooks/<domain>/`; `useCategoryList` is a read-only hook for form dropdowns — distinct from `useCategories` which owns full CRUD state
 - React contexts go in `lib/context/`
 - Keep components small and focused; co-locate styles with Tailwind classes
 - Prefer server components by default; use `"use client"` only when needed
