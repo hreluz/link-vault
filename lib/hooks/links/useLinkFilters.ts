@@ -40,6 +40,7 @@ export function useLinkFilters(links: LinkWithTags[]) {
         const textMatch = plainQuery
           ? (l.title ?? '').toLowerCase().includes(plainQuery) ||
             (l.site_name ?? '').toLowerCase().includes(plainQuery) ||
+            (l.notes ?? '').toLowerCase().includes(plainQuery) ||
             l.tags.some(t => t.toLowerCase().includes(plainQuery))
           : false
         if (isHashTagSearch && plainQuery) return tagMatch && textMatch
