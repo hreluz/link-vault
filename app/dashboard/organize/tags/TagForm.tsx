@@ -9,8 +9,12 @@ interface Props {
 
 export function TagForm({ mode }: Props) {
   const {
-    newName, newColor, setNewName, setNewColor, addTag, closeAdd, addError,
-    editName, editColor, setEditName, setEditColor, setEditingId, saveEdit, editError,
+    newName, newColor, newIsPrivate, newPassword,
+    setNewName, setNewColor, setNewIsPrivate, setNewPassword,
+    addTag, closeAdd, addError,
+    editName, editColor, editIsPrivate, editPassword,
+    setEditName, setEditColor, setEditIsPrivate, setEditPassword,
+    setEditingId, saveEdit, editError,
   } = useTagContext()
 
   const isAdd = mode === 'add'
@@ -18,6 +22,10 @@ export function TagForm({ mode }: Props) {
   const onNameChange = isAdd ? setNewName : setEditName
   const color = isAdd ? newColor : editColor
   const onColorChange = isAdd ? setNewColor : setEditColor
+  const isPrivate = isAdd ? newIsPrivate : editIsPrivate
+  const onIsPrivateChange = isAdd ? setNewIsPrivate : setEditIsPrivate
+  const password = isAdd ? newPassword : editPassword
+  const onPasswordChange = isAdd ? setNewPassword : setEditPassword
   const onSubmit = isAdd ? addTag : saveEdit
   const onCancel = isAdd ? closeAdd : () => setEditingId(null)
   const error = isAdd ? addError : editError
@@ -37,6 +45,28 @@ export function TagForm({ mode }: Props) {
       <div className="mt-3">
         <ColorPicker selected={color} onChange={onColorChange} />
       </div>
+
+      <label className="mt-3 flex cursor-pointer items-center gap-2.5">
+        <input
+          type="checkbox"
+          checked={isPrivate}
+          onChange={e => onIsPrivateChange(e.target.checked)}
+          className="h-4 w-4 rounded border-slate-300 text-indigo-600 accent-indigo-600"
+        />
+        <span className="text-sm text-slate-700 dark:text-slate-300">Private tag</span>
+      </label>
+
+      {isPrivate && (
+        <input
+          type="password"
+          placeholder="Password to unlock this tag"
+          value={password}
+          onChange={e => onPasswordChange(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') onSubmit(); if (e.key === 'Escape') onCancel() }}
+          className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500"
+        />
+      )}
+
       {error && (
         <p className="mt-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">{error}</p>
       )}
@@ -49,7 +79,7 @@ export function TagForm({ mode }: Props) {
         </button>
         <button
           onClick={onSubmit}
-          disabled={!name.trim()}
+          disabled={!name.trim() || (isPrivate && !password.trim())}
           className={`rounded-xl bg-indigo-600 font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60 ${isAdd ? 'px-4 py-2 text-sm shadow-sm' : 'px-3 py-1.5 text-xs'}`}
         >
           {isAdd ? 'Add tag' : 'Save'}

@@ -8,20 +8,26 @@ import type { LinkWithTags } from '@/lib/services/links'
 const mockAddToast = vi.fn()
 const mockDismissToast = vi.fn()
 
-const { LINK_A, LINK_B } = vi.hoisted(() => {
+const { LINK_A, LINK_B, LINK_PRIVATE } = vi.hoisted(() => {
   const LINK_A: LinkWithTags = {
     id: '1', title: 'Alpha', site_name: 'alpha.com',
-    status: 'unread', is_favorite: true,
+    status: 'unread', is_favorite: true, deleted_at: null,
     tags: ['react'], created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
     url: 'https://alpha.com', description: '', notes: null, user_id: 'user-1', category_id: null,
   }
   const LINK_B: LinkWithTags = {
     id: '2', title: 'Beta', site_name: 'beta.com',
-    status: 'read', is_favorite: true,
+    status: 'read', is_favorite: true, deleted_at: null,
     tags: ['vue'], created_at: '2026-01-02T00:00:00Z', updated_at: '2026-01-02T00:00:00Z',
     url: 'https://beta.com', description: '', notes: null, user_id: 'user-1', category_id: null,
   }
-  return { LINK_A, LINK_B }
+  const LINK_PRIVATE: LinkWithTags = {
+    id: '3', title: 'Secret', site_name: 'secret.com',
+    status: 'unread', is_favorite: true, deleted_at: null,
+    tags: ['private-stuff'], created_at: '2026-01-03T00:00:00Z', updated_at: '2026-01-03T00:00:00Z',
+    url: 'https://secret.com', description: '', notes: null, user_id: 'user-1', category_id: null,
+  }
+  return { LINK_A, LINK_B, LINK_PRIVATE }
 })
 
 vi.mock('@/components/ToastProvider', () => ({
@@ -37,18 +43,31 @@ vi.mock('@/lib/services/links', () => ({
   deleteLink: vi.fn(),
 }))
 
+vi.mock('@/lib/services/tags', () => ({
+  getPrivateTagNames: vi.fn(),
+}))
+
+const mockUseUnlockedTags = vi.fn()
+vi.mock('@/lib/context/UnlockedTagsContext', () => ({
+  useUnlockedTags: () => mockUseUnlockedTags(),
+}))
+
 import { getFavorites } from '@/lib/services/favorites'
 import { toggleLinkFavorite, deleteLink } from '@/lib/services/links'
+import { getPrivateTagNames } from '@/lib/services/tags'
 const mockGetFavorites = vi.mocked(getFavorites)
 const mockToggleFavorite = vi.mocked(toggleLinkFavorite)
 const mockDeleteLink = vi.mocked(deleteLink)
+const mockGetPrivateTagNames = vi.mocked(getPrivateTagNames)
 
 beforeEach(() => {
   vi.clearAllMocks()
   mockAddToast.mockReturnValue('toast-id')
   mockGetFavorites.mockResolvedValue([LINK_A, LINK_B])
+  mockGetPrivateTagNames.mockResolvedValue([])
   mockToggleFavorite.mockResolvedValue(true)
   mockDeleteLink.mockResolvedValue(true)
+  mockUseUnlockedTags.mockReturnValue({ unlockedTagNames: new Set(), unlockTag: vi.fn(), lockTag: vi.fn(), lockAll: vi.fn() })
 })
 
 async function renderLoaded() {
@@ -69,6 +88,32 @@ describe('useFavorites', () => {
       const { result } = await renderLoaded()
       expect(result.current.links).toHaveLength(2)
       expect(result.current.loading).toBe(false)
+    })
+  })
+
+  describe('privacy filtering', () => {
+    it('shows all favorites when there are no private tags', async () => {
+      mockGetFavorites.mockResolvedValue([LINK_A, LINK_B])
+      mockGetPrivateTagNames.mockResolvedValue([])
+      const { result } = await renderLoaded()
+      expect(result.current.links).toHaveLength(2)
+    })
+
+    it('hides a favorite whose tag is private and locked', async () => {
+      mockGetFavorites.mockResolvedValue([LINK_A, LINK_PRIVATE])
+      mockGetPrivateTagNames.mockResolvedValue(['private-stuff'])
+      mockUseUnlockedTags.mockReturnValue({ unlockedTagNames: new Set(), unlockTag: vi.fn(), lockTag: vi.fn(), lockAll: vi.fn() })
+      const { result } = await renderLoaded()
+      expect(result.current.links).toHaveLength(1)
+      expect(result.current.links[0].id).toBe('1')
+    })
+
+    it('shows a favorite whose private tag has been unlocked', async () => {
+      mockGetFavorites.mockResolvedValue([LINK_A, LINK_PRIVATE])
+      mockGetPrivateTagNames.mockResolvedValue(['private-stuff'])
+      mockUseUnlockedTags.mockReturnValue({ unlockedTagNames: new Set(['private-stuff']), unlockTag: vi.fn(), lockTag: vi.fn(), lockAll: vi.fn() })
+      const { result } = await renderLoaded()
+      expect(result.current.links).toHaveLength(2)
     })
   })
 
