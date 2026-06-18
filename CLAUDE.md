@@ -4,6 +4,10 @@
 
 A personal "save for later" app for bookmarking links across content types — videos, articles, courses, repos, tweets, reels, and more.
 
+## Node version
+
+Always run `nvm use v24.13.0` before executing any shell commands (dev server, tests, installs, etc.).
+
 ## Stack
 
 - **Next.js 16** (App Router) — see AGENTS.md, this version has breaking changes

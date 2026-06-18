@@ -32,6 +32,7 @@ A personal "save for later" app for bookmarking links across content types — v
 ## Getting started
 
 ```bash
+nvm use v24.13.0
 npm install
 npm run dev
 ```
@@ -42,6 +43,7 @@ Copy `.env.local.example` to `.env.local` and fill in your Supabase project URL 
 
 ```bash
 # run tests
+nvm use v24.13.0
 npm test
 ```
 
