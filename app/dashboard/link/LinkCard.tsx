@@ -17,7 +17,7 @@ export default function LinkCard({ link, category, onMenuOpen, onFavoriteToggle,
 
   return (
     <SwipeableCard onSwipeDelete={onDelete}>
-      <article className="relative flex flex-col gap-3 bg-white p-5 dark:bg-slate-900">
+      <article className="relative flex h-full flex-col gap-3 bg-white p-5 dark:bg-slate-900">
         <div className="flex items-start justify-between gap-2">
           <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300">
             {category
