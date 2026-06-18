@@ -90,7 +90,7 @@ function makeSeedClient({
     return { select: mockSelectCount, insert: mockCatInsert }
   })
 
-  return { client: { from } as unknown as ReturnType<typeof import('@/lib/supabase/client').createClient>, mockInsert: mockCatInsert, from }
+  return { client: { from } as unknown as ReturnType<typeof import('@/lib/supabase/client').createClient>, mockInsert: mockCatInsert, mockDomainInsert, from }
 }
 
 const MOCK_CAT: Category = {
@@ -366,5 +366,33 @@ describe('seedDefaultCategories', () => {
 
     const [inserted] = mockInsertSeed.mock.calls[0]
     expect(inserted.every((c: { user_id: string }) => c.user_id === 'user-abc')).toBe(true)
+  })
+
+  it('inserts domain rows for the seeded categories', async () => {
+    const { client, mockDomainInsert } = makeSeedClient({ count: 0 })
+
+    await seedDefaultCategories(client, 'user-123')
+
+    expect(mockDomainInsert).toHaveBeenCalledOnce()
+    const [domainRows] = mockDomainInsert.mock.calls[0]
+    const domains = domainRows.map((r: { domain: string }) => r.domain)
+    expect(domains).toEqual(expect.arrayContaining(['youtube.com', 'youtu.be', 'instagram.com', 'tiktok.com', 'vm.tiktok.com', 'twitter.com', 'x.com', 't.co', 'github.com']))
+  })
+
+  it('sets user_id on every inserted domain row', async () => {
+    const { client, mockDomainInsert } = makeSeedClient({ count: 0 })
+
+    await seedDefaultCategories(client, 'user-abc')
+
+    const [domainRows] = mockDomainInsert.mock.calls[0]
+    expect(domainRows.every((r: { user_id: string }) => r.user_id === 'user-abc')).toBe(true)
+  })
+
+  it('does not insert domain rows when seeding is skipped', async () => {
+    const { client, mockDomainInsert } = makeSeedClient({ count: 3 })
+
+    await seedDefaultCategories(client, 'user-123')
+
+    expect(mockDomainInsert).not.toHaveBeenCalled()
   })
 })

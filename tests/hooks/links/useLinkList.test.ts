@@ -42,12 +42,25 @@ vi.mock('@/lib/services/links', () => ({
   toggleLinkFavorite: vi.fn().mockResolvedValue(true),
 }))
 
+vi.mock('@/lib/services/tags', () => ({
+  getPrivateTagNames: vi.fn(),
+}))
+
+const mockUseUnlockedTags = vi.fn()
+vi.mock('@/lib/context/UnlockedTagsContext', () => ({
+  useUnlockedTags: () => mockUseUnlockedTags(),
+}))
+
 import { getLinks } from '@/lib/services/links'
+import { getPrivateTagNames } from '@/lib/services/tags'
 const mockGetLinks = vi.mocked(getLinks)
+const mockGetPrivateTagNames = vi.mocked(getPrivateTagNames)
 
 beforeEach(() => {
   vi.clearAllMocks()
   mockGetLinks.mockResolvedValue([LINK_A, LINK_B, LINK_C])
+  mockGetPrivateTagNames.mockResolvedValue([])
+  mockUseUnlockedTags.mockReturnValue({ unlockedTagNames: new Set(), unlockTag: vi.fn(), lockTag: vi.fn(), lockAll: vi.fn() })
 })
 
 async function renderLoaded() {

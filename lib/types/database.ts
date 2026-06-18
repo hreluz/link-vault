@@ -79,6 +79,8 @@ export interface Database {
           user_id: string
           name: string
           color: string | null
+          is_private: boolean
+          password_hash: string | null
           created_at: string
         }
         Insert: {
@@ -86,11 +88,15 @@ export interface Database {
           user_id: string
           name: string
           color?: string | null
+          is_private?: boolean
+          password_hash?: string | null
           created_at?: string
         }
         Update: {
           name?: string
           color?: string | null
+          is_private?: boolean
+          password_hash?: string | null
         }
         Relationships: []
       }

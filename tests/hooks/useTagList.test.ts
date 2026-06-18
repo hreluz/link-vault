@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { useTagList } from '@/lib/hooks/tags/useTagList'
-import { getTags, createTag, updateTag, deleteTag } from '@/lib/services/tags'
+import { getTags, createTag, updateTag, deleteTag, getTagLinksCount } from '@/lib/services/tags'
 import { COLORS } from '@/components/ColorPicker'
 import type { TagWithCount } from '@/lib/services/tags'
 
@@ -17,6 +17,7 @@ vi.mock('@/lib/services/tags', async (importOriginal) => {
     createTag: vi.fn(),
     updateTag: vi.fn(),
     deleteTag: vi.fn(),
+    getTagLinksCount: vi.fn(),
   }
 })
 
@@ -24,10 +25,12 @@ vi.mock('@/lib/services/tags', async (importOriginal) => {
 
 const MOCK_TAG: TagWithCount = {
   id: '1', user_id: 'u1', name: 'react', color: 'indigo',
+  is_private: false, password_hash: null,
   created_at: '2026-01-01T00:00:00Z', link_count: 3,
 }
 const MOCK_TAG_2: TagWithCount = {
   id: '2', user_id: 'u1', name: 'typescript', color: 'sky',
+  is_private: false, password_hash: null,
   created_at: '2026-01-01T00:00:00Z', link_count: 1,
 }
 const INITIAL_TAGS = [MOCK_TAG, MOCK_TAG_2]
@@ -35,6 +38,7 @@ const INITIAL_TAGS = [MOCK_TAG, MOCK_TAG_2]
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(getTags).mockResolvedValue(INITIAL_TAGS)
+  vi.mocked(getTagLinksCount).mockResolvedValue(0)
 })
 
 async function setup() {
@@ -107,7 +111,7 @@ describe('useTagList — addTag', () => {
     act(() => result.current.setNewName('My Vue App'))
     act(() => result.current.setNewColor('emerald'))
     await act(async () => result.current.addTag())
-    expect(createTag).toHaveBeenCalledWith({ name: 'my-vue-app', color: 'emerald' })
+    expect(createTag).toHaveBeenCalledWith({ name: 'my-vue-app', color: 'emerald', is_private: false, password: null })
   })
 
   it('appends the new tag with link_count 0 and closes the form', async () => {
@@ -197,7 +201,7 @@ describe('useTagList — saveEdit', () => {
     act(() => result.current.setEditName('React 19'))
     act(() => result.current.setEditColor('sky'))
     await act(async () => result.current.saveEdit())
-    expect(updateTag).toHaveBeenCalledWith({ id: MOCK_TAG.id, name: 'react-19', color: 'sky' })
+    expect(updateTag).toHaveBeenCalledWith({ id: MOCK_TAG.id, name: 'react-19', color: 'sky', is_private: false, password: null })
   })
 
   it('updates the tag in the list and clears editingId', async () => {
@@ -273,12 +277,12 @@ describe('useTagList — confirmDelete / deleteTag', () => {
     expect(result.current.deletingId).toBeNull()
   })
 
-  it('sets addError and keeps the tag when the service fails', async () => {
+  it('sets deleteError and keeps the tag when the service fails', async () => {
     vi.mocked(deleteTag).mockResolvedValue(false)
     const { result } = await setup()
     act(() => result.current.confirmDelete(MOCK_TAG.id))
     await act(async () => result.current.deleteTag(MOCK_TAG.id))
-    expect(result.current.addError).toBeTruthy()
+    expect(result.current.deleteError).toBeTruthy()
     expect(result.current.tags.find(t => t.id === MOCK_TAG.id)).toBeDefined()
   })
 })
