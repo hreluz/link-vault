@@ -14,7 +14,7 @@ export default function SwipeableCard({ onSwipeDelete, children }: Props) {
   useEffect(() => { onSwipeDeleteRef.current = onSwipeDelete })
 
   useEffect(() => {
-    const el = innerRef.current
+    const el = innerRef.current as HTMLDivElement
     if (!el) return
 
     let startX = 0

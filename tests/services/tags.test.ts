@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { getTags, createTag, updateTag, deleteTag, getTagLinksCount, toKebabCase, getPrivateTagNames, verifyTagPassword } from '@/lib/services/tags'
+import {
+  getTags, createTag, updateTag, deleteTag, getTagLinksCount, toKebabCase,
+  getPrivateTagNames, setPrivateTagPassword, verifyPrivateTagPassword, getPrivateTagSettings,
+} from '@/lib/services/tags'
 import type { Tag } from '@/lib/services/tags'
 
 // ── hoisted mocks ─────────────────────────────────────────────────────────────
@@ -11,13 +14,19 @@ const {
   mockIlike,
   mockNeq,
   mockNameCheckEq,
+  mockPrivateTagIdsEq,
   mockInsert, mockInsertSingle,
   mockUpdate, mockUpdateEq, mockUpdateSingle,
   mockDeleteEq,
   mockLinkTagsCountEq,
+  mockLinkTagsIn,
+  mockLinksDeleteIn,
+  mockTagsDeleteIn,
   mockPrivateNamesEq,
-  mockVerifyMaybeSingle,
-  mockVerifyEq,
+  mockSettingsMaybeSingle,
+  mockSettingsEq,
+  mockSettingsUpdateEq,
+  mockUpsert,
 } = vi.hoisted(() => {
   const mockOrder = vi.fn()
   const mockGetUser = vi.fn()
@@ -25,7 +34,8 @@ const {
   const mockNameCheckMaybeSingle = vi.fn()
   const mockNeq = vi.fn(() => ({ maybeSingle: mockNameCheckMaybeSingle }))
   const mockIlike = vi.fn(() => ({ maybeSingle: mockNameCheckMaybeSingle, neq: mockNeq }))
-  const mockNameCheckEq = vi.fn(() => ({ ilike: mockIlike }))
+  const mockPrivateTagIdsEq = vi.fn()
+  const mockNameCheckEq = vi.fn(() => ({ ilike: mockIlike, eq: mockPrivateTagIdsEq }))
 
   const mockInsertSingle = vi.fn()
   const mockInsertSelect = vi.fn(() => ({ single: mockInsertSingle }))
@@ -38,10 +48,15 @@ const {
 
   const mockDeleteEq = vi.fn()
   const mockLinkTagsCountEq = vi.fn()
-
+  const mockLinkTagsIn = vi.fn()
+  const mockLinksDeleteIn = vi.fn()
+  const mockTagsDeleteIn = vi.fn()
   const mockPrivateNamesEq = vi.fn()
-  const mockVerifyMaybeSingle = vi.fn()
-  const mockVerifyEq = vi.fn(() => ({ maybeSingle: mockVerifyMaybeSingle }))
+
+  const mockSettingsMaybeSingle = vi.fn()
+  const mockSettingsEq = vi.fn(() => ({ maybeSingle: mockSettingsMaybeSingle }))
+  const mockSettingsUpdateEq = vi.fn()
+  const mockUpsert = vi.fn()
 
   return {
     mockGetUser,
@@ -50,13 +65,19 @@ const {
     mockIlike,
     mockNeq,
     mockNameCheckEq,
+    mockPrivateTagIdsEq,
     mockInsert, mockInsertSingle,
     mockUpdate, mockUpdateEq, mockUpdateSingle,
     mockDeleteEq,
     mockLinkTagsCountEq,
+    mockLinkTagsIn,
+    mockLinksDeleteIn,
+    mockTagsDeleteIn,
     mockPrivateNamesEq,
-    mockVerifyMaybeSingle,
-    mockVerifyEq,
+    mockSettingsMaybeSingle,
+    mockSettingsEq,
+    mockSettingsUpdateEq,
+    mockUpsert,
   }
 })
 
@@ -64,16 +85,30 @@ vi.mock('@/lib/supabase/client', () => ({
   createClient: vi.fn(() => ({
     auth: { getUser: mockGetUser },
     from: vi.fn((table: string) => {
-      if (table === 'link_tags') return { select: vi.fn(() => ({ eq: mockLinkTagsCountEq })) }
+      if (table === 'link_tags') return {
+        select: vi.fn((col?: string) => {
+          if (col === 'link_id') return { in: mockLinkTagsIn }
+          return { eq: mockLinkTagsCountEq }
+        }),
+      }
+      if (table === 'links') return {
+        delete: vi.fn(() => ({ eq: mockDeleteEq, in: mockLinksDeleteIn })),
+      }
+      if (table === 'private_tag_settings') return {
+        select: vi.fn(() => ({ eq: mockSettingsEq })),
+        upsert: mockUpsert,
+        update: vi.fn(() => ({ eq: mockSettingsUpdateEq })),
+        delete: vi.fn(() => ({ eq: mockDeleteEq })),
+      }
+      // tags (default)
       return {
         select: vi.fn((col?: string) => {
           if (col === 'name') return { eq: mockPrivateNamesEq }
-          if (col === 'password_hash') return { eq: mockVerifyEq }
           return { order: mockOrder, eq: mockNameCheckEq }
         }),
         insert: mockInsert,
         update: mockUpdate,
-        delete: vi.fn(() => ({ eq: mockDeleteEq })),
+        delete: vi.fn(() => ({ eq: mockDeleteEq, in: mockTagsDeleteIn })),
       }
     }),
   })),
@@ -83,7 +118,7 @@ vi.mock('@/lib/supabase/client', () => ({
 
 const MOCK_TAG: Tag = {
   id: '1', user_id: 'u1', name: 'React', color: 'indigo',
-  is_private: false, password_hash: null, created_at: '2026-01-01T00:00:00Z',
+  is_private: false, created_at: '2026-01-01T00:00:00Z',
 }
 
 const MOCK_TAG_ROW = {
@@ -422,50 +457,231 @@ describe('getPrivateTagNames', () => {
   })
 })
 
-// ── verifyTagPassword ─────────────────────────────────────────────────────────
+// ── setPrivateTagPassword ─────────────────────────────────────────────────────
 
-describe('verifyTagPassword', () => {
-  it('returns true when the password matches the stored hash', async () => {
-    const hash = Array.from(
-      new Uint8Array(
-        await crypto.subtle.digest('SHA-256', new TextEncoder().encode('correct'))
-      )
+describe('setPrivateTagPassword', () => {
+  beforeEach(() => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } })
+  })
+
+  it('returns ok on success', async () => {
+    mockUpsert.mockResolvedValue({ error: null })
+
+    expect(await setPrivateTagPassword('secret', 'my hint')).toBe('ok')
+  })
+
+  it('stores a hash, not the plaintext password', async () => {
+    mockUpsert.mockResolvedValue({ error: null })
+
+    await setPrivateTagPassword('secret', 'hint')
+
+    const call = mockUpsert.mock.calls[0][0]
+    expect(call.password_hash).not.toBe('secret')
+    expect(call.password_hash).toHaveLength(64)
+  })
+
+  it('stores the hint', async () => {
+    mockUpsert.mockResolvedValue({ error: null })
+
+    await setPrivateTagPassword('secret', 'my hint')
+
+    expect(mockUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({ hint: 'my hint' }),
+      expect.anything(),
+    )
+  })
+
+  it('resets failed_attempts to 0 on save', async () => {
+    mockUpsert.mockResolvedValue({ error: null })
+
+    await setPrivateTagPassword('secret', 'hint')
+
+    expect(mockUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({ failed_attempts: 0 }),
+      expect.anything(),
+    )
+  })
+
+  it('stores null hint when hint is empty', async () => {
+    mockUpsert.mockResolvedValue({ error: null })
+
+    await setPrivateTagPassword('secret', '  ')
+
+    expect(mockUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({ hint: null }),
+      expect.anything(),
+    )
+  })
+
+  it('returns unauthenticated when there is no user', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } })
+
+    expect(await setPrivateTagPassword('secret', 'hint')).toBe('unauthenticated')
+    expect(mockUpsert).not.toHaveBeenCalled()
+  })
+
+  it('returns db_error on upsert failure', async () => {
+    mockUpsert.mockResolvedValue({ error: { message: 'DB error' } })
+
+    expect(await setPrivateTagPassword('secret', 'hint')).toBe('db_error')
+  })
+})
+
+// ── verifyPrivateTagPassword ──────────────────────────────────────────────────
+
+describe('verifyPrivateTagPassword', () => {
+  beforeEach(() => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } })
+    mockSettingsUpdateEq.mockResolvedValue({ error: null })
+    mockDeleteEq.mockResolvedValue({ error: null })
+    // nuke defaults — no private tags, so nuke short-circuits cleanly
+    mockPrivateTagIdsEq.mockResolvedValue({ data: [], error: null })
+    mockLinkTagsIn.mockResolvedValue({ data: [], error: null })
+    mockLinksDeleteIn.mockResolvedValue({ error: null })
+    mockTagsDeleteIn.mockResolvedValue({ error: null })
+  })
+
+  async function makeHash(password: string): Promise<string> {
+    return Array.from(
+      new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(password)))
     ).map(b => b.toString(16).padStart(2, '0')).join('')
+  }
 
-    mockVerifyMaybeSingle.mockResolvedValue({ data: { password_hash: hash }, error: null })
+  it('returns { ok: true } when the password matches', async () => {
+    const hash = await makeHash('correct')
+    mockSettingsMaybeSingle.mockResolvedValue({ data: { password_hash: hash, failed_attempts: 0 }, error: null })
 
-    expect(await verifyTagPassword('secret', 'correct')).toBe(true)
+    expect(await verifyPrivateTagPassword('correct')).toEqual({ ok: true })
   })
 
-  it('returns false when the password does not match', async () => {
-    const hash = Array.from(
-      new Uint8Array(
-        await crypto.subtle.digest('SHA-256', new TextEncoder().encode('correct'))
-      )
-    ).map(b => b.toString(16).padStart(2, '0')).join('')
+  it('resets failed_attempts to 0 on correct password', async () => {
+    const hash = await makeHash('correct')
+    mockSettingsMaybeSingle.mockResolvedValue({ data: { password_hash: hash, failed_attempts: 3 }, error: null })
 
-    mockVerifyMaybeSingle.mockResolvedValue({ data: { password_hash: hash }, error: null })
+    await verifyPrivateTagPassword('correct')
 
-    expect(await verifyTagPassword('secret', 'wrong')).toBe(false)
+    expect(mockSettingsUpdateEq).toHaveBeenCalledWith('user_id', 'u1')
   })
 
-  it('returns false when the tag has no password_hash', async () => {
-    mockVerifyMaybeSingle.mockResolvedValue({ data: { password_hash: null }, error: null })
+  it('returns { ok: false, nuked: false, attemptsLeft: 4 } on first wrong attempt', async () => {
+    const hash = await makeHash('correct')
+    mockSettingsMaybeSingle.mockResolvedValue({ data: { password_hash: hash, failed_attempts: 0 }, error: null })
 
-    expect(await verifyTagPassword('secret', 'anything')).toBe(false)
+    const result = await verifyPrivateTagPassword('wrong')
+
+    expect(result).toEqual({ ok: false, nuked: false, attemptsLeft: 4 })
   })
 
-  it('returns false when the tag is not found', async () => {
-    mockVerifyMaybeSingle.mockResolvedValue({ data: null, error: null })
+  it('decrements attemptsLeft based on current failed_attempts count', async () => {
+    const hash = await makeHash('correct')
+    mockSettingsMaybeSingle.mockResolvedValue({ data: { password_hash: hash, failed_attempts: 3 }, error: null })
 
-    expect(await verifyTagPassword('unknown', 'anything')).toBe(false)
+    const result = await verifyPrivateTagPassword('wrong')
+
+    expect(result).toEqual({ ok: false, nuked: false, attemptsLeft: 1 })
   })
 
-  it('queries by tag name', async () => {
-    mockVerifyMaybeSingle.mockResolvedValue({ data: null, error: null })
+  it('returns { ok: false, nuked: true } on 5th wrong attempt', async () => {
+    const hash = await makeHash('correct')
+    mockSettingsMaybeSingle.mockResolvedValue({ data: { password_hash: hash, failed_attempts: 4 }, error: null })
 
-    await verifyTagPassword('my-tag', 'pass')
+    const result = await verifyPrivateTagPassword('wrong')
 
-    expect(mockVerifyEq).toHaveBeenCalledWith('name', 'my-tag')
+    expect(result).toEqual({ ok: false, nuked: true })
+  })
+
+  it('deletes only private-tag-associated links and private tags on nuke', async () => {
+    const hash = await makeHash('correct')
+    mockSettingsMaybeSingle.mockResolvedValue({ data: { password_hash: hash, failed_attempts: 4 }, error: null })
+    mockPrivateTagIdsEq.mockResolvedValue({ data: [{ id: 'tag-private' }], error: null })
+    mockLinkTagsIn.mockResolvedValue({ data: [{ link_id: 'link-1' }], error: null })
+
+    await verifyPrivateTagPassword('wrong')
+
+    expect(mockLinksDeleteIn).toHaveBeenCalledWith('id', ['link-1'])
+    expect(mockTagsDeleteIn).toHaveBeenCalledWith('id', ['tag-private'])
+    expect(mockDeleteEq).toHaveBeenCalledWith('user_id', 'u1')
+  })
+
+  it('deduplicates link IDs when a link has multiple private tags', async () => {
+    const hash = await makeHash('correct')
+    mockSettingsMaybeSingle.mockResolvedValue({ data: { password_hash: hash, failed_attempts: 4 }, error: null })
+    mockPrivateTagIdsEq.mockResolvedValue({ data: [{ id: 'tag-a' }, { id: 'tag-b' }], error: null })
+    mockLinkTagsIn.mockResolvedValue({
+      data: [{ link_id: 'link-1' }, { link_id: 'link-1' }, { link_id: 'link-2' }],
+      error: null,
+    })
+
+    await verifyPrivateTagPassword('wrong')
+
+    expect(mockLinksDeleteIn).toHaveBeenCalledWith('id', ['link-1', 'link-2'])
+  })
+
+  it('skips link deletion when no links are tagged with private tags', async () => {
+    const hash = await makeHash('correct')
+    mockSettingsMaybeSingle.mockResolvedValue({ data: { password_hash: hash, failed_attempts: 4 }, error: null })
+    mockPrivateTagIdsEq.mockResolvedValue({ data: [{ id: 'tag-private' }], error: null })
+    mockLinkTagsIn.mockResolvedValue({ data: [], error: null })
+
+    await verifyPrivateTagPassword('wrong')
+
+    expect(mockLinksDeleteIn).not.toHaveBeenCalled()
+    expect(mockTagsDeleteIn).toHaveBeenCalledWith('id', ['tag-private'])
+  })
+
+  it('skips link and tag deletion when there are no private tags', async () => {
+    const hash = await makeHash('correct')
+    mockSettingsMaybeSingle.mockResolvedValue({ data: { password_hash: hash, failed_attempts: 4 }, error: null })
+    // mockPrivateTagIdsEq already returns [] from beforeEach
+
+    await verifyPrivateTagPassword('wrong')
+
+    expect(mockLinksDeleteIn).not.toHaveBeenCalled()
+    expect(mockTagsDeleteIn).not.toHaveBeenCalled()
+    expect(mockDeleteEq).toHaveBeenCalledWith('user_id', 'u1')
+  })
+
+  it('returns { ok: false, nuked: false, attemptsLeft: 5 } when no settings row exists', async () => {
+    mockSettingsMaybeSingle.mockResolvedValue({ data: null, error: null })
+
+    expect(await verifyPrivateTagPassword('anything')).toEqual({ ok: false, nuked: false, attemptsLeft: 5 })
+  })
+
+  it('returns { ok: false, nuked: false, attemptsLeft: 5 } when unauthenticated', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } })
+
+    expect(await verifyPrivateTagPassword('anything')).toEqual({ ok: false, nuked: false, attemptsLeft: 5 })
+  })
+})
+
+// ── getPrivateTagSettings ─────────────────────────────────────────────────────
+
+describe('getPrivateTagSettings', () => {
+  beforeEach(() => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } })
+  })
+
+  it('returns hasPassword true and the hint when a password is set', async () => {
+    mockSettingsMaybeSingle.mockResolvedValue({ data: { password_hash: 'abc', hint: 'my hint' }, error: null })
+
+    expect(await getPrivateTagSettings()).toEqual({ hasPassword: true, hint: 'my hint' })
+  })
+
+  it('returns null hint when the hint field is null', async () => {
+    mockSettingsMaybeSingle.mockResolvedValue({ data: { password_hash: 'abc', hint: null }, error: null })
+
+    expect(await getPrivateTagSettings()).toEqual({ hasPassword: true, hint: null })
+  })
+
+  it('returns hasPassword false when no settings row exists', async () => {
+    mockSettingsMaybeSingle.mockResolvedValue({ data: null, error: null })
+
+    expect(await getPrivateTagSettings()).toEqual({ hasPassword: false, hint: null })
+  })
+
+  it('returns hasPassword false when unauthenticated', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } })
+
+    expect(await getPrivateTagSettings()).toEqual({ hasPassword: false, hint: null })
   })
 })
