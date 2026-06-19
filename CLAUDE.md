@@ -59,11 +59,12 @@ Favorites use `is_favorite: boolean`, not a status value.
 | `user_id` | string | owner |
 | `name` | string | unique per user; stored as kebab-case |
 | `color` | string \| null | hex color for UI (e.g. `#6366f1`) |
-| `is_private` | boolean | if true, links are hidden until tag is unlocked |
-| `password_hash` | string \| null | SHA-256 hash; required when `is_private=true` |
+| `is_private` | boolean | if true, links are hidden until all private tags are unlocked |
 | `created_at` | string | ISO timestamp |
 
-Private tags require a session-scoped password unlock via `UnlockTagModal`. Unlocked state lives in `UnlockedTagsContext` and is cleared on page refresh. The context exposes `unlockTag(name)`, `lockTag(name)`, and `lockAll()` — call `lockAll()` on logout or session clear.
+Private tags use a **single global password** (not per-tag). The password, its SHA-256 hash, a hint, and a failed-attempt counter live in the `private_tag_settings` table (one row per user). Unlocking with the correct password reveals all private tags at once via `UnlockTagModal`. Unlocked state lives in `UnlockedTagsContext` and is cleared on page refresh. The context exposes `unlockTag(name)`, `lockTag(name)`, and `lockAll()` — call `lockAll()` on logout or session clear.
+
+**Security:** every wrong password attempt immediately logs the user out and increments `failed_attempts` in the DB. On the 5th failed attempt a nuke fires: all links that have at least one private tag are permanently deleted, all private tags are permanently deleted, and the `private_tag_settings` row is deleted (allowing a fresh password to be set after logging back in).
 
 ### Category
 
@@ -114,7 +115,7 @@ Planned types to eventually recognize:
 1. **Save a link** — paste URL, auto-extract `site_name` from hostname
 2. **Categorize** — auto-assign category by domain mapping; user can override
 3. **Tag** — add/remove tags using comma-separated input or `#tag` syntax; browse by tag
-4. **Private tags** — password-protect tags; session-scoped unlock; links hidden until unlocked
+4. **Private tags** — single global password (SHA-256 + optional hint) protects all private tags; session-scoped unlock via `UnlockTagModal`; lock/unlock icon buttons in the tags header; links hidden until unlocked; every wrong attempt logs the user out; 5 failures trigger a scoped nuke (private-tag-linked links + private tags deleted) then allow a fresh password
 5. **Status workflow** — Unread → Watching → Read → Archived; opening a link whose status is `unread` automatically advances it to `watching` via `handleLinkOpen` in `useLinkList`
 6. **Favorites** — `is_favorite` toggle; dedicated `/dashboard/favorites` view with full filter/search parity
 7. **Search** — full-text across title, domain, notes, tags; `#tag` syntax jumps to tag filter
@@ -154,7 +155,7 @@ Links are never hard-deleted from the UI — set `deleted_at` to delete, `null` 
 
 ### Tag privacy
 
-Private tags use SHA-256 password hashing (`lib/services/tags.ts: verifyTagPassword`). The `UnlockedTagsContext` (`lib/context/UnlockedTagsContext.tsx`) tracks which tags have been unlocked in the current session. Filter logic in `useLinks` excludes links whose tags are all private and none are unlocked.
+All private tags share a single global password stored in `private_tag_settings` (SHA-256 hash + optional hint + `failed_attempts` counter). Key service functions in `lib/services/tags.ts`: `setPrivateTagPassword`, `verifyPrivateTagPassword` (returns `VerifyPasswordResult`), `getPrivateTagSettings`. The `UnlockedTagsContext` (`lib/context/UnlockedTagsContext.tsx`) tracks which tags have been unlocked in the current session. Filter logic in `useLinks` excludes links whose tags are all private and none are unlocked.
 
 ## Design system
 

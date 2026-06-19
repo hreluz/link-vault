@@ -1,32 +1,54 @@
 'use client'
 
-import { useState } from 'react'
-import { verifyTagPassword } from '@/lib/services/tags'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
+import { verifyPrivateTagPassword, getPrivateTagSettings } from '@/lib/services/tags'
+import { createClient } from '@/lib/supabase/client'
 
 interface Props {
-  tagName: string
   onUnlock: () => void
   onClose: () => void
 }
 
-export default function UnlockTagModal({ tagName, onUnlock, onClose }: Props) {
+export default function UnlockTagModal({ onUnlock, onClose }: Props) {
+  const router = useRouter()
   const [password, setPassword] = useState('')
+  const [hint, setHint] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    getPrivateTagSettings().then(s => setHint(s.hint))
+  }, [])
+
+  async function signOutAndRedirect(message: string) {
+    toast.error(message)
+    await createClient().auth.signOut()
+    router.push('/login')
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!password.trim()) return
     setLoading(true)
     setError(null)
-    const ok = await verifyTagPassword(tagName, password)
+    const result = await verifyPrivateTagPassword(password)
     setLoading(false)
-    if (ok) {
+
+    if (result.ok) {
       onUnlock()
       onClose()
-    } else {
-      setError('Incorrect password')
+      return
     }
+
+    if (result.nuked) {
+      await signOutAndRedirect('Too many failed attempts. All data has been deleted. You can set a new password after logging in.')
+      return
+    }
+
+    const left = result.attemptsLeft
+    await signOutAndRedirect(`Incorrect password — you have been logged out. ${left} attempt${left === 1 ? '' : 's'} remaining.`)
   }
 
   return (
@@ -46,11 +68,11 @@ export default function UnlockTagModal({ tagName, onUnlock, onClose }: Props) {
               </svg>
             </span>
             <h2 className="text-base font-semibold text-slate-900 dark:text-slate-50">
-              Unlock #{tagName}
+              Unlock private tags
             </h2>
           </div>
           <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">
-            This tag is private. Enter the password to reveal its links for this session.
+            Enter the password to reveal all private tag links for this session.
           </p>
           <input
             type="password"
@@ -60,6 +82,11 @@ export default function UnlockTagModal({ tagName, onUnlock, onClose }: Props) {
             autoFocus
             className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500"
           />
+          {hint && (
+            <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
+              Hint: {hint}
+            </p>
+          )}
           {error && (
             <p className="mt-2 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
               {error}

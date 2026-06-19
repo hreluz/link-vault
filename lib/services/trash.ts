@@ -10,13 +10,13 @@ type LinkQueryRow = Tables<'links'> & {
 export async function getTrashedLinks(): Promise<TrashedLink[]> {
   const supabase = createClient()
 
-  const { data, error } = await supabase
+  const { data: rawData, error } = await supabase
     .from('links')
     .select('*, link_tags(tags(name))')
     .not('deleted_at', 'is', null)
     .order('deleted_at', { ascending: false })
-    .returns<LinkQueryRow[]>()
 
+  const data = rawData as LinkQueryRow[] | null
   if (error || !data) return []
 
   return data.map(({ link_tags, ...link }) => ({

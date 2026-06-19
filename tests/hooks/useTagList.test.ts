@@ -25,12 +25,12 @@ vi.mock('@/lib/services/tags', async (importOriginal) => {
 
 const MOCK_TAG: TagWithCount = {
   id: '1', user_id: 'u1', name: 'react', color: 'indigo',
-  is_private: false, password_hash: null,
+  is_private: false,
   created_at: '2026-01-01T00:00:00Z', link_count: 3,
 }
 const MOCK_TAG_2: TagWithCount = {
   id: '2', user_id: 'u1', name: 'typescript', color: 'sky',
-  is_private: false, password_hash: null,
+  is_private: false,
   created_at: '2026-01-01T00:00:00Z', link_count: 1,
 }
 const INITIAL_TAGS = [MOCK_TAG, MOCK_TAG_2]
@@ -111,7 +111,7 @@ describe('useTagList — addTag', () => {
     act(() => result.current.setNewName('My Vue App'))
     act(() => result.current.setNewColor('emerald'))
     await act(async () => result.current.addTag())
-    expect(createTag).toHaveBeenCalledWith({ name: 'my-vue-app', color: 'emerald', is_private: false, password: null })
+    expect(createTag).toHaveBeenCalledWith({ name: 'my-vue-app', color: 'emerald', is_private: false })
   })
 
   it('appends the new tag with link_count 0 and closes the form', async () => {
@@ -201,7 +201,7 @@ describe('useTagList — saveEdit', () => {
     act(() => result.current.setEditName('React 19'))
     act(() => result.current.setEditColor('sky'))
     await act(async () => result.current.saveEdit())
-    expect(updateTag).toHaveBeenCalledWith({ id: MOCK_TAG.id, name: 'react-19', color: 'sky', is_private: false, password: null })
+    expect(updateTag).toHaveBeenCalledWith({ id: MOCK_TAG.id, name: 'react-19', color: 'sky', is_private: false })
   })
 
   it('updates the tag in the list and clears editingId', async () => {
