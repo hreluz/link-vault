@@ -133,6 +133,33 @@ export async function deleteCategory(id: string): Promise<boolean> {
   return !error
 }
 
+export async function getOrCreateCategoryByName(name: string): Promise<string | null> {
+  const trimmedName = name.trim()
+  if (!trimmedName) return null
+
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
+  const { data: existing } = await supabase
+    .from('categories')
+    .select('id')
+    .eq('user_id', user.id)
+    .ilike('name', trimmedName)
+    .maybeSingle()
+
+  if (existing) return (existing as { id: string }).id
+
+  const { data: created, error } = await supabase
+    .from('categories')
+    .insert({ user_id: user.id, name: trimmedName })
+    .select()
+    .single()
+
+  if (error || !created) return null
+  return created.id
+}
+
 export async function seedDefaultCategories(
   supabase: SupabaseClient<Database>,
   userId: string,

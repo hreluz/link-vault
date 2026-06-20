@@ -160,3 +160,75 @@ export async function deleteLink(id: string): Promise<boolean> {
     .eq('id', id)
   return !error
 }
+
+export type ImportLinkInput = {
+  url: string
+  title?: string | null
+  notes?: string | null
+  tags?: string[]
+  category_id?: string | null
+}
+
+export type ImportResult = { imported: number; skipped: number; duplicates: number }
+
+export async function importLinks(
+  inputs: ImportLinkInput[],
+  defaultCategoryId: string | null,
+): Promise<ImportResult> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { imported: 0, skipped: inputs.length, duplicates: 0 }
+
+  let imported = 0
+  let skipped = 0
+  let duplicates = 0
+
+  for (const input of inputs) {
+    if (!input.url.trim() || !isValidUrl(input.url)) {
+      skipped++
+      continue
+    }
+
+    const trimmedUrl = input.url.trim()
+
+    const { data: existingRows } = await supabase
+      .from('links')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('url', trimmedUrl)
+      .is('deleted_at', null)
+      .limit(1)
+
+    if (existingRows && existingRows.length > 0) {
+      duplicates++
+      continue
+    }
+
+    const site_name = new URL(trimmedUrl).hostname
+    const category_id = input.category_id ?? defaultCategoryId
+
+    const { data: link, error } = await supabase
+      .from('links')
+      .insert({
+        user_id: user.id,
+        url: trimmedUrl,
+        title: input.title ?? null,
+        site_name,
+        category_id,
+        status: 'unread',
+        notes: input.notes ?? null,
+      })
+      .select()
+      .single()
+
+    if (error || !link) {
+      skipped++
+      continue
+    }
+
+    await syncTags(supabase, user.id, link.id, input.tags?.filter(Boolean) ?? [])
+    imported++
+  }
+
+  return { imported, skipped, duplicates }
+}
