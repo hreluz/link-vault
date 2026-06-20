@@ -26,11 +26,9 @@ export function useTagList() {
   const [newName, setNewName] = useState('')
   const [newColor, setNewColor] = useState(COLORS[0].value)
   const [newIsPrivate, setNewIsPrivate] = useState(false)
-  const [newPassword, setNewPassword] = useState('')
   const [editName, setEditName] = useState('')
   const [editColor, setEditColor] = useState('')
   const [editIsPrivate, setEditIsPrivate] = useState(false)
-  const [editPassword, setEditPassword] = useState('')
 
   useEffect(() => {
     getTags().then(data => {
@@ -40,15 +38,14 @@ export function useTagList() {
   }, [])
 
   function openAdd() { setAdding(true); setAddError(null); setEditingId(null); setDeletingId(null) }
-  function closeAdd() { setAdding(false); setAddError(null); setNewName(''); setNewColor(COLORS[0].value); setNewIsPrivate(false); setNewPassword('') }
+  function closeAdd() { setAdding(false); setAddError(null); setNewName(''); setNewColor(COLORS[0].value); setNewIsPrivate(false) }
 
   async function addTag() {
     const name = toKebabCase(newName)
     if (!name) return
     setAddError(null)
-    const result = await createTag({ name, color: newColor, is_private: newIsPrivate, password: newPassword || null })
+    const result = await createTag({ name, color: newColor, is_private: newIsPrivate })
     if (result.error === 'name_taken') { setAddError('A tag with that name already exists.'); return }
-    if (result.error === 'password_required') { setAddError('A password is required for private tags.'); return }
     if (result.error) { setAddError('Something went wrong. Please try again.'); return }
     setTags(prev => [...prev, { ...result.data, link_count: 0 }])
     closeAdd()
@@ -59,7 +56,6 @@ export function useTagList() {
     setEditName(tag.name)
     setEditColor(tag.color ?? COLORS[0].value)
     setEditIsPrivate(tag.is_private)
-    setEditPassword('')
     setEditError(null)
     setDeletingId(null)
     setAdding(false)
@@ -69,12 +65,11 @@ export function useTagList() {
     const name = toKebabCase(editName)
     if (!name || !editingId) return
     setEditError(null)
-    const result = await updateTag({ id: editingId, name, color: editColor, is_private: editIsPrivate, password: editPassword || null })
+    const result = await updateTag({ id: editingId, name, color: editColor, is_private: editIsPrivate })
     if (result.error === 'name_taken') { setEditError('A tag with that name already exists.'); return }
-    if (result.error === 'password_required') { setEditError('A password is required for private tags.'); return }
     if (result.error) { setEditError('Something went wrong. Please try again.'); return }
     setTags(prev => prev.map(t =>
-      t.id === editingId ? { ...t, name: result.data.name, color: result.data.color } : t
+      t.id === editingId ? { ...t, name: result.data.name, color: result.data.color, is_private: result.data.is_private } : t
     ))
     setEditingId(null)
   }
@@ -96,10 +91,10 @@ export function useTagList() {
 
   return {
     tags, loading, addError, editError, adding, editingId, deletingId, deleteError,
-    newName, newColor, newIsPrivate, newPassword,
-    editName, editColor, editIsPrivate, editPassword,
-    setNewName, setNewColor, setNewIsPrivate, setNewPassword,
-    setEditName, setEditColor, setEditIsPrivate, setEditPassword,
+    newName, newColor, newIsPrivate,
+    editName, editColor, editIsPrivate,
+    setNewName, setNewColor, setNewIsPrivate,
+    setEditName, setEditColor, setEditIsPrivate,
     setEditingId, setDeletingId, setDeleteError,
     openAdd, closeAdd, addTag, startEdit, saveEdit, confirmDelete,
     deleteTag: removeTag,
