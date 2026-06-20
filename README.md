@@ -4,7 +4,7 @@ A personal "save for later" app for bookmarking links across content types — v
 
 ## Features
 
-- **Save links** — paste a URL; domain and site name are extracted automatically; `og:title`, `og:description`, and `og:image` are fetched server-side and pre-filled in the form after a short debounce
+- **Save links** — paste a URL; domain and site name are extracted automatically; `og:title`, `og:description`, and `og:image` are fetched server-side after a short debounce; an ON/OFF toggle lets you disable auto-fetch and clear prefilled data; YouTube video duration is fetched via YouTube Data API v3 (requires `YOUTUBE_API_KEY`) and shown as a badge on the thumbnail; duration is editable for any platform
 - **Categorize** — user-defined categories with emoji icons and color labels; 9 defaults seeded on first login; domains can be mapped to categories for auto-assignment
 - **Tag** — flexible tag system; comma-separated input and `#tag` syntax in search
 - **Private tags** — single global password (SHA-256 + optional hint) protects all private tags at once; session-scoped unlock via modal; lock/unlock icon buttons in the tags header; changing the password requires the current password; 5 failed attempts triggers a scoped nuke (only private-tag-linked links and private tags are deleted) and allows a fresh password after re-login
@@ -39,7 +39,7 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-Copy `.env.local.example` to `.env.local` and fill in your Supabase project URL and anon key.
+Copy `.env.local.example` to `.env.local` and fill in your Supabase project URL and anon key. Optionally add a `YOUTUBE_API_KEY` (YouTube Data API v3) to enable video duration fetching.
 
 ```bash
 # run tests

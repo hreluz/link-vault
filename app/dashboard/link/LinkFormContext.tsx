@@ -14,6 +14,8 @@ export type LinkFormContextValue = {
   setDescription: (v: string) => void
   imageUrl: string
   setImageUrl: (v: string) => void
+  duration: string
+  setDuration: (v: string) => void
   fetchingMeta: boolean
   autoFetch?: boolean
   toggleAutoFetch?: () => void

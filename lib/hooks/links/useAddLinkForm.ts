@@ -30,6 +30,7 @@ export function useAddLinkForm() {
       if (!titleTouchedRef.current && meta.title) form.setTitle(meta.title)
       if (meta.description) form.setDescription(meta.description)
       if (meta.image) form.setImageUrl(meta.image)
+      if (meta.duration) form.setDuration(meta.duration)
     }, 600)
 
     return () => clearTimeout(timer)
@@ -44,6 +45,7 @@ export function useAddLinkForm() {
       form.setTitle('')
       form.setDescription('')
       form.setImageUrl('')
+      form.setDuration('')
       titleTouchedRef.current = false
       lastFetchedUrlRef.current = ''
     } else {
@@ -63,6 +65,7 @@ export function useAddLinkForm() {
         title: form.resolvedTitle,
         description: form.description || null,
         image_url: form.imageUrl || null,
+        duration: form.duration || null,
         category_id: form.categoryId!,
         status: form.status,
         notes: form.notes || null,
