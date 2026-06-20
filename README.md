@@ -14,7 +14,7 @@ A personal "save for later" app for bookmarking links across content types — v
 - **Search** — full-text search across title, domain, notes, and tags; `#tag` syntax supported
 - **Trash** — soft-delete with 2-second undo toast; restore or permanently delete from the trash view
 - **Swipe-to-delete** — left swipe gesture on mobile
-- **Import / Export** — UI scaffold at `/dashboard/config/import-export`; export and import are not yet functional (no service layer implemented)
+- **Import / Export** — fully functional at `/dashboard/config/import-export`; export all links as JSON or CSV; import from pasted URLs (one per line), pasted JSON, or file upload (.json / .csv); CSV supports a `category` column and pipe-separated `tags`; duplicate URLs are detected per-user and skipped automatically
 - **Change password** — requires current password verification before updating
 - **Dark mode** — theme toggle with no flash on load
 
