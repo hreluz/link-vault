@@ -124,7 +124,8 @@ Planned types to eventually recognize:
 8. **Filter & sort** — by category, tags (any/all), status; sort by newest/oldest/alphabetical/status
 9. **Trash** — soft-delete via `deleted_at`; 2-second undo toast; restore or permanently delete
 10. **Swipe-to-delete** — left swipe gesture on mobile via `SwipeableCard`
-11. **Organize hub** — `/dashboard/organize` with categories, tags, and trash sections
+11. **Bulk actions** — select multiple links via long-press or a "Select" header button, then archive, delete (with modal confirmation), re-categorize, or add tags to all of them at once; selection state lives in `useLinksSelection` hook; bulk DB operations use Supabase `.in()` for single-round-trip efficiency; all mutations are optimistic with rollback on failure; `BulkActionToolbar` renders a sticky bar above the grid when selection mode is active; `BulkDeleteModal`, `BulkCategoryModal`, and `BulkTagModal` handle the per-action flows
+12. **Organize hub** — `/dashboard/organize` with categories, tags, and trash sections
 12. **Import / Export** — fully functional at `/dashboard/config/import-export`; export all links as JSON (strips `user_id`/`deleted_at`) or CSV (includes category name, tags as `|`-separated); import via paste (URLs or JSON array) or file upload (`.json`/`.csv`); CSV import resolves category names with `getOrCreateCategoryByName`; duplicate URLs are detected per-user and skipped; a default-category selector applies to links with no explicit category; service functions: `importLinks`, `getLinks` in `lib/services/links.ts`; `getCategories`, `getOrCreateCategoryByName` in `lib/services/categories.ts`
 13. **Change password** — re-verifies current password before updating
 14. **Dark mode** — theme toggle via `ThemeProvider`; inline script prevents flash on load
