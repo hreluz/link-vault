@@ -11,19 +11,19 @@ const mockDismissToast = vi.fn()
 const { LINK_A, LINK_B, LINK_PRIVATE } = vi.hoisted(() => {
   const LINK_A: LinkWithTags = {
     id: '1', title: 'Alpha', site_name: 'alpha.com',
-    status: 'unread', is_favorite: false, deleted_at: null, image_url: null,
+    status: 'unread', is_favorite: false, deleted_at: null, image_url: null, duration: null,
     tags: ['react'], created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
     url: 'https://alpha.com', description: '', notes: null, user_id: 'user-1', category_id: null,
   }
   const LINK_B: LinkWithTags = {
     id: '2', title: 'Beta', site_name: 'beta.com',
-    status: 'read', is_favorite: true, deleted_at: null, image_url: null,
+    status: 'read', is_favorite: true, deleted_at: null, image_url: null, duration: null,
     tags: ['vue'], created_at: '2026-01-02T00:00:00Z', updated_at: '2026-01-02T00:00:00Z',
     url: 'https://beta.com', description: '', notes: null, user_id: 'user-1', category_id: null,
   }
   const LINK_PRIVATE: LinkWithTags = {
     id: '3', title: 'Secret', site_name: 'secret.com',
-    status: 'unread', is_favorite: false, deleted_at: null, image_url: null,
+    status: 'unread', is_favorite: false, deleted_at: null, image_url: null, duration: null,
     tags: ['private-stuff'], created_at: '2026-01-03T00:00:00Z', updated_at: '2026-01-03T00:00:00Z',
     url: 'https://secret.com', description: '', notes: null, user_id: 'user-1', category_id: null,
   }
@@ -38,6 +38,10 @@ vi.mock('@/lib/services/links', () => ({
   getLinks: vi.fn(),
   toggleLinkFavorite: vi.fn(),
   deleteLink: vi.fn(),
+  bulkUpdateStatus: vi.fn(),
+  bulkSoftDelete: vi.fn(),
+  bulkUpdateCategory: vi.fn(),
+  bulkAddTags: vi.fn(),
 }))
 
 vi.mock('@/lib/services/tags', () => ({
@@ -49,12 +53,19 @@ vi.mock('@/lib/context/UnlockedTagsContext', () => ({
   useUnlockedTags: () => mockUseUnlockedTags(),
 }))
 
-import { getLinks, toggleLinkFavorite, deleteLink } from '@/lib/services/links'
+import {
+  getLinks, toggleLinkFavorite, deleteLink,
+  bulkUpdateStatus, bulkSoftDelete, bulkUpdateCategory, bulkAddTags,
+} from '@/lib/services/links'
 import { getPrivateTagNames } from '@/lib/services/tags'
 const mockGetLinks = vi.mocked(getLinks)
 const mockToggleFavorite = vi.mocked(toggleLinkFavorite)
 const mockDeleteLink = vi.mocked(deleteLink)
 const mockGetPrivateTagNames = vi.mocked(getPrivateTagNames)
+const mockBulkUpdateStatus = vi.mocked(bulkUpdateStatus)
+const mockBulkSoftDelete = vi.mocked(bulkSoftDelete)
+const mockBulkUpdateCategory = vi.mocked(bulkUpdateCategory)
+const mockBulkAddTags = vi.mocked(bulkAddTags)
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -63,6 +74,10 @@ beforeEach(() => {
   mockGetPrivateTagNames.mockResolvedValue([])
   mockToggleFavorite.mockResolvedValue(true)
   mockDeleteLink.mockResolvedValue(true)
+  mockBulkUpdateStatus.mockResolvedValue(true)
+  mockBulkSoftDelete.mockResolvedValue(true)
+  mockBulkUpdateCategory.mockResolvedValue(true)
+  mockBulkAddTags.mockResolvedValue(true)
   mockUseUnlockedTags.mockReturnValue({ unlockedTagNames: new Set(), unlockTag: vi.fn(), lockTag: vi.fn(), lockAll: vi.fn() })
 })
 
@@ -323,6 +338,206 @@ describe('useLinks', () => {
 
       expect(result.current.links[0].id).toBe('99')
       expect(result.current.links).toHaveLength(3)
+    })
+  })
+
+  describe('handleBulkStatusChange', () => {
+    it('updates status for all matching links immediately', async () => {
+      const { result } = await renderLoaded()
+
+      await act(async () => { await result.current.handleBulkStatusChange(['1', '2'], 'archived') })
+
+      expect(result.current.links.find(l => l.id === '1')?.status).toBe('archived')
+      expect(result.current.links.find(l => l.id === '2')?.status).toBe('archived')
+    })
+
+    it('leaves non-matching links unchanged', async () => {
+      mockGetLinks.mockResolvedValue([LINK_A, LINK_B, { ...LINK_PRIVATE, id: '3', status: 'unread' as const }])
+      const { result } = await renderLoaded()
+
+      await act(async () => { await result.current.handleBulkStatusChange(['1'], 'archived') })
+
+      expect(result.current.links.find(l => l.id === '2')?.status).toBe('read')
+      expect(result.current.links.find(l => l.id === '3')?.status).toBe('unread')
+    })
+
+    it('calls bulkUpdateStatus with correct ids and status', async () => {
+      const { result } = await renderLoaded()
+
+      await act(async () => { await result.current.handleBulkStatusChange(['1', '2'], 'archived') })
+
+      expect(mockBulkUpdateStatus).toHaveBeenCalledWith(['1', '2'], 'archived')
+    })
+
+    it('rolls back all statuses on service failure', async () => {
+      mockBulkUpdateStatus.mockResolvedValue(false)
+      const { result } = await renderLoaded()
+
+      await act(async () => { await result.current.handleBulkStatusChange(['1', '2'], 'archived') })
+
+      expect(result.current.links.find(l => l.id === '1')?.status).toBe('unread')
+      expect(result.current.links.find(l => l.id === '2')?.status).toBe('read')
+    })
+
+    it('toasts an error on failure', async () => {
+      mockBulkUpdateStatus.mockResolvedValue(false)
+      const { result } = await renderLoaded()
+
+      await act(async () => { await result.current.handleBulkStatusChange(['1'], 'archived') })
+
+      expect(mockAddToast).toHaveBeenCalledWith('Failed to update links', 'destructive')
+    })
+  })
+
+  describe('handleBulkDelete', () => {
+    it('removes all matching links immediately', async () => {
+      const { result } = await renderLoaded()
+
+      await act(async () => { await result.current.handleBulkDelete(['1', '2']) })
+
+      expect(result.current.links).toHaveLength(0)
+    })
+
+    it('leaves non-matching links in place', async () => {
+      const { result } = await renderLoaded()
+
+      await act(async () => { await result.current.handleBulkDelete(['1']) })
+
+      expect(result.current.links).toHaveLength(1)
+      expect(result.current.links[0].id).toBe('2')
+    })
+
+    it('calls bulkSoftDelete immediately (no undo timer)', async () => {
+      const { result } = await renderLoaded()
+
+      await act(async () => { await result.current.handleBulkDelete(['1']) })
+
+      expect(mockBulkSoftDelete).toHaveBeenCalledWith(['1'])
+    })
+
+    it('toasts a success message with the correct count', async () => {
+      const { result } = await renderLoaded()
+
+      await act(async () => { await result.current.handleBulkDelete(['1', '2']) })
+
+      expect(mockAddToast).toHaveBeenCalledWith('2 links deleted')
+    })
+
+    it('uses singular "link" when deleting one', async () => {
+      const { result } = await renderLoaded()
+
+      await act(async () => { await result.current.handleBulkDelete(['1']) })
+
+      expect(mockAddToast).toHaveBeenCalledWith('1 link deleted')
+    })
+
+    it('restores all links on service failure', async () => {
+      mockBulkSoftDelete.mockResolvedValue(false)
+      const { result } = await renderLoaded()
+
+      await act(async () => { await result.current.handleBulkDelete(['1', '2']) })
+
+      expect(result.current.links).toHaveLength(2)
+    })
+
+    it('toasts an error on failure', async () => {
+      mockBulkSoftDelete.mockResolvedValue(false)
+      const { result } = await renderLoaded()
+
+      await act(async () => { await result.current.handleBulkDelete(['1']) })
+
+      expect(mockAddToast).toHaveBeenCalledWith('Failed to delete links', 'destructive')
+    })
+  })
+
+  describe('handleBulkCategoryChange', () => {
+    it('updates category_id for all matching links immediately', async () => {
+      const { result } = await renderLoaded()
+
+      await act(async () => { await result.current.handleBulkCategoryChange(['1', '2'], 'cat-new') })
+
+      expect(result.current.links.find(l => l.id === '1')?.category_id).toBe('cat-new')
+      expect(result.current.links.find(l => l.id === '2')?.category_id).toBe('cat-new')
+    })
+
+    it('calls bulkUpdateCategory with correct ids and categoryId', async () => {
+      const { result } = await renderLoaded()
+
+      await act(async () => { await result.current.handleBulkCategoryChange(['1'], 'cat-xyz') })
+
+      expect(mockBulkUpdateCategory).toHaveBeenCalledWith(['1'], 'cat-xyz')
+    })
+
+    it('rolls back category_id on service failure', async () => {
+      mockBulkUpdateCategory.mockResolvedValue(false)
+      const { result } = await renderLoaded()
+
+      await act(async () => { await result.current.handleBulkCategoryChange(['1'], 'cat-new') })
+
+      expect(result.current.links.find(l => l.id === '1')?.category_id).toBeNull()
+    })
+
+    it('toasts an error on failure', async () => {
+      mockBulkUpdateCategory.mockResolvedValue(false)
+      const { result } = await renderLoaded()
+
+      await act(async () => { await result.current.handleBulkCategoryChange(['1'], 'cat-new') })
+
+      expect(mockAddToast).toHaveBeenCalledWith('Failed to update category', 'destructive')
+    })
+  })
+
+  describe('handleBulkAddTags', () => {
+    it('appends new tags to all matching links', async () => {
+      const { result } = await renderLoaded()
+
+      await act(async () => { await result.current.handleBulkAddTags(['1', '2'], ['ts', 'node']) })
+
+      expect(result.current.links.find(l => l.id === '1')?.tags).toContain('ts')
+      expect(result.current.links.find(l => l.id === '2')?.tags).toContain('ts')
+    })
+
+    it('preserves existing tags', async () => {
+      const { result } = await renderLoaded()
+
+      await act(async () => { await result.current.handleBulkAddTags(['1'], ['ts']) })
+
+      expect(result.current.links.find(l => l.id === '1')?.tags).toContain('react')
+    })
+
+    it('deduplicates tags when the link already has the tag', async () => {
+      const { result } = await renderLoaded()
+
+      await act(async () => { await result.current.handleBulkAddTags(['1'], ['react']) })
+
+      const tags = result.current.links.find(l => l.id === '1')?.tags ?? []
+      expect(tags.filter(t => t === 'react')).toHaveLength(1)
+    })
+
+    it('calls bulkAddTags with correct ids and tag names', async () => {
+      const { result } = await renderLoaded()
+
+      await act(async () => { await result.current.handleBulkAddTags(['1', '2'], ['node']) })
+
+      expect(mockBulkAddTags).toHaveBeenCalledWith(['1', '2'], ['node'])
+    })
+
+    it('rolls back tags on service failure', async () => {
+      mockBulkAddTags.mockResolvedValue(false)
+      const { result } = await renderLoaded()
+
+      await act(async () => { await result.current.handleBulkAddTags(['1'], ['new-tag']) })
+
+      expect(result.current.links.find(l => l.id === '1')?.tags).not.toContain('new-tag')
+    })
+
+    it('toasts an error on failure', async () => {
+      mockBulkAddTags.mockResolvedValue(false)
+      const { result } = await renderLoaded()
+
+      await act(async () => { await result.current.handleBulkAddTags(['1'], ['new-tag']) })
+
+      expect(mockAddToast).toHaveBeenCalledWith('Failed to add tags', 'destructive')
     })
   })
 })

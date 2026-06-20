@@ -1,7 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { getLinks, toggleLinkFavorite, deleteLink, type LinkWithTags } from '@/lib/services/links'
+import {
+  getLinks, toggleLinkFavorite, deleteLink,
+  bulkUpdateStatus, bulkSoftDelete, bulkUpdateCategory, bulkAddTags,
+  type LinkWithTags,
+} from '@/lib/services/links'
 import { getPrivateTagNames } from '@/lib/services/tags'
 import type { LinkStatus } from '@/lib/types/database'
 import { STATUS_CONFIG } from '@/app/dashboard/config'
@@ -78,5 +82,64 @@ export function useLinks() {
     setAllLinks(prev => [link, ...prev])
   }
 
-  return { links, loading, handleStatusChange, handleEdit, handleDelete, handleFavoriteToggle, handleCreate }
+  async function handleBulkStatusChange(ids: string[], status: LinkStatus) {
+    const snapshots = allLinks.filter(l => ids.includes(l.id))
+    setAllLinks(prev => prev.map(l => ids.includes(l.id) ? { ...l, status } : l))
+    const ok = await bulkUpdateStatus(ids, status)
+    if (!ok) {
+      setAllLinks(prev => prev.map(l => {
+        const snap = snapshots.find(s => s.id === l.id)
+        return snap ? { ...l, status: snap.status } : l
+      }))
+      addToast('Failed to update links', 'destructive')
+    }
+  }
+
+  async function handleBulkDelete(ids: string[]) {
+    const snapshots = allLinks.filter(l => ids.includes(l.id))
+    setAllLinks(prev => prev.filter(l => !ids.includes(l.id)))
+    const ok = await bulkSoftDelete(ids)
+    if (!ok) {
+      setAllLinks(prev => [...snapshots, ...prev])
+      addToast('Failed to delete links', 'destructive')
+    } else {
+      addToast(`${ids.length} link${ids.length !== 1 ? 's' : ''} deleted`)
+    }
+  }
+
+  async function handleBulkCategoryChange(ids: string[], categoryId: string | null) {
+    const snapshots = allLinks.filter(l => ids.includes(l.id))
+    setAllLinks(prev => prev.map(l => ids.includes(l.id) ? { ...l, category_id: categoryId } : l))
+    const ok = await bulkUpdateCategory(ids, categoryId)
+    if (!ok) {
+      setAllLinks(prev => prev.map(l => {
+        const snap = snapshots.find(s => s.id === l.id)
+        return snap ? { ...l, category_id: snap.category_id } : l
+      }))
+      addToast('Failed to update category', 'destructive')
+    }
+  }
+
+  async function handleBulkAddTags(ids: string[], tagNames: string[]) {
+    const snapshots = allLinks.filter(l => ids.includes(l.id))
+    setAllLinks(prev => prev.map(l =>
+      ids.includes(l.id)
+        ? { ...l, tags: Array.from(new Set([...l.tags, ...tagNames])) }
+        : l
+    ))
+    const ok = await bulkAddTags(ids, tagNames)
+    if (!ok) {
+      setAllLinks(prev => prev.map(l => {
+        const snap = snapshots.find(s => s.id === l.id)
+        return snap ? { ...l, tags: snap.tags } : l
+      }))
+      addToast('Failed to add tags', 'destructive')
+    }
+  }
+
+  return {
+    links, loading,
+    handleStatusChange, handleEdit, handleDelete, handleFavoriteToggle, handleCreate,
+    handleBulkStatusChange, handleBulkDelete, handleBulkCategoryChange, handleBulkAddTags,
+  }
 }
