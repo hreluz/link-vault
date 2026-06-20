@@ -13,6 +13,7 @@ const { LINK_A, LINK_B, LINK_C } = vi.hoisted(() => {
   const base = {
     user_id: 'user-1', description: '', notes: null,
     is_favorite: true, url: 'https://example.com',
+    image_url: null, deleted_at: null,
   }
   const LINK_A: LinkWithTags = {
     ...base, id: '1', title: 'Alpha', site_name: 'alpha.com',

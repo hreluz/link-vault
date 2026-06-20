@@ -47,6 +47,18 @@ export default function LinkCard({ link, category, onMenuOpen, onFavoriteToggle,
           </div>
         </div>
 
+        {link.image_url && (
+          <div className="-mx-5 -mt-5 mb-1 overflow-hidden rounded-t-2xl">
+            <img
+              src={link.image_url}
+              alt=""
+              className="w-full object-cover"
+              style={{ aspectRatio: '16/9' }}
+              loading="lazy"
+            />
+          </div>
+        )}
+
         <div>
           <h3 className="line-clamp-2 font-semibold leading-snug text-slate-900 dark:text-slate-50">
             <a
