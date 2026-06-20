@@ -4,14 +4,27 @@ import { useToast } from '@/components/ToastProvider'
 import { useLinkModals } from './useLinkModals'
 import { useLinks } from './useLinks'
 import { useLinkFilters } from './useLinkFilters'
+import { useLinksSelection } from './useLinksSelection'
 import type { LinkWithTags } from '@/lib/services/links'
 import type { LinkStatus } from '@/lib/types/database'
 
 export function useLinkList() {
   const modals = useLinkModals()
-  const { links, loading, handleStatusChange: changeStatus, handleEdit: editLink, handleDelete: deleteLink, handleFavoriteToggle: toggleFavorite, handleCreate } = useLinks()
+  const {
+    links, loading,
+    handleStatusChange: changeStatus,
+    handleEdit: editLink,
+    handleDelete: deleteLink,
+    handleFavoriteToggle: toggleFavorite,
+    handleCreate,
+    handleBulkStatusChange,
+    handleBulkDelete,
+    handleBulkCategoryChange,
+    handleBulkAddTags,
+  } = useLinks()
   const filters = useLinkFilters(links)
   const { addToast } = useToast()
+  const selection = useLinksSelection()
 
   function handleStatusChange(id: string, status: LinkStatus) {
     changeStatus(id, status)
@@ -42,9 +55,34 @@ export function useLinkList() {
     modals.setActiveLink(prev => prev?.id === id ? { ...prev, is_favorite: !prev.is_favorite } : prev)
   }
 
+  function handleBulkArchive() {
+    const ids = [...selection.selectedIds]
+    selection.exitSelectionMode()
+    handleBulkStatusChange(ids, 'archived')
+  }
+
+  function handleBulkDeleteSelected() {
+    const ids = [...selection.selectedIds]
+    selection.exitSelectionMode()
+    handleBulkDelete(ids)
+  }
+
+  function handleBulkRecategorize(categoryId: string | null) {
+    const ids = [...selection.selectedIds]
+    selection.exitSelectionMode()
+    handleBulkCategoryChange(ids, categoryId)
+  }
+
+  function handleBulkTagSelected(tagNames: string[]) {
+    const ids = [...selection.selectedIds]
+    selection.exitSelectionMode()
+    handleBulkAddTags(ids, tagNames)
+  }
+
   return {
     ...modals,
     ...filters,
+    ...selection,
     links,
     loading,
     handleStatusChange,
@@ -54,6 +92,10 @@ export function useLinkList() {
     handleDeleteById,
     handleFavoriteToggle,
     handleCreate,
+    handleBulkArchive,
+    handleBulkDeleteSelected,
+    handleBulkRecategorize,
+    handleBulkTagSelected,
     addToast,
   }
 }

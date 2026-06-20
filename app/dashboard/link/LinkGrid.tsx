@@ -5,7 +5,11 @@ import { useLinkListContext } from './LinkListContext'
 import LinkCard from './LinkCard'
 
 export default function LinkGrid() {
-  const { loading, results, hasActiveFilters, setActiveLink, handleFavoriteToggle, handleLinkOpen, handleDeleteById, resetFilters } = useLinkListContext()
+  const {
+    loading, results, hasActiveFilters,
+    setActiveLink, handleFavoriteToggle, handleLinkOpen, handleDeleteById, resetFilters,
+    isSelectionMode, isSelected, toggleSelected, enterSelectionMode,
+  } = useLinkListContext()
   const { categories } = useCategoryList()
 
   if (loading) {
@@ -46,6 +50,10 @@ export default function LinkGrid() {
           onFavoriteToggle={() => handleFavoriteToggle(link.id)}
           onOpen={() => handleLinkOpen(link.id, link.status)}
           onDelete={() => handleDeleteById(link.id)}
+          isSelectionMode={isSelectionMode}
+          isSelected={isSelected(link.id)}
+          onSelect={toggleSelected}
+          onLongPress={(id) => { enterSelectionMode(); toggleSelected(id) }}
         />
       ))}
     </div>

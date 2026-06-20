@@ -171,6 +171,62 @@ export async function deleteLink(id: string): Promise<boolean> {
   return !error
 }
 
+export async function bulkUpdateStatus(ids: string[], status: LinkStatus): Promise<boolean> {
+  if (!ids.length) return true
+  const supabase = createClient()
+  const { error } = await supabase.from('links').update({ status }).in('id', ids)
+  return !error
+}
+
+export async function bulkSoftDelete(ids: string[]): Promise<boolean> {
+  if (!ids.length) return true
+  const supabase = createClient()
+  const { error } = await supabase
+    .from('links')
+    .update({ deleted_at: new Date().toISOString() })
+    .in('id', ids)
+  return !error
+}
+
+export async function bulkUpdateCategory(ids: string[], categoryId: string | null): Promise<boolean> {
+  if (!ids.length) return true
+  const supabase = createClient()
+  const { error } = await supabase.from('links').update({ category_id: categoryId }).in('id', ids)
+  return !error
+}
+
+export async function bulkAddTags(ids: string[], tagNames: string[]): Promise<boolean> {
+  if (!ids.length || !tagNames.length) return true
+  const supabase = createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return false
+
+  const names = tagNames.filter(Boolean)
+
+  await supabase
+    .from('tags')
+    .upsert(
+      names.map(name => ({ user_id: user.id, name })),
+      { onConflict: 'user_id,name', ignoreDuplicates: true },
+    )
+
+  const { data: tagRows } = await supabase
+    .from('tags')
+    .select('id')
+    .eq('user_id', user.id)
+    .in('name', names)
+
+  if (!tagRows?.length) return false
+
+  const pairs = ids.flatMap(link_id => tagRows.map(tag => ({ link_id, tag_id: tag.id })))
+  const { error } = await supabase
+    .from('link_tags')
+    .upsert(pairs, { onConflict: 'link_id,tag_id', ignoreDuplicates: true })
+
+  return !error
+}
+
 export type ImportLinkInput = {
   url: string
   title?: string | null
