@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { getLinks, createLink, updateLink, toggleLinkFavorite, deleteLink } from '@/lib/services/links'
+import { getLinks, createLink, updateLink, toggleLinkFavorite, deleteLink, importLinks } from '@/lib/services/links'
 
 // ── shared mocks ──────────────────────────────────────────────────────────────
 
@@ -24,6 +24,8 @@ const {
   mockLinkTagsInsert,
   // link_tags delete chain: from('link_tags').delete().eq()
   mockLinkTagsDelete, mockLinkTagsDeleteEq,
+  // importLinks duplicate check: from('links').select('id').eq().eq().is().maybySingle()
+  mockDupCheck, mockDupCheckIs, mockDupCheckEqUrl, mockDupCheckEqUser,
 } = vi.hoisted(() => {
   const mockReturns = vi.fn()
   const mockOrder = vi.fn(() => ({ returns: mockReturns }))
@@ -58,6 +60,11 @@ const {
 
   const mockLinksDeleteEq = vi.fn()
 
+  const mockDupCheck = vi.fn()
+  const mockDupCheckIs = vi.fn(() => ({ limit: mockDupCheck }))
+  const mockDupCheckEqUrl = vi.fn(() => ({ is: mockDupCheckIs }))
+  const mockDupCheckEqUser = vi.fn(() => ({ eq: mockDupCheckEqUrl }))
+
   return {
     mockGetLinksSelect, mockGetLinksIs, mockOrder, mockReturns,
     mockGetUser,
@@ -67,6 +74,7 @@ const {
     mockLinksDeleteEq,
     mockTagsUpsert, mockTagsSelect, mockTagsIn,
     mockLinkTagsInsert, mockLinkTagsDelete, mockLinkTagsDeleteEq,
+    mockDupCheck, mockDupCheckIs, mockDupCheckEqUrl, mockDupCheckEqUser,
   }
 })
 
@@ -74,7 +82,11 @@ vi.mock('@/lib/supabase/client', () => ({
   createClient: vi.fn(() => ({
     auth: { getUser: mockGetUser },
     from: vi.fn((table: string) => {
-      if (table === 'links') return { select: mockGetLinksSelect, insert: mockLinksInsert, update: mockLinksUpdate }
+      if (table === 'links') return {
+        select: (arg: string) => arg === 'id' ? { eq: mockDupCheckEqUser } : mockGetLinksSelect(arg),
+        insert: mockLinksInsert,
+        update: mockLinksUpdate,
+      }
       if (table === 'tags') return { upsert: mockTagsUpsert, select: mockTagsSelect }
       if (table === 'link_tags') return { insert: mockLinkTagsInsert, delete: mockLinkTagsDelete }
       return {}
@@ -100,6 +112,7 @@ beforeEach(() => {
   mockTagsIn.mockResolvedValue({ data: [] })
   mockLinkTagsInsert.mockResolvedValue({ error: null })
   mockLinkTagsDeleteEq.mockResolvedValue({ error: null })
+  mockDupCheck.mockResolvedValue({ data: [] })
 })
 
 // ── getLinks ──────────────────────────────────────────────────────────────────
@@ -436,6 +449,177 @@ describe('deleteLink', () => {
     await deleteLink('link-1')
 
     expect(mockLinksUpdate).toHaveBeenCalledWith(expect.objectContaining({ deleted_at: expect.any(String) }))
+  })
+})
+
+// ── importLinks ───────────────────────────────────────────────────────────────
+
+describe('importLinks', () => {
+  it('returns { imported: 0, skipped: n, duplicates: 0 } when user is not authenticated', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } })
+
+    const result = await importLinks([{ url: 'https://example.com' }], null)
+
+    expect(result).toEqual({ imported: 0, skipped: 1, duplicates: 0 })
+  })
+
+  it('returns { imported: 0, skipped: 0, duplicates: 0 } for an empty inputs array', async () => {
+    const result = await importLinks([], null)
+
+    expect(result).toEqual({ imported: 0, skipped: 0, duplicates: 0 })
+    expect(mockLinksInsert).not.toHaveBeenCalled()
+  })
+
+  it('skips an invalid URL and increments skipped', async () => {
+    const result = await importLinks([{ url: 'not-a-url' }], null)
+
+    expect(result).toEqual({ imported: 0, skipped: 1, duplicates: 0 })
+    expect(mockLinksInsert).not.toHaveBeenCalled()
+  })
+
+  it('skips a blank URL and increments skipped', async () => {
+    const result = await importLinks([{ url: '   ' }], null)
+
+    expect(result).toEqual({ imported: 0, skipped: 1, duplicates: 0 })
+    expect(mockLinksInsert).not.toHaveBeenCalled()
+  })
+
+  it('imports a single valid URL', async () => {
+    const result = await importLinks([{ url: 'https://example.com' }], null)
+
+    expect(result).toEqual({ imported: 1, skipped: 0, duplicates: 0 })
+  })
+
+  it('always inserts with status unread', async () => {
+    await importLinks([{ url: 'https://example.com' }], null)
+
+    expect(mockLinksInsert).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'unread' }),
+    )
+  })
+
+  it('uses defaultCategoryId when input has no category_id', async () => {
+    await importLinks([{ url: 'https://example.com' }], 'cat-default')
+
+    expect(mockLinksInsert).toHaveBeenCalledWith(
+      expect.objectContaining({ category_id: 'cat-default' }),
+    )
+  })
+
+  it('uses input category_id over the default', async () => {
+    await importLinks([{ url: 'https://example.com', category_id: 'cat-override' }], 'cat-default')
+
+    expect(mockLinksInsert).toHaveBeenCalledWith(
+      expect.objectContaining({ category_id: 'cat-override' }),
+    )
+  })
+
+  it('passes null category_id when neither input nor default is set', async () => {
+    await importLinks([{ url: 'https://example.com' }], null)
+
+    expect(mockLinksInsert).toHaveBeenCalledWith(
+      expect.objectContaining({ category_id: null }),
+    )
+  })
+
+  it('extracts site_name from the URL hostname', async () => {
+    await importLinks([{ url: 'https://www.youtube.com/watch?v=xyz' }], null)
+
+    expect(mockLinksInsert).toHaveBeenCalledWith(
+      expect.objectContaining({ site_name: 'www.youtube.com' }),
+    )
+  })
+
+  it('upserts the no-tag when no tags are provided', async () => {
+    await importLinks([{ url: 'https://example.com' }], null)
+
+    expect(mockTagsUpsert).toHaveBeenCalledWith(
+      [{ user_id: 'user-1', name: 'no-tag' }],
+      expect.objectContaining({ onConflict: 'user_id,name' }),
+    )
+  })
+
+  it('upserts provided tags', async () => {
+    mockTagsIn.mockResolvedValue({ data: [{ id: 't1', name: 'react' }] })
+
+    await importLinks([{ url: 'https://example.com', tags: ['react'] }], null)
+
+    expect(mockTagsUpsert).toHaveBeenCalledWith(
+      [{ user_id: 'user-1', name: 'react' }],
+      expect.objectContaining({ onConflict: 'user_id,name' }),
+    )
+  })
+
+  it('increments skipped when the DB insert fails', async () => {
+    mockLinksSingle.mockResolvedValue({ data: null, error: { message: 'insert failed' } })
+
+    const result = await importLinks([{ url: 'https://example.com' }], null)
+
+    expect(result).toEqual({ imported: 0, skipped: 1, duplicates: 0 })
+  })
+
+  it('imports multiple valid links', async () => {
+    const result = await importLinks([
+      { url: 'https://example.com' },
+      { url: 'https://github.com' },
+      { url: 'https://youtube.com' },
+    ], null)
+
+    expect(result).toEqual({ imported: 3, skipped: 0, duplicates: 0 })
+    expect(mockLinksInsert).toHaveBeenCalledTimes(3)
+  })
+
+  it('counts imported and skipped correctly in a mixed batch', async () => {
+    mockLinksSingle
+      .mockResolvedValueOnce({ data: RAW_LINK, error: null })
+      .mockResolvedValueOnce({ data: null, error: { message: 'failed' } })
+
+    const result = await importLinks([
+      { url: 'https://example.com' },
+      { url: 'not-a-url' },
+      { url: 'https://github.com' },
+    ], null)
+
+    expect(result).toEqual({ imported: 1, skipped: 2, duplicates: 0 })
+  })
+
+  it('increments duplicates when the URL already exists', async () => {
+    mockDupCheck.mockResolvedValue({ data: [{ id: 'existing-id' }] })
+
+    const result = await importLinks([{ url: 'https://example.com' }], null)
+
+    expect(result).toEqual({ imported: 0, skipped: 0, duplicates: 1 })
+  })
+
+  it('does not insert when the URL is a duplicate', async () => {
+    mockDupCheck.mockResolvedValue({ data: [{ id: 'existing-id' }] })
+
+    await importLinks([{ url: 'https://example.com' }], null)
+
+    expect(mockLinksInsert).not.toHaveBeenCalled()
+  })
+
+  it('detects duplicates even when multiple copies already exist in the DB', async () => {
+    mockDupCheck.mockResolvedValue({ data: [{ id: 'existing-id' }] })
+
+    const result = await importLinks([{ url: 'https://example.com' }], null)
+
+    expect(result).toEqual({ imported: 0, skipped: 0, duplicates: 1 })
+    expect(mockLinksInsert).not.toHaveBeenCalled()
+  })
+
+  it('counts duplicates, imported, and skipped correctly in a mixed batch', async () => {
+    mockDupCheck
+      .mockResolvedValueOnce({ data: [] })
+      .mockResolvedValueOnce({ data: [{ id: 'existing-id' }] })
+
+    const result = await importLinks([
+      { url: 'https://example.com' },
+      { url: 'not-a-url' },
+      { url: 'https://github.com' },
+    ], null)
+
+    expect(result).toEqual({ imported: 1, skipped: 1, duplicates: 1 })
   })
 })
 
