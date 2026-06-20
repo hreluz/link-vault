@@ -11,19 +11,19 @@ const mockDismissToast = vi.fn()
 const { LINK_A, LINK_B, LINK_PRIVATE } = vi.hoisted(() => {
   const LINK_A: LinkWithTags = {
     id: '1', title: 'Alpha', site_name: 'alpha.com',
-    status: 'unread', is_favorite: false, deleted_at: null,
+    status: 'unread', is_favorite: false, deleted_at: null, image_url: null,
     tags: ['react'], created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
     url: 'https://alpha.com', description: '', notes: null, user_id: 'user-1', category_id: null,
   }
   const LINK_B: LinkWithTags = {
     id: '2', title: 'Beta', site_name: 'beta.com',
-    status: 'read', is_favorite: true, deleted_at: null,
+    status: 'read', is_favorite: true, deleted_at: null, image_url: null,
     tags: ['vue'], created_at: '2026-01-02T00:00:00Z', updated_at: '2026-01-02T00:00:00Z',
     url: 'https://beta.com', description: '', notes: null, user_id: 'user-1', category_id: null,
   }
   const LINK_PRIVATE: LinkWithTags = {
     id: '3', title: 'Secret', site_name: 'secret.com',
-    status: 'unread', is_favorite: false, deleted_at: null,
+    status: 'unread', is_favorite: false, deleted_at: null, image_url: null,
     tags: ['private-stuff'], created_at: '2026-01-03T00:00:00Z', updated_at: '2026-01-03T00:00:00Z',
     url: 'https://secret.com', description: '', notes: null, user_id: 'user-1', category_id: null,
   }

@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { useLinkFormContext } from '../LinkFormContext'
 import CategoryStatusRow from './CategoryStatusRow'
+import DescriptionField from './DescriptionField'
+import DurationField from './DurationField'
 import ExpandToggle from './ExpandToggle'
 import FormFooter from './FormFooter'
 import NotesField from './NotesField'
@@ -17,7 +19,7 @@ interface Props {
 
 export default function LinkForm({ scrollable = false, collapsible = false }: Props) {
   const [expanded, setExpanded] = useState(!collapsible)
-  const { error } = useLinkFormContext()
+  const { error, imageUrl, duration } = useLinkFormContext()
 
   const fieldsCls = scrollable
     ? 'max-h-[70vh] overflow-y-auto px-6 py-5 space-y-4'
@@ -32,11 +34,32 @@ export default function LinkForm({ scrollable = false, collapsible = false }: Pr
       <div className={fieldsCls}>
         <UrlField />
 
+        {imageUrl && (
+          <div className="overflow-hidden rounded-xl">
+            <div className="relative">
+              <img
+                src={imageUrl}
+                alt=""
+                className="w-full object-cover"
+                style={{ aspectRatio: '16/9' }}
+                loading="lazy"
+              />
+              {duration && (
+                <span className="absolute bottom-2 right-2 rounded-md bg-black/80 px-1.5 py-0.5 text-xs font-semibold text-white">
+                  {duration}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
         {expanded && (
           <>
             <TitleField />
+            <DescriptionField />
             <CategoryStatusRow />
             <TagsField />
+            <DurationField />
             <NotesField />
           </>
         )}
