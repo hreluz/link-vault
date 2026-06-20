@@ -9,6 +9,14 @@ export type LinkFormContextValue = {
   setUrl: (v: string) => void
   title: string
   setTitle: (v: string) => void
+  handleTitleChange?: (v: string) => void
+  description: string
+  setDescription: (v: string) => void
+  imageUrl: string
+  setImageUrl: (v: string) => void
+  fetchingMeta: boolean
+  autoFetch?: boolean
+  toggleAutoFetch?: () => void
   categoryId: string | null
   setCategoryId: (v: string | null) => void
   status: LinkStatus

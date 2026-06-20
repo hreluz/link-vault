@@ -11,6 +11,7 @@ type Fields = {
   url: string
   title: string
   description: string
+  imageUrl: string
   categoryId: string | null
   status: LinkStatus
   tags: string
@@ -21,6 +22,7 @@ export const DEFAULT_FIELDS: Fields = {
   url: '',
   title: '',
   description: '',
+  imageUrl: '',
   categoryId: null,
   status: 'unread',
   tags: '',
@@ -30,6 +32,7 @@ export const DEFAULT_FIELDS: Fields = {
 export function useLinkForm(initial: Fields = DEFAULT_FIELDS) {
   const [form, setForm] = useState<Fields & { error: string | null }>({ ...initial, error: null })
   const [submitting, setSubmitting] = useState(false)
+  const [fetchingMeta, setFetchingMeta] = useState(false)
 
   function validate(): boolean {
     if (!form.url.trim()) {
@@ -68,11 +71,13 @@ export function useLinkForm(initial: Fields = DEFAULT_FIELDS) {
     url: form.url, setUrl: (url: string) => setForm(f => ({ ...f, url })),
     title: form.title, setTitle: (title: string) => setForm(f => ({ ...f, title })),
     description: form.description, setDescription: (description: string) => setForm(f => ({ ...f, description })),
+    imageUrl: form.imageUrl, setImageUrl: (imageUrl: string) => setForm(f => ({ ...f, imageUrl })),
     categoryId: form.categoryId, setCategoryId: (categoryId: string | null) => setForm(f => ({ ...f, categoryId })),
     status: form.status, setStatus: (status: LinkStatus) => setForm(f => ({ ...f, status })),
     tags: form.tags, setTags: (tags: string) => setForm(f => ({ ...f, tags })),
     notes: form.notes, setNotes: (notes: string) => setForm(f => ({ ...f, notes })),
     submitting,
+    fetchingMeta, setFetchingMeta,
     error: form.error,
     reset,
     wrapSubmit,

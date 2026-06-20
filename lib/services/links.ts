@@ -10,6 +10,8 @@ type LinkQueryRow = Tables<'links'> & {
 export type CreateLinkInput = {
   url: string
   title?: string | null
+  description?: string | null
+  image_url?: string | null
   category_id: string
   status: LinkStatus
   notes?: string | null
@@ -69,6 +71,8 @@ export async function createLink(input: CreateLinkInput): Promise<LinkWithTags |
       user_id: user.id,
       url: input.url,
       title: input.title ?? null,
+      description: input.description ?? null,
+      image_url: input.image_url ?? null,
       site_name,
       category_id: input.category_id ?? null,
       status: input.status,
@@ -88,6 +92,7 @@ export type UpdateLinkInput = {
   url: string
   title?: string | null
   description?: string | null
+  image_url?: string | null
   category_id: string
   status: LinkStatus
   notes?: string | null
@@ -118,6 +123,7 @@ export async function updateLink(input: UpdateLinkInput): Promise<LinkWithTags |
       url: input.url,
       title: input.title ?? null,
       description: input.description ?? null,
+      image_url: input.image_url ?? null,
       category_id: input.category_id ?? null,
       status: input.status,
       notes: input.notes ?? null,

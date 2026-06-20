@@ -112,7 +112,7 @@ Planned types to eventually recognize:
 
 ## Key features
 
-1. **Save a link** — paste URL, auto-extract `site_name` from hostname
+1. **Save a link** — paste URL, auto-extract `site_name` from hostname; `fetchLinkMeta` server action (`app/dashboard/link/actions.ts`) fetches `og:title`, `og:description`, and `og:image` after a 600 ms debounce; title pre-fills only if the user hasn't typed one; description and image always populate; `image_url` stored in the `links` table and shown as a banner in `LinkCard`
 2. **Categorize** — auto-assign category by domain mapping; user can override
 3. **Tag** — add/remove tags using comma-separated input or `#tag` syntax; browse by tag
 4. **Private tags** — single global password (SHA-256 + optional hint) protects all private tags; session-scoped unlock via `UnlockTagModal`; lock/unlock icon buttons in the tags header; links hidden until unlocked; every wrong attempt logs the user out; 5 failures trigger a scoped nuke (private-tag-linked links + private tags deleted) then allow a fresh password
