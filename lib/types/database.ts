@@ -36,6 +36,8 @@ export interface Database {
           title: string | null
           description: string | null
           site_name: string | null
+          image_url: string | null
+          duration: string | null
           category_id: string | null
           notes: string | null
           status: LinkStatus
@@ -51,6 +53,8 @@ export interface Database {
           title?: string | null
           description?: string | null
           site_name?: string | null
+          image_url?: string | null
+          duration?: string | null
           category_id?: string | null
           notes?: string | null
           status?: LinkStatus
@@ -64,6 +68,8 @@ export interface Database {
           title?: string | null
           description?: string | null
           site_name?: string | null
+          image_url?: string | null
+          duration?: string | null
           category_id?: string | null
           notes?: string | null
           status?: LinkStatus

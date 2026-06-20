@@ -11,7 +11,7 @@ const { LINK_A, LINK_B } = vi.hoisted(() => {
   const base = {
     url: 'https://example.com', description: 'desc', notes: null,
     user_id: 'user-1', category_id: null, status: 'unread' as const,
-    is_favorite: false, created_at: '2026-01-01T00:00:00Z',
+    is_favorite: false, image_url: null, created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z', deleted_at: '2026-06-01T00:00:00Z',
   }
   const LINK_A: TrashedLink = { ...base, id: '1', title: 'Alpha Article', site_name: 'alpha.com', tags: ['react'] }
