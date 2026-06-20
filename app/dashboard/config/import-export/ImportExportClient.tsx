@@ -1,43 +1,243 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
+import { toast } from 'sonner'
+import { useCategoryList } from '@/lib/hooks/categories/useCategoryList'
+import { getLinks } from '@/lib/services/links'
+import { importLinks, type ImportLinkInput } from '@/lib/services/links'
+import { getCategories, getOrCreateCategoryByName } from '@/lib/services/categories'
 
-type ImportTab = 'file' | 'paste'
+type ImportTab = 'urls' | 'json' | 'file'
+type ParsedRow = ImportLinkInput & { categoryName?: string }
+
+function triggerDownload(content: string, filename: string, mimeType: string) {
+  const blob = new Blob([content], { type: mimeType })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+function linksToCSV(
+  links: Awaited<ReturnType<typeof getLinks>>,
+  categoryMap: Map<string, string>,
+): string {
+  const header = 'url,title,site_name,category,status,is_favorite,notes,tags,created_at'
+  const escape = (val: string | null | undefined) => {
+    if (val == null) return ''
+    const s = String(val)
+    return s.includes(',') || s.includes('"') || s.includes('\n')
+      ? `"${s.replace(/"/g, '""')}"`
+      : s
+  }
+  const rows = links.map(l =>
+    [
+      escape(l.url),
+      escape(l.title),
+      escape(l.site_name),
+      escape(l.category_id ? (categoryMap.get(l.category_id) ?? '') : ''),
+      escape(l.status),
+      l.is_favorite ? 'true' : 'false',
+      escape(l.notes),
+      escape(l.tags.join('|')),
+      escape(l.created_at),
+    ].join(','),
+  )
+  return [header, ...rows].join('\n')
+}
+
+function splitCSVLine(line: string): string[] {
+  const cols: string[] = []
+  let i = 0
+  while (i <= line.length) {
+    if (line[i] === '"') {
+      let field = ''
+      i++
+      while (i < line.length) {
+        if (line[i] === '"' && line[i + 1] === '"') { field += '"'; i += 2 }
+        else if (line[i] === '"') { i++; break }
+        else { field += line[i++] }
+      }
+      cols.push(field)
+      if (line[i] === ',') i++
+    } else {
+      const end = line.indexOf(',', i)
+      if (end === -1) { cols.push(line.slice(i)); break }
+      cols.push(line.slice(i, end))
+      i = end + 1
+    }
+  }
+  return cols
+}
+
+function parseCSV(text: string): ParsedRow[] {
+  const lines = text.trim().split('\n')
+  if (lines.length < 2) return []
+  const headers = splitCSVLine(lines[0])
+  const urlIdx = headers.indexOf('url')
+  const titleIdx = headers.indexOf('title')
+  const notesIdx = headers.indexOf('notes')
+  const tagsIdx = headers.indexOf('tags')
+  const categoryIdx = headers.indexOf('category')
+  if (urlIdx === -1) return []
+
+  return lines.slice(1).map(line => {
+    const cols = splitCSVLine(line)
+    return {
+      url: cols[urlIdx] ?? '',
+      title: titleIdx !== -1 ? cols[titleIdx] || null : null,
+      notes: notesIdx !== -1 ? cols[notesIdx] || null : null,
+      tags: tagsIdx !== -1 ? (cols[tagsIdx]?.split('|').filter(Boolean) ?? []) : [],
+      categoryName: categoryIdx !== -1 ? cols[categoryIdx] || undefined : undefined,
+    }
+  }).filter(r => r.url)
+}
 
 export default function ImportExportClient() {
-  const [importTab, setImportTab] = useState<ImportTab>('file')
+  const [importTab, setImportTab] = useState<ImportTab>('urls')
   const [isDragging, setIsDragging] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [pasteText, setPasteText] = useState('')
+  const [urlsText, setUrlsText] = useState('')
+  const [jsonText, setJsonText] = useState('')
+  const [defaultCategoryId, setDefaultCategoryId] = useState<string>('')
+  const defaultCategorySet = useRef(false)
+  const [importing, setImporting] = useState(false)
+  const [exporting, setExporting] = useState<'json' | 'csv' | null>(null)
+  const [lastResult, setLastResult] = useState<{ imported: number; skipped: number; duplicates: number } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const { categories } = useCategoryList()
+
+  useEffect(() => {
+    if (categories.length > 0 && !defaultCategorySet.current) {
+      const notDefined = categories.find(c => c.name === 'Not defined')
+      setDefaultCategoryId((notDefined ?? categories[0]).id)
+      defaultCategorySet.current = true
+    }
+  }, [categories])
 
   function handleDragOver(e: React.DragEvent) {
     e.preventDefault()
     setIsDragging(true)
   }
-
-  function handleDragLeave() {
-    setIsDragging(false)
-  }
-
+  function handleDragLeave() { setIsDragging(false) }
   function handleDrop(e: React.DragEvent) {
     e.preventDefault()
     setIsDragging(false)
     const file = e.dataTransfer.files[0]
     if (file) setSelectedFile(file)
   }
-
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0] ?? null
-    setSelectedFile(file)
+    setSelectedFile(e.target.files?.[0] ?? null)
   }
 
-  const hasImportContent = importTab === 'file' ? !!selectedFile : pasteText.trim().length > 0
+  const hasImportContent =
+    importTab === 'urls' ? urlsText.trim().length > 0
+    : importTab === 'json' ? jsonText.trim().length > 0
+    : !!selectedFile
+
+  async function handleExport(format: 'json' | 'csv') {
+    setExporting(format)
+    try {
+      const links = await getLinks()
+      const now = new Date().toISOString().slice(0, 10)
+      if (format === 'json') {
+        const data = links.map(({ user_id, deleted_at, ...rest }) => rest)
+        triggerDownload(JSON.stringify(data, null, 2), `link-vault-${now}.json`, 'application/json')
+      } else {
+        const categories = await getCategories()
+        const categoryMap = new Map(categories.map(c => [c.id, c.name]))
+        triggerDownload(linksToCSV(links, categoryMap), `link-vault-${now}.csv`, 'text/csv')
+      }
+      toast.success(`Exported ${links.length} links as ${format.toUpperCase()}`)
+    } catch {
+      toast.error('Export failed')
+    } finally {
+      setExporting(null)
+    }
+  }
+
+  async function handleImport() {
+    setImporting(true)
+    setLastResult(null)
+    const catId = defaultCategoryId || null
+
+    try {
+      let inputs: ImportLinkInput[] = []
+
+      if (importTab === 'urls') {
+        inputs = urlsText
+          .split('\n')
+          .map(line => line.trim())
+          .filter(Boolean)
+          .map(url => ({ url, tags: [] }))
+      } else if (importTab === 'json') {
+        let parsed: unknown
+        try { parsed = JSON.parse(jsonText) } catch { toast.error('Invalid JSON'); return }
+        if (!Array.isArray(parsed)) { toast.error('JSON must be an array'); return }
+        inputs = (parsed as ImportLinkInput[]).filter(item => typeof item?.url === 'string')
+      } else if (importTab === 'file' && selectedFile) {
+        const text = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = e => resolve(e.target?.result as string)
+          reader.onerror = reject
+          reader.readAsText(selectedFile)
+        })
+        if (selectedFile.name.endsWith('.csv')) {
+          const parsed = parseCSV(text)
+          const uniqueNames = [...new Set(
+            parsed.map(r => r.categoryName).filter((n): n is string => !!n),
+          )]
+          const nameToId = new Map<string, string>()
+          for (const name of uniqueNames) {
+            const id = await getOrCreateCategoryByName(name)
+            if (id) nameToId.set(name, id)
+          }
+          inputs = parsed.map(({ categoryName, ...row }) => ({
+            ...row,
+            category_id: categoryName ? (nameToId.get(categoryName) ?? null) : null,
+          }))
+        } else {
+          let parsed: unknown
+          try { parsed = JSON.parse(text) } catch { toast.error('Invalid JSON file'); return }
+          if (!Array.isArray(parsed)) { toast.error('JSON file must be an array'); return }
+          inputs = (parsed as ImportLinkInput[]).filter(item => typeof item?.url === 'string')
+        }
+      }
+
+      if (inputs.length === 0) { toast.error('No valid links found'); return }
+
+      const result = await importLinks(inputs, catId)
+      setLastResult(result)
+      if (result.imported > 0) {
+        setUrlsText('')
+        setJsonText('')
+        setSelectedFile(null)
+        const dupSuffix = result.duplicates > 0 ? ` (${result.duplicates} already existed)` : ''
+        toast.success(`Imported ${result.imported} link${result.imported !== 1 ? 's' : ''}${dupSuffix}`)
+      } else {
+        const parts: string[] = []
+        if (result.duplicates > 0) parts.push(`${result.duplicates} already existed`)
+        if (result.skipped > 0) parts.push(`${result.skipped} invalid`)
+        toast.warning(`No links imported${parts.length > 0 ? ` — ${parts.join(', ')}` : ''}`)
+      }
+    } catch {
+      toast.error('Import failed')
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  const TAB_LABELS: Record<ImportTab, string> = {
+    urls: '🔗 Paste URLs',
+    json: '📋 Paste JSON',
+    file: '📁 Upload file',
+  }
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
-      {/* Back link */}
       <Link
         href="/dashboard/config"
         className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 transition hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
@@ -60,13 +260,21 @@ export default function ImportExportClient() {
         </div>
 
         <div className="flex flex-wrap gap-3">
-          <button className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100">
+          <button
+            onClick={() => handleExport('json')}
+            disabled={exporting !== null}
+            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100"
+          >
             <span aria-hidden="true">📄</span>
-            Export as JSON
+            {exporting === 'json' ? 'Exporting…' : 'Export as JSON'}
           </button>
-          <button className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100">
+          <button
+            onClick={() => handleExport('csv')}
+            disabled={exporting !== null}
+            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100"
+          >
             <span aria-hidden="true">📊</span>
-            Export as CSV
+            {exporting === 'csv' ? 'Exporting…' : 'Export as CSV'}
           </button>
         </div>
 
@@ -83,28 +291,53 @@ export default function ImportExportClient() {
           </span>
           <div>
             <h2 className="font-semibold text-slate-900 dark:text-slate-50">Import</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400">Restore links from a JSON or CSV file</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Add links from URLs, JSON, or a file</p>
           </div>
         </div>
 
         {/* Tabs */}
         <div className="mb-5 flex rounded-xl border border-slate-200 p-1 dark:border-slate-700">
-          {(['file', 'paste'] as ImportTab[]).map(tab => (
+          {(['urls', 'json', 'file'] as ImportTab[]).map(tab => (
             <button
               key={tab}
-              onClick={() => setImportTab(tab)}
+              onClick={() => { setImportTab(tab); setLastResult(null) }}
               className={`flex-1 rounded-lg py-2 text-sm font-medium transition ${
                 importTab === tab
                   ? 'bg-indigo-600 text-white shadow-sm'
                   : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
               }`}
             >
-              {tab === 'file' ? '📁 Upload file' : '📋 Paste JSON'}
+              {TAB_LABELS[tab]}
             </button>
           ))}
         </div>
 
-        {importTab === 'file' ? (
+        {importTab === 'urls' && (
+          <div className="space-y-2">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              One URL per line — all imported as <span className="font-medium text-slate-700 dark:text-slate-300">unread</span> with <span className="font-mono text-xs">#no-tag</span>
+            </p>
+            <textarea
+              value={urlsText}
+              onChange={e => setUrlsText(e.target.value)}
+              placeholder={"https://example.com\nhttps://github.com/some/repo\nhttps://youtube.com/watch?v=..."}
+              rows={10}
+              className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder-slate-300 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-600"
+            />
+          </div>
+        )}
+
+        {importTab === 'json' && (
+          <textarea
+            value={jsonText}
+            onChange={e => setJsonText(e.target.value)}
+            placeholder={'[\n  {\n    "url": "https://example.com",\n    "title": "Example",\n    "tags": ["reading"],\n    "notes": "optional"\n  }\n]'}
+            rows={10}
+            className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 font-mono text-sm text-slate-900 placeholder-slate-300 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-600"
+          />
+        )}
+
+        {importTab === 'file' && (
           <div
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
@@ -139,47 +372,54 @@ export default function ImportExportClient() {
               <>
                 <span className="text-4xl">📂</span>
                 <div>
-                  <p className="font-medium text-slate-700 dark:text-slate-300">
-                    Drop your file here
-                  </p>
-                  <p className="mt-0.5 text-sm text-slate-400 dark:text-slate-500">
-                    or click to browse — .json or .csv
-                  </p>
+                  <p className="font-medium text-slate-700 dark:text-slate-300">Drop your file here</p>
+                  <p className="mt-0.5 text-sm text-slate-400 dark:text-slate-500">or click to browse — .json or .csv</p>
                 </div>
               </>
             )}
           </div>
-        ) : (
-          <textarea
-            value={pasteText}
-            onChange={e => setPasteText(e.target.value)}
-            placeholder={'[\n  {\n    "url": "https://example.com",\n    "title": "Example",\n    "tags": ["reading"]\n  }\n]'}
-            rows={9}
-            className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 font-mono text-sm text-slate-900 placeholder-slate-300 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-600"
-          />
         )}
 
-        {/* Default category & import button */}
+        {/* Category selector + import button */}
         <div className="mt-5 space-y-4">
           <div>
             <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
               Default category for imported links
             </label>
-            <select className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
-              <option>General</option>
+            <select
+              value={defaultCategoryId}
+              onChange={e => setDefaultCategoryId(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+            >
+              {categories.map(cat => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.emoticon ? `${cat.emoticon} ` : ''}{cat.name}
+                </option>
+              ))}
             </select>
           </div>
 
+          {lastResult && (
+            <div className={`rounded-xl px-4 py-3 text-sm ${lastResult.imported > 0 ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400' : 'bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-400'}`}>
+              {lastResult.imported > 0
+                ? `✅ ${lastResult.imported} link${lastResult.imported !== 1 ? 's' : ''} imported`
+                : '⚠️ No links imported'}
+              {lastResult.duplicates > 0 && ` · ${lastResult.duplicates} already existed`}
+              {lastResult.skipped > 0 && ` · ${lastResult.skipped} invalid`}
+            </div>
+          )}
+
           <button
-            disabled={!hasImportContent}
+            onClick={handleImport}
+            disabled={!hasImportContent || importing}
             className="w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Import links
+            {importing ? 'Importing…' : 'Import links'}
           </button>
         </div>
 
         <p className="mt-4 text-xs text-slate-400 dark:text-slate-500">
-          Importing will add new links. Existing links won't be duplicated.
+          Importing will add new links. URLs already in your vault will be skipped.
         </p>
       </section>
     </main>
