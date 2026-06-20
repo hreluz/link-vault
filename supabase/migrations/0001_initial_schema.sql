@@ -31,6 +31,7 @@ create table public.links (
   site_name    text,
   notes        text,
   image_url    text,
+  duration     text,
   status       public.link_status  default 'unread' not null,
   is_favorite  boolean     default false not null,
   created_at   timestamptz default now() not null,

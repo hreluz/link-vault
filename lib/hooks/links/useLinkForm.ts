@@ -12,6 +12,7 @@ type Fields = {
   title: string
   description: string
   imageUrl: string
+  duration: string
   categoryId: string | null
   status: LinkStatus
   tags: string
@@ -23,6 +24,7 @@ export const DEFAULT_FIELDS: Fields = {
   title: '',
   description: '',
   imageUrl: '',
+  duration: '',
   categoryId: null,
   status: 'unread',
   tags: '',
@@ -72,6 +74,7 @@ export function useLinkForm(initial: Fields = DEFAULT_FIELDS) {
     title: form.title, setTitle: (title: string) => setForm(f => ({ ...f, title })),
     description: form.description, setDescription: (description: string) => setForm(f => ({ ...f, description })),
     imageUrl: form.imageUrl, setImageUrl: (imageUrl: string) => setForm(f => ({ ...f, imageUrl })),
+    duration: form.duration, setDuration: (duration: string) => setForm(f => ({ ...f, duration })),
     categoryId: form.categoryId, setCategoryId: (categoryId: string | null) => setForm(f => ({ ...f, categoryId })),
     status: form.status, setStatus: (status: LinkStatus) => setForm(f => ({ ...f, status })),
     tags: form.tags, setTags: (tags: string) => setForm(f => ({ ...f, tags })),

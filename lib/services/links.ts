@@ -12,6 +12,7 @@ export type CreateLinkInput = {
   title?: string | null
   description?: string | null
   image_url?: string | null
+  duration?: string | null
   category_id: string
   status: LinkStatus
   notes?: string | null
@@ -73,6 +74,7 @@ export async function createLink(input: CreateLinkInput): Promise<LinkWithTags |
       title: input.title ?? null,
       description: input.description ?? null,
       image_url: input.image_url ?? null,
+      duration: input.duration ?? null,
       site_name,
       category_id: input.category_id ?? null,
       status: input.status,
@@ -93,6 +95,7 @@ export type UpdateLinkInput = {
   title?: string | null
   description?: string | null
   image_url?: string | null
+  duration?: string | null
   category_id: string
   status: LinkStatus
   notes?: string | null
@@ -124,6 +127,7 @@ export async function updateLink(input: UpdateLinkInput): Promise<LinkWithTags |
       title: input.title ?? null,
       description: input.description ?? null,
       image_url: input.image_url ?? null,
+      duration: input.duration ?? null,
       category_id: input.category_id ?? null,
       status: input.status,
       notes: input.notes ?? null,

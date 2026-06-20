@@ -33,6 +33,8 @@ The central entity. Every saved link has:
 | `title` | string \| null | user-editable or auto-fetched |
 | `description` | string \| null | short summary |
 | `site_name` | string \| null | auto-extracted from URL (e.g. `youtube.com`) |
+| `image_url` | string \| null | og:image URL; stored as-is (not uploaded); shown as full-bleed thumbnail on `LinkCard` |
+| `duration` | string \| null | video duration (e.g. `4:33`); auto-fetched for YouTube via Data API v3; editable for any platform |
 | `content_type` | `ContentType` | see below |
 | `notes` | string \| null | free-form personal notes |
 | `category_id` | string \| null | FK → categories |
@@ -112,7 +114,7 @@ Planned types to eventually recognize:
 
 ## Key features
 
-1. **Save a link** — paste URL, auto-extract `site_name` from hostname; `fetchLinkMeta` server action (`app/dashboard/link/actions.ts`) fetches `og:title`, `og:description`, and `og:image` after a 600 ms debounce; title pre-fills only if the user hasn't typed one; description and image always populate; `image_url` stored in the `links` table and shown as a banner in `LinkCard`
+1. **Save a link** — paste URL, auto-extract `site_name` from hostname; `fetchLinkMeta` server action (`app/dashboard/link/actions.ts`) fetches `og:title`, `og:description`, and `og:image` after a 600 ms debounce; title pre-fills only if the user hasn't typed one; description and image always populate; `image_url` stored in the `links` table and shown as a full-bleed thumbnail at the top of `LinkCard`; an ON/OFF toggle in `UrlField` disables auto-fetch and clears prefilled data; YouTube video duration is fetched via YouTube Data API v3 (`YOUTUBE_API_KEY` env var, optional, free tier 10k units/day) and stored in `duration`; duration is editable in the form for any platform and shown as a badge over the thumbnail (or inline next to `site_name` when no thumbnail)
 2. **Categorize** — auto-assign category by domain mapping; user can override
 3. **Tag** — add/remove tags using comma-separated input or `#tag` syntax; browse by tag
 4. **Private tags** — single global password (SHA-256 + optional hint) protects all private tags; session-scoped unlock via `UnlockTagModal`; lock/unlock icon buttons in the tags header; links hidden until unlocked; every wrong attempt logs the user out; 5 failures trigger a scoped nuke (private-tag-linked links + private tags deleted) then allow a fresh password
