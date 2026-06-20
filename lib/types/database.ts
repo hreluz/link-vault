@@ -80,7 +80,6 @@ export interface Database {
           name: string
           color: string | null
           is_private: boolean
-          password_hash: string | null
           created_at: string
         }
         Insert: {
@@ -89,14 +88,39 @@ export interface Database {
           name: string
           color?: string | null
           is_private?: boolean
-          password_hash?: string | null
           created_at?: string
         }
         Update: {
           name?: string
           color?: string | null
           is_private?: boolean
-          password_hash?: string | null
+        }
+        Relationships: []
+      }
+      private_tag_settings: {
+        Row: {
+          id: string
+          user_id: string
+          password_hash: string
+          hint: string | null
+          failed_attempts: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          password_hash: string
+          hint?: string | null
+          failed_attempts?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          password_hash?: string
+          hint?: string | null
+          failed_attempts?: number
+          updated_at?: string
         }
         Relationships: []
       }
@@ -185,3 +209,4 @@ export type Tag = Tables<'tags'>
 export type LinkTag = Tables<'link_tags'>
 export type Category = Tables<'categories'>
 export type CategoryDomain = Tables<'category_domains'>
+export type PrivateTagSettings = Tables<'private_tag_settings'>

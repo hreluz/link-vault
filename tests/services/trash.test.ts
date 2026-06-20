@@ -4,8 +4,8 @@ import { getTrashedLinks, restoreLink, deleteLinkPermanently, emptyTrash } from 
 // ── shared mocks ──────────────────────────────────────────────────────────────
 
 const {
-  // getTrashedLinks chain: from('links').select().not().order().returns()
-  mockSelect, mockSelectNot, mockOrder, mockReturns,
+  // getTrashedLinks chain: from('links').select().not().order()
+  mockSelect, mockSelectNot, mockOrder,
   // auth
   mockGetUser,
   // restoreLink chain: from('links').update({ deleted_at: null }).eq()
@@ -14,8 +14,7 @@ const {
   // emptyTrash chain:            from('links').delete().eq('user_id').not()
   mockDelete, mockDeleteEq, mockEmptyNot,
 } = vi.hoisted(() => {
-  const mockReturns = vi.fn()
-  const mockOrder = vi.fn(() => ({ returns: mockReturns }))
+  const mockOrder = vi.fn()
   const mockSelectNot = vi.fn(() => ({ order: mockOrder }))
   const mockSelect = vi.fn(() => ({ not: mockSelectNot }))
 
@@ -32,7 +31,7 @@ const {
   const mockDelete = vi.fn(() => ({ eq: mockDeleteEq }))
 
   return {
-    mockSelect, mockSelectNot, mockOrder, mockReturns,
+    mockSelect, mockSelectNot, mockOrder,
     mockGetUser,
     mockUpdate, mockUpdateEq,
     mockDelete, mockDeleteEq, mockEmptyNot,
@@ -70,7 +69,7 @@ beforeEach(() => {
 
 describe('getTrashedLinks', () => {
   it('returns trashed links with tags flattened', async () => {
-    mockReturns.mockResolvedValue({
+    mockOrder.mockResolvedValue({
       data: [{ ...RAW_LINK, link_tags: [{ tags: { name: 'react' } }, { tags: { name: 'css' } }] }],
       error: null,
     })
@@ -82,7 +81,7 @@ describe('getTrashedLinks', () => {
   })
 
   it('omits link_tags from the returned objects', async () => {
-    mockReturns.mockResolvedValue({
+    mockOrder.mockResolvedValue({
       data: [{ ...RAW_LINK, link_tags: [{ tags: { name: 'react' } }] }],
       error: null,
     })
@@ -93,7 +92,7 @@ describe('getTrashedLinks', () => {
   })
 
   it('returns an empty tags array when link has no tags', async () => {
-    mockReturns.mockResolvedValue({ data: [{ ...RAW_LINK, link_tags: [] }], error: null })
+    mockOrder.mockResolvedValue({ data: [{ ...RAW_LINK, link_tags: [] }], error: null })
 
     const result = await getTrashedLinks()
 
@@ -101,7 +100,7 @@ describe('getTrashedLinks', () => {
   })
 
   it('skips null tag entries', async () => {
-    mockReturns.mockResolvedValue({
+    mockOrder.mockResolvedValue({
       data: [{ ...RAW_LINK, link_tags: [{ tags: null }, { tags: { name: 'react' } }] }],
       error: null,
     })
@@ -112,19 +111,19 @@ describe('getTrashedLinks', () => {
   })
 
   it('returns [] on error', async () => {
-    mockReturns.mockResolvedValue({ data: null, error: { message: 'DB error' } })
+    mockOrder.mockResolvedValue({ data: null, error: { message: 'DB error' } })
 
     expect(await getTrashedLinks()).toEqual([])
   })
 
   it('returns [] when data is null', async () => {
-    mockReturns.mockResolvedValue({ data: null, error: null })
+    mockOrder.mockResolvedValue({ data: null, error: null })
 
     expect(await getTrashedLinks()).toEqual([])
   })
 
   it('queries with deleted_at IS NOT NULL', async () => {
-    mockReturns.mockResolvedValue({ data: [], error: null })
+    mockOrder.mockResolvedValue({ data: [], error: null })
 
     await getTrashedLinks()
 
@@ -132,7 +131,7 @@ describe('getTrashedLinks', () => {
   })
 
   it('orders by deleted_at descending', async () => {
-    mockReturns.mockResolvedValue({ data: [], error: null })
+    mockOrder.mockResolvedValue({ data: [], error: null })
 
     await getTrashedLinks()
 
@@ -140,7 +139,7 @@ describe('getTrashedLinks', () => {
   })
 
   it('selects link_tags with nested tags', async () => {
-    mockReturns.mockResolvedValue({ data: [], error: null })
+    mockOrder.mockResolvedValue({ data: [], error: null })
 
     await getTrashedLinks()
 
