@@ -3,11 +3,12 @@
 import { useState, useEffect } from 'react'
 import { getFavorites } from '@/lib/services/favorites'
 import { toggleLinkFavorite, deleteLink, type LinkWithTags } from '@/lib/services/links'
-import { getPrivateTagNames } from '@/lib/services/tags'
+import { getPrivateTagNames, isTagVisible } from '@/lib/services/tags'
 import type { LinkStatus } from '@/lib/types/database'
 import { STATUS_CONFIG } from '@/app/dashboard/config'
 import { useToast } from '@/components/ToastProvider'
 import { useUnlockedTags } from '@/lib/context/UnlockedTagsContext'
+import { useTagsContext } from '@/lib/context/TagsContext'
 
 export function useFavorites() {
   const [allLinks, setAllLinks] = useState<LinkWithTags[]>([])
@@ -15,6 +16,7 @@ export function useFavorites() {
   const [loading, setLoading] = useState(true)
   const { addToast, dismissToast } = useToast()
   const { unlockedTagNames } = useUnlockedTags()
+  const { refetchTags } = useTagsContext()
 
   useEffect(() => {
     Promise.all([getFavorites(), getPrivateTagNames()]).then(([data, privateNames]) => {
@@ -25,7 +27,7 @@ export function useFavorites() {
   }, [])
 
   const links = allLinks.filter(link =>
-    link.tags.every(tag => !privateTagNames.has(tag) || unlockedTagNames.has(tag))
+    link.tags.every(tag => isTagVisible(privateTagNames.has(tag), tag, unlockedTagNames))
   )
 
   function handleStatusChange(id: string, status: LinkStatus) {
@@ -36,6 +38,7 @@ export function useFavorites() {
   function handleEdit(updated: LinkWithTags) {
     setAllLinks(prev => prev.map(l => l.id === updated.id ? updated : l))
     addToast('Changes saved')
+    refetchTags()
   }
 
   function handleDelete(id: string) {

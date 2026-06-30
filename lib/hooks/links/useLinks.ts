@@ -6,11 +6,12 @@ import {
   bulkUpdateStatus, bulkSoftDelete, bulkUpdateCategory, bulkAddTags,
   type LinkWithTags,
 } from '@/lib/services/links'
-import { getPrivateTagNames } from '@/lib/services/tags'
+import { getPrivateTagNames, isTagVisible } from '@/lib/services/tags'
 import type { LinkStatus } from '@/lib/types/database'
 import { STATUS_CONFIG } from '@/app/dashboard/config'
 import { useToast } from '@/components/ToastProvider'
 import { useUnlockedTags } from '@/lib/context/UnlockedTagsContext'
+import { useTagsContext } from '@/lib/context/TagsContext'
 
 export function useLinks() {
   const [allLinks, setAllLinks] = useState<LinkWithTags[]>([])
@@ -18,6 +19,7 @@ export function useLinks() {
   const [loading, setLoading] = useState(true)
   const { addToast, dismissToast } = useToast()
   const { unlockedTagNames } = useUnlockedTags()
+  const { refetchTags } = useTagsContext()
 
   useEffect(() => {
     Promise.all([getLinks(), getPrivateTagNames()]).then(([data, privateNames]) => {
@@ -28,7 +30,7 @@ export function useLinks() {
   }, [])
 
   const links = allLinks.filter(link =>
-    link.tags.every(tag => !privateTagNames.has(tag) || unlockedTagNames.has(tag))
+    link.tags.every(tag => isTagVisible(privateTagNames.has(tag), tag, unlockedTagNames))
   )
 
   function handleStatusChange(id: string, status: LinkStatus) {
@@ -39,6 +41,7 @@ export function useLinks() {
   function handleEdit(updated: LinkWithTags) {
     setAllLinks(prev => prev.map(l => l.id === updated.id ? updated : l))
     addToast('Changes saved')
+    refetchTags()
   }
 
   function handleDelete(id: string) {
@@ -80,6 +83,7 @@ export function useLinks() {
 
   function handleCreate(link: LinkWithTags) {
     setAllLinks(prev => [link, ...prev])
+    refetchTags()
   }
 
   async function handleBulkStatusChange(ids: string[], status: LinkStatus) {
@@ -134,6 +138,8 @@ export function useLinks() {
         return snap ? { ...l, tags: snap.tags } : l
       }))
       addToast('Failed to add tags', 'destructive')
+    } else {
+      refetchTags()
     }
   }
 

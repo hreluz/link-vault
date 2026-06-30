@@ -5,6 +5,7 @@ import FavoritesHeader from './FavoritesHeader'
 import FavoritesGrid from './FavoritesGrid'
 import FavoritesModals from './FavoritesModals'
 import SearchBar from '@/components/SearchBar'
+import { useAvailableTags } from '@/lib/hooks/tags/useAvailableTags'
 import { StatusTabBar } from '../link/StatusTabBar'
 
 function FavoritesContent() {
@@ -14,6 +15,7 @@ function FavoritesContent() {
     selectedStatuses, setSelectedStatuses,
     activeFilterCount, setFilterOpen,
   } = useFavoritesContext()
+  const availableTags = useAvailableTags()
 
   if (loading) {
     return (
@@ -36,6 +38,7 @@ function FavoritesContent() {
         onChange={setSearchQuery}
         filterCount={activeFilterCount}
         onFilterOpen={() => setFilterOpen(true)}
+        availableTags={availableTags}
       />
       <StatusTabBar
         value={selectedStatuses[0] ?? null}

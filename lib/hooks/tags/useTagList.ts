@@ -11,10 +11,12 @@ import {
   toKebabCase,
   type TagWithCount,
 } from '@/lib/services/tags'
+import { useTagsContext } from '@/lib/context/TagsContext'
 
 export type { TagWithCount }
 
 export function useTagList() {
+  const { refetchTags } = useTagsContext()
   const [tags, setTags] = useState<TagWithCount[]>([])
   const [loading, setLoading] = useState(true)
   const [addError, setAddError] = useState<string | null>(null)
@@ -49,6 +51,7 @@ export function useTagList() {
     if (result.error) { setAddError('Something went wrong. Please try again.'); return }
     setTags(prev => [...prev, { ...result.data, link_count: 0 }])
     closeAdd()
+    refetchTags()
   }
 
   function startEdit(tag: TagWithCount) {
@@ -72,6 +75,7 @@ export function useTagList() {
       t.id === editingId ? { ...t, name: result.data.name, color: result.data.color, is_private: result.data.is_private } : t
     ))
     setEditingId(null)
+    refetchTags()
   }
 
   function confirmDelete(id: string) { setDeletingId(id); setEditingId(null); setAdding(false); setDeleteError(null) }
@@ -87,6 +91,7 @@ export function useTagList() {
     setTags(prev => prev.filter(t => t.id !== id))
     setDeletingId(null)
     setDeleteError(null)
+    refetchTags()
   }
 
   return {

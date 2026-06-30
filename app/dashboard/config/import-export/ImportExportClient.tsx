@@ -7,6 +7,7 @@ import { useCategoryList } from '@/lib/hooks/categories/useCategoryList'
 import { getLinks } from '@/lib/services/links'
 import { importLinks, type ImportLinkInput } from '@/lib/services/links'
 import { getCategories, getOrCreateCategoryByName } from '@/lib/services/categories'
+import { useTagsContext } from '@/lib/context/TagsContext'
 
 type ImportTab = 'urls' | 'json' | 'file'
 type ParsedRow = ImportLinkInput & { categoryName?: string }
@@ -97,6 +98,7 @@ function parseCSV(text: string): ParsedRow[] {
 }
 
 export default function ImportExportClient() {
+  const { refetchTags } = useTagsContext()
   const [importTab, setImportTab] = useState<ImportTab>('urls')
   const [isDragging, setIsDragging] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -215,6 +217,7 @@ export default function ImportExportClient() {
         setUrlsText('')
         setJsonText('')
         setSelectedFile(null)
+        refetchTags()
         const dupSuffix = result.duplicates > 0 ? ` (${result.duplicates} already existed)` : ''
         toast.success(`Imported ${result.imported} link${result.imported !== 1 ? 's' : ''}${dupSuffix}`)
       } else {

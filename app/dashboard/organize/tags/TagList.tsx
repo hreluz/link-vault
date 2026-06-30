@@ -7,7 +7,7 @@ import { TagRow } from './TagRow'
 import { PrivateTagPasswordSection } from './PrivateTagPasswordSection'
 import UnlockTagModal from '@/components/UnlockTagModal'
 import { useUnlockedTags } from '@/lib/context/UnlockedTagsContext'
-import { getPrivateTagNames } from '@/lib/services/tags'
+import { getPrivateTagNames, isTagVisible } from '@/lib/services/tags'
 
 function TagListContent() {
   const { tags, adding, openAdd } = useTagContext()
@@ -16,6 +16,7 @@ function TagListContent() {
 
   const hasPrivate = tags.some(t => t.is_private)
   const hasUnlocked = tags.some(t => t.is_private && unlockedTagNames.has(t.name))
+  const visibleTags = tags.filter(t => isTagVisible(t.is_private, t.name, unlockedTagNames))
 
   async function handleUnlock() {
     const names = await getPrivateTagNames()
@@ -27,7 +28,7 @@ function TagListContent() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">Tags</h1>
-          <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{tags.length} tag{tags.length !== 1 ? 's' : ''}</p>
+          <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{visibleTags.length} tag{visibleTags.length !== 1 ? 's' : ''}</p>
         </div>
         <div className="flex items-center gap-2">
           {hasPrivate && !hasUnlocked && (
@@ -68,15 +69,17 @@ function TagListContent() {
       {adding && <TagForm mode="add" />}
 
       <div className="space-y-2">
-        {tags.map(tag => (
-          <TagRow key={tag.id} tag={tag} onUnlockRequest={() => setUnlocking(true)} />
+        {visibleTags.map(tag => (
+          <TagRow key={tag.id} tag={tag} />
         ))}
       </div>
 
-      {tags.length === 0 && (
+      {visibleTags.length === 0 && (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <div className="mb-4 text-4xl" aria-hidden="true">🏷️</div>
-          <p className="text-slate-500 dark:text-slate-400">No tags yet. Create your first one.</p>
+          <p className="text-slate-500 dark:text-slate-400">
+            {tags.length === 0 ? 'No tags yet. Create your first one.' : 'All tags are private. Unlock to view them.'}
+          </p>
         </div>
       )}
 

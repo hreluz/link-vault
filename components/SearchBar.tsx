@@ -1,14 +1,21 @@
 'use client'
 
+import { useSearchTagSuggestions } from '@/lib/hooks/tags/useSearchTagSuggestions'
+import TagSuggestionsDropdown from './TagSuggestionsDropdown'
+
 interface Props {
   value: string
   onChange: (q: string) => void
   isHashTagSearch?: boolean
   filterCount?: number
   onFilterOpen?: () => void
+  availableTags?: string[]
 }
 
-export default function SearchBar({ value, onChange, isHashTagSearch = false, filterCount, onFilterOpen }: Props) {
+export default function SearchBar({ value, onChange, isHashTagSearch = false, filterCount, onFilterOpen, availableTags = [] }: Props) {
+  const { suggestions, selectedIndex, onKeyPress, selectSuggestion, closeSuggestions } =
+    useSearchTagSuggestions(value, onChange, availableTags)
+
   return (
     <div className="mb-4 flex gap-2">
       <div className="relative flex-1">
@@ -20,12 +27,17 @@ export default function SearchBar({ value, onChange, isHashTagSearch = false, fi
           placeholder="Search by title, domain, tag… or #tag for tag-only"
           value={value}
           onChange={e => onChange(e.target.value)}
+          onKeyDown={e => {
+            if (onKeyPress(e.key)) e.preventDefault()
+          }}
+          onBlur={closeSuggestions}
           className={`w-full rounded-xl border bg-white py-3 pl-11 pr-4 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:ring-2 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500 ${
             isHashTagSearch
               ? 'border-indigo-400 focus:border-indigo-500 focus:ring-indigo-500/20 ring-1 ring-indigo-300 dark:border-indigo-500'
               : 'border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20 dark:border-slate-700'
           }`}
         />
+        <TagSuggestionsDropdown suggestions={suggestions} selectedIndex={selectedIndex} onSelect={selectSuggestion} />
       </div>
       {onFilterOpen !== undefined && (
         <button

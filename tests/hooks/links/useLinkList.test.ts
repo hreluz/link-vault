@@ -44,11 +44,17 @@ vi.mock('@/lib/services/links', () => ({
 
 vi.mock('@/lib/services/tags', () => ({
   getPrivateTagNames: vi.fn(),
+  isTagVisible: (isPrivate: boolean, name: string, unlockedTagNames: Set<string>) =>
+    !isPrivate || unlockedTagNames.has(name),
 }))
 
 const mockUseUnlockedTags = vi.fn()
 vi.mock('@/lib/context/UnlockedTagsContext', () => ({
   useUnlockedTags: () => mockUseUnlockedTags(),
+}))
+
+vi.mock('@/lib/context/TagsContext', () => ({
+  useTagsContext: () => ({ tags: [], loading: false, refetchTags: vi.fn() }),
 }))
 
 import { getLinks } from '@/lib/services/links'
