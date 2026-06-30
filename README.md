@@ -6,7 +6,7 @@ A personal "save for later" app for bookmarking links across content types — v
 
 - **Save links** — paste a URL; domain and site name are extracted automatically; `og:title`, `og:description`, and `og:image` are fetched server-side after a short debounce; an ON/OFF toggle lets you disable auto-fetch and clear prefilled data; YouTube video duration is fetched via YouTube Data API v3 (requires `YOUTUBE_API_KEY`) and shown as a badge on the thumbnail; duration is editable for any platform
 - **Categorize** — user-defined categories with emoji icons and color labels; 9 defaults seeded on first login; domains can be mapped to categories for auto-assignment
-- **Tag** — flexible tag system; comma-separated input and `#tag` syntax in search
+- **Tag** — flexible tag system; comma-separated input and `#tag` syntax in search; autocomplete suggests existing tags as you type (substring match, keyboard-navigable with ↑/↓, Tab/Enter to select)
 - **Private tags** — single global password (SHA-256 + optional hint) protects all private tags at once; session-scoped unlock via modal; lock/unlock icon buttons in the tags header; changing the password requires the current password; 5 failed attempts triggers a scoped nuke (only private-tag-linked links and private tags are deleted) and allows a fresh password after re-login
 - **Status tracking** — Unread → Watching → Read → Archived workflow
 - **Favorites** — star any link; dedicated favorites view with full filtering and search
