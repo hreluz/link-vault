@@ -133,6 +133,10 @@ export async function getTagLinksCount(id: string): Promise<number> {
   return count ?? 0
 }
 
+export function isTagVisible(isPrivate: boolean, name: string, unlockedTagNames: Set<string>): boolean {
+  return !isPrivate || unlockedTagNames.has(name)
+}
+
 export async function getPrivateTagNames(): Promise<string[]> {
   const supabase = createClient()
   const { data } = await supabase

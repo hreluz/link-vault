@@ -2,7 +2,9 @@
 
 import { useState } from 'react'
 import { useTagInput } from '@/lib/hooks/links/useTagInput'
+import { useAvailableTags } from '@/lib/hooks/tags/useAvailableTags'
 import { useLinkListContext } from './LinkListContext'
+import TagSuggestionsDropdown from '@/components/TagSuggestionsDropdown'
 
 interface Props {
   onClose: () => void
@@ -11,7 +13,11 @@ interface Props {
 export default function BulkTagModal({ onClose }: Props) {
   const { handleBulkTagSelected } = useLinkListContext()
   const [tagString, setTagString] = useState('')
-  const { confirmedTags, currentInput, confirmCurrent, onKeyPress, onInputChange, onPaste } = useTagInput('', setTagString)
+  const availableTags = useAvailableTags()
+  const {
+    confirmedTags, currentInput, onKeyPress, onInputChange, onPaste,
+    suggestions, selectedIndex, selectSuggestion, closeSuggestions,
+  } = useTagInput('', setTagString, availableTags)
 
   function handleConfirm() {
     const finalTags = currentInput.trim()
@@ -51,28 +57,34 @@ export default function BulkTagModal({ onClose }: Props) {
             Tags will be added to all selected links without replacing existing ones.
           </p>
 
-          <div className="flex min-h-[44px] flex-wrap items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800">
-            {confirmedTags.map(tag => (
-              <span
-                key={tag}
-                className="inline-flex items-center rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-medium text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300"
-              >
-                {tag}
-              </span>
-            ))}
-            <input
-              type="text"
-              value={currentInput}
-              placeholder={confirmedTags.length === 0 ? 'Type tags, separated by commas…' : ''}
-              className="min-w-[120px] flex-1 bg-transparent text-sm text-slate-900 placeholder-slate-400 outline-none dark:text-slate-50"
-              onChange={e => onInputChange(e.target.value)}
-              onKeyDown={e => onKeyPress(e.key)}
-              onPaste={e => {
-                e.preventDefault()
-                onPaste(e.clipboardData.getData('text'))
-              }}
-              autoFocus
-            />
+          <div className="relative">
+            <div className="flex min-h-11 flex-wrap items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800">
+              {confirmedTags.map(tag => (
+                <span
+                  key={tag}
+                  className="inline-flex items-center rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-medium text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300"
+                >
+                  {tag}
+                </span>
+              ))}
+              <input
+                type="text"
+                value={currentInput}
+                placeholder={confirmedTags.length === 0 ? 'Type tags, separated by commas…' : ''}
+                className="min-w-30 flex-1 bg-transparent text-sm text-slate-900 placeholder-slate-400 outline-none dark:text-slate-50"
+                onChange={e => onInputChange(e.target.value)}
+                onKeyDown={e => {
+                  if (onKeyPress(e.key)) e.preventDefault()
+                }}
+                onPaste={e => {
+                  e.preventDefault()
+                  onPaste(e.clipboardData.getData('text'))
+                }}
+                onBlur={closeSuggestions}
+                autoFocus
+              />
+            </div>
+            <TagSuggestionsDropdown suggestions={suggestions} selectedIndex={selectedIndex} onSelect={selectSuggestion} />
           </div>
 
           <div className="mt-4 flex justify-end gap-2">
