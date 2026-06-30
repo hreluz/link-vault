@@ -13,6 +13,7 @@ function FavoritesContent() {
     searchQuery, setSearchQuery,
     selectedStatuses, setSelectedStatuses,
     activeFilterCount, setFilterOpen,
+    allTags,
   } = useFavoritesContext()
 
   if (loading) {
@@ -36,6 +37,7 @@ function FavoritesContent() {
         onChange={setSearchQuery}
         filterCount={activeFilterCount}
         onFilterOpen={() => setFilterOpen(true)}
+        availableTags={allTags}
       />
       <StatusTabBar
         value={selectedStatuses[0] ?? null}
