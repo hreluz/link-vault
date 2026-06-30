@@ -1,10 +1,12 @@
 'use client'
 
 import SearchBar from '@/components/SearchBar'
+import { useAvailableTags } from '@/lib/hooks/tags/useAvailableTags'
 import { useLinkListContext } from './LinkListContext'
 
 export default function LinkSearchBar() {
-  const { searchQuery, isHashTagSearch, activeFilterCount, allTags, setSearchQuery, setFilterOpen } = useLinkListContext()
+  const { searchQuery, isHashTagSearch, activeFilterCount, setSearchQuery, setFilterOpen } = useLinkListContext()
+  const availableTags = useAvailableTags()
   return (
     <SearchBar
       value={searchQuery}
@@ -12,7 +14,7 @@ export default function LinkSearchBar() {
       isHashTagSearch={isHashTagSearch}
       filterCount={activeFilterCount}
       onFilterOpen={() => setFilterOpen(true)}
-      availableTags={allTags}
+      availableTags={availableTags}
     />
   )
 }

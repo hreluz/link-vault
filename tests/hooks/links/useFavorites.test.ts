@@ -45,11 +45,18 @@ vi.mock('@/lib/services/links', () => ({
 
 vi.mock('@/lib/services/tags', () => ({
   getPrivateTagNames: vi.fn(),
+  isTagVisible: (isPrivate: boolean, name: string, unlockedTagNames: Set<string>) =>
+    !isPrivate || unlockedTagNames.has(name),
 }))
 
 const mockUseUnlockedTags = vi.fn()
 vi.mock('@/lib/context/UnlockedTagsContext', () => ({
   useUnlockedTags: () => mockUseUnlockedTags(),
+}))
+
+const mockRefetchTags = vi.fn()
+vi.mock('@/lib/context/TagsContext', () => ({
+  useTagsContext: () => ({ tags: [], loading: false, refetchTags: mockRefetchTags }),
 }))
 
 import { getFavorites } from '@/lib/services/favorites'
@@ -159,6 +166,14 @@ describe('useFavorites', () => {
       act(() => result.current.handleEdit(LINK_A))
 
       expect(mockAddToast).toHaveBeenCalledWith('Changes saved')
+    })
+
+    it('refetches the shared tags cache, since editing can create new tags', async () => {
+      const { result } = await renderLoaded()
+
+      act(() => result.current.handleEdit(LINK_A))
+
+      expect(mockRefetchTags).toHaveBeenCalledOnce()
     })
   })
 
