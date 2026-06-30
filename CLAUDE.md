@@ -116,7 +116,7 @@ Planned types to eventually recognize:
 
 1. **Save a link** — paste URL, auto-extract `site_name` from hostname; `fetchLinkMeta` server action (`app/dashboard/link/actions.ts`) fetches `og:title`, `og:description`, and `og:image` after a 600 ms debounce; title pre-fills only if the user hasn't typed one; description and image always populate; `image_url` stored in the `links` table and shown as a full-bleed thumbnail at the top of `LinkCard`; an ON/OFF toggle in `UrlField` disables auto-fetch and clears prefilled data; YouTube video duration is fetched via YouTube Data API v3 (`YOUTUBE_API_KEY` env var, optional, free tier 10k units/day) and stored in `duration`; duration is editable in the form for any platform and shown as a badge over the thumbnail (or inline next to `site_name` when no thumbnail)
 2. **Categorize** — auto-assign category by domain mapping; user can override
-3. **Tag** — add/remove tags using comma-separated input or `#tag` syntax; browse by tag; autocomplete suggests existing tags as you type (substring match, up to 8 results); keyboard-navigable with ↑/↓, Tab/Enter to select, Escape to dismiss; available in both the link form (`TagsField`) and `BulkTagModal`; powered by `useAvailableTags` + `useTagInput(tags, onChange, availableTags)`
+3. **Tag** — add/remove tags using comma-separated input or `#tag` syntax; browse by tag; autocomplete suggests existing tags as you type (substring match, up to 8 results); keyboard-navigable with ↑/↓, Tab/Enter to select, Escape to dismiss; available in the link form (`TagsField`), `BulkTagModal`, and `SearchBar`; all three are powered by the same `useAvailableTags()` hook (privacy-filtered names from `TagsContext`) + `useTagInput(tags, onChange, availableTags)` / `useSearchTagSuggestions`
 4. **Private tags** — single global password (SHA-256 + optional hint) protects all private tags; session-scoped unlock via `UnlockTagModal`; lock/unlock icon buttons in the tags header; links hidden until unlocked; every wrong attempt logs the user out; 5 failures trigger a scoped nuke (private-tag-linked links + private tags deleted) then allow a fresh password
 5. **Status workflow** — Unread → Watching → Read → Archived; opening a link whose status is `unread` automatically advances it to `watching` via `handleLinkOpen` in `useLinkList`
 6. **Favorites** — `is_favorite` toggle; dedicated `/dashboard/favorites` view with full filter/search parity
@@ -158,7 +158,13 @@ Links are never hard-deleted from the UI — set `deleted_at` to delete, `null` 
 
 ### Tag privacy
 
-All private tags share a single global password stored in `private_tag_settings` (SHA-256 hash + optional hint + `failed_attempts` counter). Key service functions in `lib/services/tags.ts`: `setPrivateTagPassword`, `verifyPrivateTagPassword` (returns `VerifyPasswordResult`), `getPrivateTagSettings`. The `UnlockedTagsContext` (`lib/context/UnlockedTagsContext.tsx`) tracks which tags have been unlocked in the current session. Filter logic in `useLinks` excludes links whose tags are all private and none are unlocked.
+All private tags share a single global password stored in `private_tag_settings` (SHA-256 hash + optional hint + `failed_attempts` counter). Key service functions in `lib/services/tags.ts`: `setPrivateTagPassword`, `verifyPrivateTagPassword` (returns `VerifyPasswordResult`), `getPrivateTagSettings`. The `UnlockedTagsContext` (`lib/context/UnlockedTagsContext.tsx`) tracks which tags have been unlocked in the current session — it holds no tag data itself, just the `unlockedTagNames: Set<string>` and `unlockTag`/`lockTag`/`lockAll` mutators.
+
+The single privacy rule — `isTagVisible(isPrivate, name, unlockedTagNames)` in `lib/services/tags.ts` — is shared by every consumer that needs to hide locked private tags: `useLinks`/`useFavorites` use it to drop any link whose tags include a locked private tag (`link.tags.every(...)`, so even one locked tag hides the whole link from search and listing), and `useAvailableTags()` uses it to filter the tag name list used by autocomplete (`SearchBar`, `TagsField`, `BulkTagModal`).
+
+### Tags data (`TagsContext`)
+
+`TagsContext` (`lib/context/TagsContext.tsx`) is a singleton fetched once per session via `getTags()` and shared through `TagsProvider` (mounted in `app/dashboard/layout.tsx`). `useAvailableTags()` is the canonical, privacy-aware hook built on top of it. Because the cache is fetched once, anything that can create/rename/delete a tag must call `refetchTags()` afterward to keep it fresh: `useLinks`/`useFavorites` (link create/edit/bulk-tag can silently create new tags via `syncTags`), `useTagList` (Organize → Tags admin CRUD), and `ImportExportClient` (CSV/JSON import).
 
 ## Design system
 

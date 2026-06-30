@@ -67,7 +67,7 @@ components/         # shared UI (ColorPicker, SearchBar, SwipeableCard, …)
 lib/
   services/         # Supabase business logic (no Next.js deps)
   hooks/            # React hooks by domain
-  context/          # React context (UnlockedTagsContext)
+  context/          # React context (TagsContext, UnlockedTagsContext)
   types/            # TypeScript types (Database, Link, Tag, …)
   supabase/         # server + browser Supabase clients
 supabase/

@@ -46,11 +46,18 @@ vi.mock('@/lib/services/links', () => ({
 
 vi.mock('@/lib/services/tags', () => ({
   getPrivateTagNames: vi.fn(),
+  isTagVisible: (isPrivate: boolean, name: string, unlockedTagNames: Set<string>) =>
+    !isPrivate || unlockedTagNames.has(name),
 }))
 
 const mockUseUnlockedTags = vi.fn()
 vi.mock('@/lib/context/UnlockedTagsContext', () => ({
   useUnlockedTags: () => mockUseUnlockedTags(),
+}))
+
+const mockRefetchTags = vi.fn()
+vi.mock('@/lib/context/TagsContext', () => ({
+  useTagsContext: () => ({ tags: [], loading: false, refetchTags: mockRefetchTags }),
 }))
 
 import {
@@ -187,6 +194,14 @@ describe('useLinks', () => {
       act(() => result.current.handleEdit(LINK_A))
 
       expect(mockAddToast).toHaveBeenCalledWith('Changes saved')
+    })
+
+    it('refetches the shared tags cache, since editing can create new tags', async () => {
+      const { result } = await renderLoaded()
+
+      act(() => result.current.handleEdit(LINK_A))
+
+      expect(mockRefetchTags).toHaveBeenCalledOnce()
     })
   })
 
@@ -338,6 +353,15 @@ describe('useLinks', () => {
 
       expect(result.current.links[0].id).toBe('99')
       expect(result.current.links).toHaveLength(3)
+    })
+
+    it('refetches the shared tags cache, since creating can add new tags', async () => {
+      const { result } = await renderLoaded()
+      const newLink = { ...LINK_A, id: '99', title: 'New' }
+
+      act(() => result.current.handleCreate(newLink))
+
+      expect(mockRefetchTags).toHaveBeenCalledOnce()
     })
   })
 
@@ -520,6 +544,23 @@ describe('useLinks', () => {
       await act(async () => { await result.current.handleBulkAddTags(['1', '2'], ['node']) })
 
       expect(mockBulkAddTags).toHaveBeenCalledWith(['1', '2'], ['node'])
+    })
+
+    it('refetches the shared tags cache on success', async () => {
+      const { result } = await renderLoaded()
+
+      await act(async () => { await result.current.handleBulkAddTags(['1'], ['new-tag']) })
+
+      expect(mockRefetchTags).toHaveBeenCalledOnce()
+    })
+
+    it('does not refetch the shared tags cache on failure', async () => {
+      mockBulkAddTags.mockResolvedValue(false)
+      const { result } = await renderLoaded()
+
+      await act(async () => { await result.current.handleBulkAddTags(['1'], ['new-tag']) })
+
+      expect(mockRefetchTags).not.toHaveBeenCalled()
     })
 
     it('rolls back tags on service failure', async () => {
