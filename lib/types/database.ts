@@ -1,4 +1,5 @@
 export type LinkStatus = 'unread' | 'watching' | 'read' | 'archived'
+export type UserRole = 'user' | 'admin'
 
 export interface Database {
   public: {
@@ -9,6 +10,7 @@ export interface Database {
           email: string | null
           full_name: string | null
           avatar_url: string | null
+          role: UserRole
           created_at: string
           updated_at: string
         }
@@ -17,6 +19,7 @@ export interface Database {
           email?: string | null
           full_name?: string | null
           avatar_url?: string | null
+          role?: UserRole
           created_at?: string
           updated_at?: string
         }
@@ -24,6 +27,7 @@ export interface Database {
           email?: string | null
           full_name?: string | null
           avatar_url?: string | null
+          role?: UserRole
           updated_at?: string
         }
         Relationships: []
@@ -197,6 +201,25 @@ export interface Database {
         }
         Relationships: []
       }
+      app_settings: {
+        Row: {
+          id: string
+          registrations_enabled: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          registrations_enabled?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          registrations_enabled?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
@@ -216,3 +239,4 @@ export type LinkTag = Tables<'link_tags'>
 export type Category = Tables<'categories'>
 export type CategoryDomain = Tables<'category_domains'>
 export type PrivateTagSettings = Tables<'private_tag_settings'>
+export type AppSettings = Tables<'app_settings'>

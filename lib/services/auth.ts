@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { seedDefaultCategories } from '@/lib/services/categories'
+import { isAdminEmail } from '@/lib/auth/admin'
 
 export type AuthResult =
   | { success: true }
@@ -17,8 +18,11 @@ export async function signIn(email: string, password: string): Promise<AuthResul
 
 export async function signUp(email: string, password: string): Promise<AuthResult> {
   const supabase = await createClient()
-  const { error } = await supabase.auth.signUp({ email, password })
+  const { data, error } = await supabase.auth.signUp({ email, password })
   if (error) return { success: false, error: error.message }
+  if (data.user && isAdminEmail(email)) {
+    await supabase.from('users').update({ role: 'admin' }).eq('id', data.user.id)
+  }
   return { success: true }
 }
 
