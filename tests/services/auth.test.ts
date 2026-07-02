@@ -1,12 +1,30 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { signIn, signUp, signOut } from '@/lib/services/auth'
 
-const { mockSignInWithPassword, mockSignUp, mockSignOut, mockSeedDefaultCategories } = vi.hoisted(() => ({
-  mockSignInWithPassword: vi.fn(),
-  mockSignUp: vi.fn(),
-  mockSignOut: vi.fn(),
-  mockSeedDefaultCategories: vi.fn(),
-}))
+const {
+  mockSignInWithPassword,
+  mockSignUp,
+  mockSignOut,
+  mockSeedDefaultCategories,
+  mockIsAdminEmail,
+  mockUpdateEq,
+  mockUpdate,
+  mockFrom,
+} = vi.hoisted(() => {
+  const mockUpdateEq = vi.fn().mockResolvedValue({ error: null })
+  const mockUpdate = vi.fn(() => ({ eq: mockUpdateEq }))
+  const mockFrom = vi.fn(() => ({ update: mockUpdate }))
+  return {
+    mockSignInWithPassword: vi.fn(),
+    mockSignUp: vi.fn(),
+    mockSignOut: vi.fn(),
+    mockSeedDefaultCategories: vi.fn(),
+    mockIsAdminEmail: vi.fn().mockReturnValue(false),
+    mockUpdateEq,
+    mockUpdate,
+    mockFrom,
+  }
+})
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn().mockResolvedValue({
@@ -15,11 +33,16 @@ vi.mock('@/lib/supabase/server', () => ({
       signUp: mockSignUp,
       signOut: mockSignOut,
     },
+    from: mockFrom,
   }),
 }))
 
 vi.mock('@/lib/services/categories', () => ({
   seedDefaultCategories: mockSeedDefaultCategories,
+}))
+
+vi.mock('@/lib/auth/admin', () => ({
+  isAdminEmail: mockIsAdminEmail,
 }))
 
 beforeEach(() => {
@@ -56,7 +79,7 @@ describe('signIn', () => {
 
 describe('signUp', () => {
   it('returns success when registration succeeds', async () => {
-    mockSignUp.mockResolvedValue({ error: null })
+    mockSignUp.mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null })
 
     const result = await signUp('new@example.com', 'password123')
 
@@ -69,12 +92,44 @@ describe('signUp', () => {
 
   it('returns the error message when registration fails', async () => {
     mockSignUp.mockResolvedValue({
+      data: { user: null },
       error: { message: 'User already registered' },
     })
 
     const result = await signUp('existing@example.com', 'password123')
 
     expect(result).toEqual({ success: false, error: 'User already registered' })
+  })
+
+  it('assigns admin role when email matches ADMIN_EMAIL', async () => {
+    mockSignUp.mockResolvedValue({ data: { user: { id: 'admin-uid' } }, error: null })
+    mockIsAdminEmail.mockReturnValue(true)
+    mockUpdateEq.mockResolvedValue({ error: null })
+
+    const result = await signUp('admin@example.com', 'password123')
+
+    expect(result).toEqual({ success: true })
+    expect(mockUpdate).toHaveBeenCalledWith({ role: 'admin' })
+    expect(mockUpdateEq).toHaveBeenCalledWith('id', 'admin-uid')
+  })
+
+  it('does not assign admin role when email does not match ADMIN_EMAIL', async () => {
+    mockSignUp.mockResolvedValue({ data: { user: { id: 'user-uid' } }, error: null })
+    mockIsAdminEmail.mockReturnValue(false)
+
+    await signUp('other@example.com', 'password123')
+
+    expect(mockUpdate).not.toHaveBeenCalled()
+  })
+
+  it('does not assign admin role when signUp returns no user', async () => {
+    mockSignUp.mockResolvedValue({ data: { user: null }, error: null })
+    mockIsAdminEmail.mockReturnValue(true)
+
+    const result = await signUp('admin@example.com', 'password123')
+
+    expect(result).toEqual({ success: true })
+    expect(mockUpdate).not.toHaveBeenCalled()
   })
 })
 
