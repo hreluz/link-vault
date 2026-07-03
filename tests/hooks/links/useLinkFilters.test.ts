@@ -228,6 +228,43 @@ describe('useLinkFilters', () => {
     })
   })
 
+  describe('favoritesOnly filter', () => {
+    it('defaults to off, returning all links', () => {
+      const { result } = renderFilters()
+      expect(result.current.favoritesOnly).toBe(false)
+      expect(result.current.results.map(l => l.id)).toEqual(['3', '2', '1'])
+    })
+
+    it('filters to only favorited links when enabled', () => {
+      const { result } = renderFilters()
+
+      act(() => result.current.setFavoritesOnly(true))
+
+      // Only LINK_B is_favorite: true
+      expect(result.current.results.map(l => l.id)).toEqual(['2'])
+    })
+
+    it('combines with other active filters', () => {
+      const { result } = renderFilters()
+
+      act(() => {
+        result.current.setFavoritesOnly(true)
+        result.current.setCategory('cat-article')
+      })
+
+      // LINK_A and LINK_C are cat-article but neither is favorited
+      expect(result.current.results).toEqual([])
+    })
+
+    it('does not count toward activeFilterCount', () => {
+      const { result } = renderFilters()
+
+      act(() => result.current.setFavoritesOnly(true))
+
+      expect(result.current.activeFilterCount).toBe(0)
+    })
+  })
+
   describe('allTags', () => {
     it('returns a sorted, deduplicated list of all tags across links', () => {
       const { result } = renderFilters()
@@ -265,6 +302,15 @@ describe('useLinkFilters', () => {
       expect(result.current.searchQuery).toBe('')
       expect(result.current.activeFilterCount).toBe(0)
       expect(result.current.hasActiveFilters).toBe(false)
+    })
+
+    it('does not clear favoritesOnly, since it is a view mode rather than a filter', () => {
+      const { result } = renderFilters()
+
+      act(() => result.current.setFavoritesOnly(true))
+      act(() => result.current.resetFilters())
+
+      expect(result.current.favoritesOnly).toBe(true)
     })
   })
 })
