@@ -15,6 +15,7 @@ export function useLinkFilters(links: LinkWithTags[]) {
   const [tagMode, setTagMode] = useState<'any' | 'all'>('any')
   const [selectedStatuses, setSelectedStatuses] = useState<LinkStatus[]>([])
   const [sortBy, setSortBy] = useState<SortBy>('newest')
+  const [favoritesOnly, setFavoritesOnly] = useState(false)
 
   function resetFilters() {
     setCategory('all')
@@ -61,7 +62,9 @@ export function useLinkFilters(links: LinkWithTags[]) {
       )
     : byStatus
 
-  const results = [...byTags].sort((a, b) => {
+  const byFavorite = favoritesOnly ? byTags.filter(l => l.is_favorite) : byTags
+
+  const results = [...byFavorite].sort((a, b) => {
     switch (sortBy) {
       case 'oldest':       return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
       case 'alphabetical': return (a.title ?? '').localeCompare(b.title ?? '')
@@ -81,6 +84,7 @@ export function useLinkFilters(links: LinkWithTags[]) {
     tagMode, setTagMode,
     selectedStatuses, setSelectedStatuses,
     sortBy, setSortBy,
+    favoritesOnly, setFavoritesOnly,
     results,
     allTags,
     isHashTagSearch,

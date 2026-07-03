@@ -9,7 +9,7 @@ A personal "save for later" app for bookmarking links across content types — v
 - **Tag** — flexible tag system; comma-separated input and `#tag` syntax in search; autocomplete suggests existing tags as you type (substring match, keyboard-navigable with ↑/↓, Tab/Enter to select)
 - **Private tags** — single global password (SHA-256 + optional hint) protects all private tags at once; session-scoped unlock via modal; lock/unlock icon buttons in the tags header; changing the password requires the current password; 5 failed attempts triggers a scoped nuke (only private-tag-linked links and private tags are deleted) and allows a fresh password after re-login
 - **Status tracking** — Unread → Watching → Read → Archived workflow
-- **Favorites** — star any link; dedicated favorites view with full filtering and search
+- **Favorites** — star any link; an "All Links / ⭐ Favorites" pill toggle in the main dashboard view filters the same list down to starred links, with full search, filter, sort, and bulk-action support in either mode
 - **Filter & sort** — filter by category, tag, status; sort by newest / oldest / alphabetical / status
 - **Search** — full-text search across title, domain, notes, and tags; `#tag` syntax supported
 - **Trash** — soft-delete with 2-second undo toast; restore or permanently delete from the trash view
@@ -54,8 +54,7 @@ npm test
 app/
   (auth)/           # login, signup
   dashboard/
-    link/           # main links view + forms
-    favorites/      # starred links
+    link/           # main links view + forms (includes the All Links / Favorites toggle)
     organize/
       categories/   # manage categories + domain mappings
       tags/         # manage tags (with privacy toggle)

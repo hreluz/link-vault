@@ -6,7 +6,7 @@ import LinkCard from './LinkCard'
 
 export default function LinkGrid() {
   const {
-    loading, results, hasActiveFilters,
+    loading, results, hasActiveFilters, favoritesOnly,
     setActiveLink, handleFavoriteToggle, handleLinkOpen, handleDeleteById, resetFilters,
     isSelectionMode, isSelected, toggleSelected, enterSelectionMode,
   } = useLinkListContext()
@@ -23,6 +23,25 @@ export default function LinkGrid() {
   }
 
   if (results.length === 0) {
+    if (favoritesOnly) {
+      return (
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <div className="mb-4 text-4xl" aria-hidden="true">⭐</div>
+          <p className="text-slate-500">
+            {hasActiveFilters ? 'No favorites match your search.' : 'No favorites yet. Star a link to see it here.'}
+          </p>
+          {hasActiveFilters && (
+            <button
+              onClick={resetFilters}
+              className="mt-3 text-sm font-medium text-indigo-600 hover:text-indigo-500"
+            >
+              Clear filters
+            </button>
+          )}
+        </div>
+      )
+    }
+
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
         <div className="mb-4 text-4xl" aria-hidden="true">📭</div>

@@ -4,10 +4,9 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const NAV_ITEMS = [
-  { label: 'Links',     icon: '🔖', href: '/dashboard' },
-  { label: 'Favorites', icon: '⭐', href: '/dashboard/favorites' },
-  { label: 'Organize',  icon: '🗂️', href: '/dashboard/organize' },
-  { label: 'Config',    icon: '⚙️', href: '/dashboard/config' },
+  { label: 'Links',    icon: '🔖', href: '/dashboard' },
+  { label: 'Organize', icon: '🗂️', href: '/dashboard/organize' },
+  { label: 'Config',   icon: '⚙️', href: '/dashboard/config' },
 ]
 
 export default function DashboardNav() {

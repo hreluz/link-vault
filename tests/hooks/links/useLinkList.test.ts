@@ -234,6 +234,16 @@ describe('useLinkList (integration)', () => {
     })
   })
 
+  describe('favoritesOnly', () => {
+    it('is passed through from useLinkFilters and filters results', async () => {
+      const { result } = await renderLoaded()
+
+      act(() => result.current.setFavoritesOnly(true))
+
+      expect(result.current.results.map(l => l.id)).toEqual(['2'])
+    })
+  })
+
   describe('handleCreate', () => {
     it('prepends the new link and it appears in results', async () => {
       const { result } = await renderLoaded()
