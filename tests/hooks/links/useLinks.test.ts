@@ -3,7 +3,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { useLinks } from '@/lib/hooks/links/useLinks'
-import type { LinkWithTags } from '@/lib/services/links'
+import type { LinkWithTags, LinkFilterParams } from '@/lib/services/links'
 
 const mockAddToast = vi.fn()
 const mockDismissToast = vi.fn()
@@ -30,12 +30,17 @@ const { LINK_A, LINK_B, LINK_PRIVATE } = vi.hoisted(() => {
   return { LINK_A, LINK_B, LINK_PRIVATE }
 })
 
+const FILTER_PARAMS: LinkFilterParams = {
+  search: '', categoryId: null, statuses: [], tagNames: [], tagMode: 'any',
+  favoritesOnly: false, sortBy: 'newest', unlockedTagNames: [],
+}
+
 vi.mock('@/components/ToastProvider', () => ({
   useToast: () => ({ addToast: mockAddToast, dismissToast: mockDismissToast }),
 }))
 
 vi.mock('@/lib/services/links', () => ({
-  getLinks: vi.fn(),
+  getLinksPage: vi.fn(),
   toggleLinkFavorite: vi.fn(),
   deleteLink: vi.fn(),
   bulkUpdateStatus: vi.fn(),
@@ -61,11 +66,11 @@ vi.mock('@/lib/context/TagsContext', () => ({
 }))
 
 import {
-  getLinks, toggleLinkFavorite, deleteLink,
+  getLinksPage, toggleLinkFavorite, deleteLink,
   bulkUpdateStatus, bulkSoftDelete, bulkUpdateCategory, bulkAddTags,
 } from '@/lib/services/links'
 import { getPrivateTagNames } from '@/lib/services/tags'
-const mockGetLinks = vi.mocked(getLinks)
+const mockGetLinksPage = vi.mocked(getLinksPage)
 const mockToggleFavorite = vi.mocked(toggleLinkFavorite)
 const mockDeleteLink = vi.mocked(deleteLink)
 const mockGetPrivateTagNames = vi.mocked(getPrivateTagNames)
@@ -77,7 +82,7 @@ const mockBulkAddTags = vi.mocked(bulkAddTags)
 beforeEach(() => {
   vi.clearAllMocks()
   mockAddToast.mockReturnValue('toast-id')
-  mockGetLinks.mockResolvedValue([LINK_A, LINK_B])
+  mockGetLinksPage.mockResolvedValue({ links: [LINK_A, LINK_B], totalCount: 2 })
   mockGetPrivateTagNames.mockResolvedValue([])
   mockToggleFavorite.mockResolvedValue(true)
   mockDeleteLink.mockResolvedValue(true)
@@ -88,8 +93,8 @@ beforeEach(() => {
   mockUseUnlockedTags.mockReturnValue({ unlockedTagNames: new Set(), unlockTag: vi.fn(), lockTag: vi.fn(), lockAll: vi.fn() })
 })
 
-async function renderLoaded() {
-  const utils = renderHook(() => useLinks())
+async function renderLoaded(params: LinkFilterParams = FILTER_PARAMS) {
+  const utils = renderHook(() => useLinks(params))
   await waitFor(() => expect(utils.result.current.loading).toBe(false))
   return utils
 }
@@ -97,7 +102,7 @@ async function renderLoaded() {
 describe('useLinks', () => {
   describe('initial state', () => {
     it('starts in loading state with no links', () => {
-      const { result } = renderHook(() => useLinks())
+      const { result } = renderHook(() => useLinks(FILTER_PARAMS))
       expect(result.current.loading).toBe(true)
       expect(result.current.links).toHaveLength(0)
     })
@@ -107,18 +112,44 @@ describe('useLinks', () => {
       expect(result.current.links).toHaveLength(2)
       expect(result.current.loading).toBe(false)
     })
+
+    it('fetches the first page with the given filter params', async () => {
+      await renderLoaded()
+      expect(mockGetLinksPage).toHaveBeenCalledWith(FILTER_PARAMS, 40, 0)
+    })
+
+    it('exposes totalCount and hasMore from the service response', async () => {
+      mockGetLinksPage.mockResolvedValue({ links: [LINK_A, LINK_B], totalCount: 50 })
+      const { result } = await renderLoaded()
+      expect(result.current.totalCount).toBe(50)
+      expect(result.current.hasMore).toBe(true)
+    })
+  })
+
+  describe('loadMore', () => {
+    it('fetches the next page at the current offset and appends it', async () => {
+      mockGetLinksPage.mockResolvedValue({ links: [LINK_A], totalCount: 2 })
+      const { result } = await renderLoaded()
+
+      mockGetLinksPage.mockResolvedValue({ links: [LINK_B], totalCount: 2 })
+      await act(async () => { result.current.loadMore() })
+
+      expect(mockGetLinksPage).toHaveBeenLastCalledWith(FILTER_PARAMS, 40, 1)
+      expect(result.current.links.map(l => l.id)).toEqual(['1', '2'])
+      expect(result.current.hasMore).toBe(false)
+    })
   })
 
   describe('privacy filtering', () => {
     it('shows all links when there are no private tags', async () => {
-      mockGetLinks.mockResolvedValue([LINK_A, LINK_B])
+      mockGetLinksPage.mockResolvedValue({ links: [LINK_A, LINK_B], totalCount: 2 })
       mockGetPrivateTagNames.mockResolvedValue([])
       const { result } = await renderLoaded()
       expect(result.current.links).toHaveLength(2)
     })
 
     it('hides a link whose tag is private and locked', async () => {
-      mockGetLinks.mockResolvedValue([LINK_A, LINK_PRIVATE])
+      mockGetLinksPage.mockResolvedValue({ links: [LINK_A, LINK_PRIVATE], totalCount: 2 })
       mockGetPrivateTagNames.mockResolvedValue(['private-stuff'])
       mockUseUnlockedTags.mockReturnValue({ unlockedTagNames: new Set(), unlockTag: vi.fn(), lockTag: vi.fn(), lockAll: vi.fn() })
       const { result } = await renderLoaded()
@@ -127,7 +158,7 @@ describe('useLinks', () => {
     })
 
     it('shows a link whose private tag has been unlocked', async () => {
-      mockGetLinks.mockResolvedValue([LINK_A, LINK_PRIVATE])
+      mockGetLinksPage.mockResolvedValue({ links: [LINK_A, LINK_PRIVATE], totalCount: 2 })
       mockGetPrivateTagNames.mockResolvedValue(['private-stuff'])
       mockUseUnlockedTags.mockReturnValue({ unlockedTagNames: new Set(['private-stuff']), unlockTag: vi.fn(), lockTag: vi.fn(), lockAll: vi.fn() })
       const { result } = await renderLoaded()
@@ -136,7 +167,7 @@ describe('useLinks', () => {
 
     it('hides a link that has both a public and a locked private tag', async () => {
       const mixedLink: LinkWithTags = { ...LINK_A, id: '5', tags: ['react', 'private-stuff'] }
-      mockGetLinks.mockResolvedValue([mixedLink])
+      mockGetLinksPage.mockResolvedValue({ links: [mixedLink], totalCount: 1 })
       mockGetPrivateTagNames.mockResolvedValue(['private-stuff'])
       mockUseUnlockedTags.mockReturnValue({ unlockedTagNames: new Set(), unlockTag: vi.fn(), lockTag: vi.fn(), lockAll: vi.fn() })
       const { result } = await renderLoaded()
@@ -144,7 +175,7 @@ describe('useLinks', () => {
     })
 
     it('shows all links once all private tags are unlocked', async () => {
-      mockGetLinks.mockResolvedValue([LINK_A, LINK_B, LINK_PRIVATE])
+      mockGetLinksPage.mockResolvedValue({ links: [LINK_A, LINK_B, LINK_PRIVATE], totalCount: 3 })
       mockGetPrivateTagNames.mockResolvedValue(['private-stuff'])
       mockUseUnlockedTags.mockReturnValue({ unlockedTagNames: new Set(['private-stuff']), unlockTag: vi.fn(), lockTag: vi.fn(), lockAll: vi.fn() })
       const { result } = await renderLoaded()
@@ -175,6 +206,15 @@ describe('useLinks', () => {
       act(() => result.current.handleStatusChange('1', 'watching'))
 
       expect(mockAddToast).toHaveBeenCalledWith('Moved to Watching')
+    })
+
+    it('removes the link locally if the new status no longer matches an active status filter', async () => {
+      const params: LinkFilterParams = { ...FILTER_PARAMS, statuses: ['unread'] }
+      const { result } = await renderLoaded(params)
+
+      act(() => result.current.handleStatusChange('1', 'read'))
+
+      expect(result.current.links.find(l => l.id === '1')).toBeUndefined()
     })
   })
 
@@ -342,6 +382,16 @@ describe('useLinks', () => {
 
       expect(mockAddToast).toHaveBeenCalledWith('Failed to update favorite', 'destructive')
     })
+
+    it('removes the link locally if favoritesOnly is active and it becomes unfavorited', async () => {
+      const params: LinkFilterParams = { ...FILTER_PARAMS, favoritesOnly: true }
+      mockGetLinksPage.mockResolvedValue({ links: [LINK_B], totalCount: 1 })
+      const { result } = await renderLoaded(params)
+
+      await act(async () => { await result.current.handleFavoriteToggle('2') })
+
+      expect(result.current.links.find(l => l.id === '2')).toBeUndefined()
+    })
   })
 
   describe('handleCreate', () => {
@@ -363,6 +413,16 @@ describe('useLinks', () => {
 
       expect(mockRefetchTags).toHaveBeenCalledOnce()
     })
+
+    it('does not add the new link locally if it does not match the active filter', async () => {
+      const params: LinkFilterParams = { ...FILTER_PARAMS, categoryId: 'cat-1' }
+      const { result } = await renderLoaded(params)
+      const newLink = { ...LINK_A, id: '99', title: 'New', category_id: 'cat-2' }
+
+      act(() => result.current.handleCreate(newLink))
+
+      expect(result.current.links.find(l => l.id === '99')).toBeUndefined()
+    })
   })
 
   describe('handleBulkStatusChange', () => {
@@ -376,7 +436,7 @@ describe('useLinks', () => {
     })
 
     it('leaves non-matching links unchanged', async () => {
-      mockGetLinks.mockResolvedValue([LINK_A, LINK_B, { ...LINK_PRIVATE, id: '3', status: 'unread' as const }])
+      mockGetLinksPage.mockResolvedValue({ links: [LINK_A, LINK_B, { ...LINK_PRIVATE, id: '3', status: 'unread' as const }], totalCount: 3 })
       const { result } = await renderLoaded()
 
       await act(async () => { await result.current.handleBulkStatusChange(['1'], 'archived') })

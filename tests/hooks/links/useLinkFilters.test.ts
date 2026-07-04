@@ -1,292 +1,174 @@
 // @vitest-environment jsdom
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useLinkFilters } from '@/lib/hooks/links/useLinkFilters'
 
-const BASE = { user_id: 'user-1', description: '', notes: null, updated_at: '2026-01-01T00:00:00Z', image_url: null, deleted_at: null }
+const mockUseUnlockedTags = vi.fn()
+vi.mock('@/lib/context/UnlockedTagsContext', () => ({
+  useUnlockedTags: () => mockUseUnlockedTags(),
+}))
 
-const LINK_A = {
-  ...BASE, id: '1', title: 'Alpha Article', site_name: 'alpha.com',
-  category_id: 'cat-article',
-  status: 'unread' as const, is_favorite: false,
-  tags: ['react'], created_at: '2026-01-01T00:00:00Z', url: 'https://alpha.com',
-}
-const LINK_B = {
-  ...BASE, id: '2', title: 'Beta Video', site_name: 'beta.com',
-  category_id: 'cat-youtube',
-  status: 'read' as const, is_favorite: true,
-  tags: ['vue', 'css'], created_at: '2026-01-02T00:00:00Z', url: 'https://beta.com',
-}
-const LINK_C = {
-  ...BASE, id: '3', title: 'Gamma Article', site_name: 'gamma.com',
-  category_id: 'cat-article',
-  status: 'watching' as const, is_favorite: false,
-  tags: ['react', 'css'], created_at: '2026-01-03T00:00:00Z', url: 'https://gamma.com',
-}
-
-const ALL_LINKS = [LINK_A, LINK_B, LINK_C]
-
-function renderFilters() {
-  return renderHook(() => useLinkFilters(ALL_LINKS))
-}
+beforeEach(() => {
+  mockUseUnlockedTags.mockReturnValue({ unlockedTagNames: new Set(), unlockTag: vi.fn(), lockTag: vi.fn(), lockAll: vi.fn() })
+})
 
 describe('useLinkFilters', () => {
   describe('initial state', () => {
-    it('returns all links sorted newest first', () => {
-      const { result } = renderFilters()
-      expect(result.current.results.map(l => l.id)).toEqual(['3', '2', '1'])
-    })
-
-    it('has no active filters', () => {
-      const { result } = renderFilters()
+    it('defaults to no filters and newest-first sort', () => {
+      const { result } = renderHook(() => useLinkFilters())
+      expect(result.current.category).toBe('all')
+      expect(result.current.searchQuery).toBe('')
+      expect(result.current.selectedTags).toEqual([])
+      expect(result.current.tagMode).toBe('any')
+      expect(result.current.selectedStatuses).toEqual([])
+      expect(result.current.sortBy).toBe('newest')
+      expect(result.current.favoritesOnly).toBe(false)
       expect(result.current.activeFilterCount).toBe(0)
       expect(result.current.hasActiveFilters).toBe(false)
       expect(result.current.isHashTagSearch).toBe(false)
     })
-  })
 
-  describe('category filter', () => {
-    it('filters by category_id', () => {
-      const { result } = renderFilters()
-
-      act(() => result.current.setCategory('cat-youtube'))
-
-      expect(result.current.results.map(l => l.id)).toEqual(['2'])
-    })
-
-    it('filters multiple links sharing a category', () => {
-      const { result } = renderFilters()
-
-      act(() => result.current.setCategory('cat-article'))
-
-      expect(result.current.results.map(l => l.id)).toEqual(['3', '1'])
-    })
-
-    it('counts category filter toward activeFilterCount', () => {
-      const { result } = renderFilters()
-
-      act(() => result.current.setCategory('cat-article'))
-
-      expect(result.current.activeFilterCount).toBe(1)
-    })
-  })
-
-  describe('status filter', () => {
-    it('filters by a single status', () => {
-      const { result } = renderFilters()
-
-      act(() => result.current.setSelectedStatuses(['unread']))
-
-      expect(result.current.results.map(l => l.id)).toEqual(['1'])
-    })
-
-    it('filters by multiple statuses', () => {
-      const { result } = renderFilters()
-
-      act(() => result.current.setSelectedStatuses(['unread', 'watching']))
-
-      expect(result.current.results.map(l => l.id)).toEqual(['3', '1'])
-    })
-
-    it('does not count selected statuses in activeFilterCount', () => {
-      const { result } = renderFilters()
-
-      act(() => result.current.setSelectedStatuses(['unread', 'read']))
-
-      expect(result.current.activeFilterCount).toBe(0)
-      expect(result.current.hasActiveFilters).toBe(true)
-    })
-  })
-
-  describe('tag filter', () => {
-    it('filters by tags in "any" mode', () => {
-      const { result } = renderFilters()
-
-      act(() => {
-        result.current.setTagMode('any')
-        result.current.setSelectedTags(['react', 'vue'])
+    it('derives an initial filterParams matching the default state', () => {
+      const { result } = renderHook(() => useLinkFilters())
+      expect(result.current.filterParams).toEqual({
+        search: '', categoryId: null, statuses: [], tagNames: [], tagMode: 'any',
+        favoritesOnly: false, sortBy: 'newest', unlockedTagNames: [],
       })
+    })
+  })
 
-      expect(result.current.results.map(l => l.id)).toEqual(['3', '2', '1'])
+  describe('filterParams derivation', () => {
+    it('maps category "all" to a null categoryId', () => {
+      const { result } = renderHook(() => useLinkFilters())
+      act(() => result.current.setCategory('cat-article'))
+      expect(result.current.filterParams.categoryId).toBe('cat-article')
+
+      act(() => result.current.setCategory('all'))
+      expect(result.current.filterParams.categoryId).toBeNull()
     })
 
-    it('filters by tags in "all" mode', () => {
-      const { result } = renderFilters()
+    it('reflects selected statuses, tags, tagMode, favoritesOnly, and sortBy', () => {
+      const { result } = renderHook(() => useLinkFilters())
 
       act(() => {
-        result.current.setTagMode('all')
+        result.current.setSelectedStatuses(['unread', 'watching'])
         result.current.setSelectedTags(['react', 'css'])
+        result.current.setTagMode('all')
+        result.current.setFavoritesOnly(true)
+        result.current.setSortBy('alphabetical')
       })
 
-      // Only LINK_C has both
-      expect(result.current.results.map(l => l.id)).toEqual(['3'])
+      expect(result.current.filterParams).toMatchObject({
+        statuses: ['unread', 'watching'],
+        tagNames: ['react', 'css'],
+        tagMode: 'all',
+        favoritesOnly: true,
+        sortBy: 'alphabetical',
+      })
     })
 
-    it('each selected tag counts individually', () => {
-      const { result } = renderFilters()
-
-      act(() => result.current.setSelectedTags(['react', 'css']))
-
-      expect(result.current.activeFilterCount).toBe(2)
+    it('includes unlockedTagNames from the private-tags context as an array', () => {
+      mockUseUnlockedTags.mockReturnValue({ unlockedTagNames: new Set(['secret']), unlockTag: vi.fn(), lockTag: vi.fn(), lockAll: vi.fn() })
+      const { result } = renderHook(() => useLinkFilters())
+      expect(result.current.filterParams.unlockedTagNames).toEqual(['secret'])
     })
   })
 
-  describe('search', () => {
-    it('filters by title text', () => {
-      const { result } = renderFilters()
+  describe('search debounce', () => {
+    beforeEach(() => vi.useFakeTimers())
+    afterEach(() => vi.useRealTimers())
+
+    it('does not update filterParams.search immediately on keystroke', () => {
+      const { result } = renderHook(() => useLinkFilters())
 
       act(() => result.current.setSearchQuery('alpha'))
 
-      expect(result.current.results.map(l => l.id)).toEqual(['1'])
+      expect(result.current.filterParams.search).toBe('')
     })
 
-    it('filters by site_name', () => {
-      const { result } = renderFilters()
+    it('updates filterParams.search ~350ms after the last keystroke', () => {
+      const { result } = renderHook(() => useLinkFilters())
 
-      act(() => result.current.setSearchQuery('beta.com'))
+      act(() => result.current.setSearchQuery('alpha'))
+      act(() => { vi.advanceTimersByTime(350) })
 
-      expect(result.current.results.map(l => l.id)).toEqual(['2'])
+      expect(result.current.filterParams.search).toBe('alpha')
     })
 
-    it('filters by plain tag text', () => {
-      const { result } = renderFilters()
+    it('trims whitespace from the debounced search value', () => {
+      const { result } = renderHook(() => useLinkFilters())
 
-      act(() => result.current.setSearchQuery('vue'))
+      act(() => result.current.setSearchQuery('  alpha  '))
+      act(() => { vi.advanceTimersByTime(350) })
 
-      expect(result.current.results.map(l => l.id)).toEqual(['2'])
+      expect(result.current.filterParams.search).toBe('alpha')
     })
 
-    it('filters by #hashtag and sets isHashTagSearch', () => {
-      const { result } = renderFilters()
+    it('resets the debounce timer on each keystroke', () => {
+      const { result } = renderHook(() => useLinkFilters())
+
+      act(() => result.current.setSearchQuery('al'))
+      act(() => { vi.advanceTimersByTime(200) })
+      act(() => result.current.setSearchQuery('alpha'))
+      act(() => { vi.advanceTimersByTime(200) })
+
+      expect(result.current.filterParams.search).toBe('')
+
+      act(() => { vi.advanceTimersByTime(150) })
+      expect(result.current.filterParams.search).toBe('alpha')
+    })
+
+    it('updates hasActiveFilters/isHashTagSearch immediately, without waiting for the debounce', () => {
+      const { result } = renderHook(() => useLinkFilters())
 
       act(() => result.current.setSearchQuery('#react'))
 
-      expect(result.current.results.map(l => l.id)).toEqual(['3', '1'])
+      expect(result.current.hasActiveFilters).toBe(true)
       expect(result.current.isHashTagSearch).toBe(true)
     })
-
-    it('combines #hashtag and plain text with AND logic', () => {
-      const { result } = renderFilters()
-
-      act(() => result.current.setSearchQuery('#react alpha'))
-
-      expect(result.current.results.map(l => l.id)).toEqual(['1'])
-    })
-
-    it('filters by notes text', () => {
-      const LINK_WITH_NOTES = { ...LINK_A, id: '4', notes: 'personal reminder for later', created_at: '2026-01-04T00:00:00Z' }
-      const { result } = renderHook(() => useLinkFilters([...ALL_LINKS, LINK_WITH_NOTES]))
-
-      act(() => result.current.setSearchQuery('reminder'))
-
-      expect(result.current.results.map(l => l.id)).toEqual(['4'])
-    })
-
-    it('counts a non-empty search query as an active filter', () => {
-      const { result } = renderFilters()
-
-      act(() => result.current.setSearchQuery('alpha'))
-
-      expect(result.current.hasActiveFilters).toBe(true)
-      expect(result.current.activeFilterCount).toBe(0) // search doesn't increment the count, only hasActiveFilters
-    })
   })
 
-  describe('sorting', () => {
-    it('sorts oldest first', () => {
-      const { result } = renderFilters()
-
-      act(() => result.current.setSortBy('oldest'))
-
-      expect(result.current.results.map(l => l.id)).toEqual(['1', '2', '3'])
-    })
-
-    it('sorts alphabetically', () => {
-      const { result } = renderFilters()
-
-      act(() => result.current.setSortBy('alphabetical'))
-
-      expect(result.current.results.map(l => l.id)).toEqual(['1', '2', '3'])
-    })
-
-    it('sorts by status order', () => {
-      const { result } = renderFilters()
-
-      act(() => result.current.setSortBy('status'))
-
-      // unread(0) < watching(1) < read(2)
-      expect(result.current.results.map(l => l.id)).toEqual(['1', '3', '2'])
-    })
-
+  describe('activeFilterCount / hasActiveFilters', () => {
     it('counts a non-default sort toward activeFilterCount', () => {
-      const { result } = renderFilters()
-
+      const { result } = renderHook(() => useLinkFilters())
       act(() => result.current.setSortBy('alphabetical'))
-
       expect(result.current.activeFilterCount).toBe(1)
     })
-  })
 
-  describe('favoritesOnly filter', () => {
-    it('defaults to off, returning all links', () => {
-      const { result } = renderFilters()
-      expect(result.current.favoritesOnly).toBe(false)
-      expect(result.current.results.map(l => l.id)).toEqual(['3', '2', '1'])
+    it('counts an active category toward activeFilterCount', () => {
+      const { result } = renderHook(() => useLinkFilters())
+      act(() => result.current.setCategory('cat-article'))
+      expect(result.current.activeFilterCount).toBe(1)
     })
 
-    it('filters to only favorited links when enabled', () => {
-      const { result } = renderFilters()
-
-      act(() => result.current.setFavoritesOnly(true))
-
-      // Only LINK_B is_favorite: true
-      expect(result.current.results.map(l => l.id)).toEqual(['2'])
+    it('counts each selected tag individually', () => {
+      const { result } = renderHook(() => useLinkFilters())
+      act(() => result.current.setSelectedTags(['react', 'css']))
+      expect(result.current.activeFilterCount).toBe(2)
     })
 
-    it('combines with other active filters', () => {
-      const { result } = renderFilters()
+    it('does not count selected statuses or favoritesOnly toward activeFilterCount, but they set hasActiveFilters', () => {
+      const { result } = renderHook(() => useLinkFilters())
 
-      act(() => {
-        result.current.setFavoritesOnly(true)
-        result.current.setCategory('cat-article')
-      })
-
-      // LINK_A and LINK_C are cat-article but neither is favorited
-      expect(result.current.results).toEqual([])
-    })
-
-    it('does not count toward activeFilterCount', () => {
-      const { result } = renderFilters()
-
-      act(() => result.current.setFavoritesOnly(true))
-
+      act(() => result.current.setSelectedStatuses(['unread']))
       expect(result.current.activeFilterCount).toBe(0)
-    })
-  })
-
-  describe('allTags', () => {
-    it('returns a sorted, deduplicated list of all tags across links', () => {
-      const { result } = renderFilters()
-      // LINK_A: ['react'], LINK_B: ['vue', 'css'], LINK_C: ['react', 'css']
-      expect(result.current.allTags).toEqual(['css', 'react', 'vue'])
+      expect(result.current.hasActiveFilters).toBe(true)
     })
 
-    it('returns an empty array when no links have tags', () => {
-      const { result } = renderHook(() => useLinkFilters([
-        { ...LINK_A, tags: [], category_id: 'cat-article' },
-        { ...LINK_B, tags: [], category_id: 'cat-youtube' },
-      ]))
-      expect(result.current.allTags).toEqual([])
+    it('has no active filters by default', () => {
+      const { result } = renderHook(() => useLinkFilters())
+      expect(result.current.activeFilterCount).toBe(0)
+      expect(result.current.hasActiveFilters).toBe(false)
     })
   })
 
   describe('resetFilters', () => {
     it('clears all active filters back to defaults', () => {
-      const { result } = renderFilters()
+      const { result } = renderHook(() => useLinkFilters())
 
       act(() => {
-        result.current.setCategory('article')
+        result.current.setCategory('cat-article')
         result.current.setSelectedStatuses(['read'])
         result.current.setSelectedTags(['react'])
         result.current.setSortBy('oldest')
@@ -305,7 +187,7 @@ describe('useLinkFilters', () => {
     })
 
     it('does not clear favoritesOnly, since it is a view mode rather than a filter', () => {
-      const { result } = renderFilters()
+      const { result } = renderHook(() => useLinkFilters())
 
       act(() => result.current.setFavoritesOnly(true))
       act(() => result.current.resetFilters())

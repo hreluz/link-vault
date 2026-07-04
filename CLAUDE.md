@@ -8,6 +8,34 @@ A personal "save for later" app for bookmarking links across content types — v
 
 Always run `nvm use v24.13.0` before executing any shell commands (dev server, tests, installs, etc.).
 
+## Manual browser verification (Playwright)
+
+When a change needs visual/end-to-end confirmation (not just unit tests), drive a real browser against a local dev server instead of guessing from code.
+
+### Setup
+- Playwright is a project devDependency; Chromium is cached at `~/Library/Caches/ms-playwright` (not in the repo).
+- Default verification port: **3500** (kept separate from port 3000, which may already be running the user's own manual dev session). Still confirm it's free before launching (step 1) rather than assuming.
+
+### Before launching
+1. `lsof -i :<port>` — confirm the port is actually free first.
+2. Confirm local Supabase is up: `curl -sf http://127.0.0.1:54321/rest/v1/`.
+
+### Launch
+3. `npm run dev -- -p <port>` in the background, redirected to a log file; capture the wrapper PID, but after the server reports ready, re-resolve the *actual* bound PID via `lsof -i :<port>` (the npm/`next dev` PID is a parent — `pkill -f "next dev"` will NOT match the running `next-server` process, so killing by name later fails silently).
+4. Poll with `curl` in a loop (no `timeout` command on macOS) until it responds — don't fixed-`sleep` and hope.
+5. Check the dev server's log for `Another next dev server is already running` — if present, kill that stale PID first and relaunch before proceeding.
+
+### Drive it
+6. Never write a driver script into the repo. Pipe it to `node --input-type=module <<'EOF' ... EOF` run from the project root, so Node's ESM resolver finds `node_modules/playwright` without leaving a file behind.
+7. Standard flow: `goto` → `waitForSelector` → fill login (`test@linkvault.dev` / `password123`) → submit → `waitForURL('**/dashboard**')` → screenshot → interact (scroll/click/etc.) → screenshot again.
+8. Always capture: console errors (`page.on('console'/'pageerror')`) and any relevant network calls (e.g. `search_links`/`search_link_ids` RPCs) to confirm behavior, not just appearance.
+
+### Screenshots
+9. Save to `.verification-screenshots/<branch-name>_<date>/` (dot-prefixed and gitignored, matching this repo's convention for tool-generated dirs like `.next/`). Each image filename carries its own capture time, e.g. `01_initial_load_11-33-07.png`. Write a `README.md` in that folder describing what each image shows and confirms.
+
+### Cleanup
+10. Kill the dev server by the exact PID(s) captured in step 3, confirm the port is free again (`lsof -i :<port>`), and report back before considering the task done.
+
 ## Stack
 
 - **Next.js 16** (App Router) — see AGENTS.md, this version has breaking changes
@@ -120,8 +148,8 @@ Planned types to eventually recognize:
 4. **Private tags** — single global password (SHA-256 + optional hint) protects all private tags; session-scoped unlock via `UnlockTagModal`; lock/unlock icon buttons in the tags header; links hidden until unlocked; every wrong attempt logs the user out; 5 failures trigger a scoped nuke (private-tag-linked links + private tags deleted) then allow a fresh password
 5. **Status workflow** — Unread → Watching → Read → Archived; opening a link whose status is `unread` automatically advances it to `watching` via `handleLinkOpen` in `useLinkList`
 6. **Favorites** — `is_favorite` toggle on `LinkCard`; the main `/dashboard` view has an "All Links / ⭐ Favorites" pill switch (`FavoritesToggle`) that sets `favoritesOnly` in `useLinkFilters`, filtering the shared link list down to starred links — search, category/tag/status filters, sort, "+ Add link", and bulk-select/actions all continue to work identically in either mode; there is no separate favorites route
-7. **Search** — full-text across title, domain, notes, tags; `#tag` syntax jumps to tag filter
-8. **Filter & sort** — by category, tags (any/all), status; sort by newest/oldest/alphabetical/status
+7. **Search** — full-text across title, domain, notes, tags; `#tag` syntax jumps to tag filter; runs server-side (debounced ~350ms) via the `search_links` Postgres RPC, not in-memory — see [Link list pagination](#link-list-pagination-infinite-scroll)
+8. **Filter & sort** — by category, tags (any/all), status; sort by newest/oldest/alphabetical/status; all server-side via the same RPC, resetting to page 1 on any change
 9. **Trash** — soft-delete via `deleted_at`; 2-second undo toast; restore or permanently delete
 10. **Swipe-to-delete** — left swipe gesture on mobile via `SwipeableCard`
 11. **Bulk actions** — select multiple links via long-press or a "Select" header button, then archive, delete (with modal confirmation), re-categorize, or add tags to all of them at once; selection state lives in `useLinksSelection` hook; bulk DB operations use Supabase `.in()` for single-round-trip efficiency; all mutations are optimistic with rollback on failure; `BulkActionToolbar` renders a sticky bar above the grid when selection mode is active; `BulkDeleteModal`, `BulkCategoryModal`, and `BulkTagModal` handle the per-action flows
@@ -152,9 +180,24 @@ Never import `@/lib/supabase/server` in a file that is (or can be) included in t
 
 When a service function is called from both server and client contexts, accept the Supabase client as a parameter (`SupabaseClient<Database>`) rather than creating it internally. See `seedDefaultCategories` in `lib/services/categories.ts` as an example.
 
+### Local dev: table grants after `supabase db reset`
+
+Tables created via migrations (run as the `postgres` role) do **not** automatically inherit the `authenticated`/`anon` grants that Supabase Cloud's project provisioning sets up — only `supabase_admin`-owned objects get those by default. Migration `0009_table_grants.sql` grants the necessary `select`/`insert`/`update`/`delete` to `authenticated` per table. If you add a new table, add its grants there too, or a fresh local `supabase db reset` will fail with `permission denied for table X` even though RLS policies look correct.
+
 ### Soft delete
 
 Links are never hard-deleted from the UI — set `deleted_at` to delete, `null` to restore. All queries for active links must include `deleted_at IS NULL`. Use `lib/services/trash.ts` for permanent deletion and `emptyTrash`.
+
+### Link list pagination (infinite scroll)
+
+The dashboard link list is server-side paginated, not a single full fetch:
+
+- Page size 40. Filtering, search (`#tag` + text), tag ANY/ALL matching, sort, and private-tag exclusion all happen in Postgres via RPC functions (`search_links`, `search_link_ids`, sharing a `filtered_links` base — see `supabase/migrations/0008_link_search_functions.sql`), not in-memory in React.
+- `useLinkFilters` (`lib/hooks/links/useLinkFilters.ts`) only holds filter UI state and derives a debounced `filterParams` object — it no longer filters/sorts a links array or derives `allTags` (the tag list for `FilterSheet` now comes from `useAvailableTags()`).
+- `useLinks` composes the generic `usePaginatedQuery` hook (`lib/hooks/usePaginatedQuery.ts`) — domain-agnostic, intended for reuse by future paginated lists (e.g. Trash), plus `useDebouncedValue` and `useInfiniteScrollSentinel` (also in `lib/hooks/`, not `lib/hooks/links/`).
+- `getLinks()` (unpaginated, fetches everything) still exists but is used **only** by Import/Export (`ImportExportClient`) — never use it for the main list.
+- Bulk "Select all" selects all links matching the current filter (not just loaded ones), capped at 2000 ids (`getMatchingLinkIds`, `SELECT_ALL_MATCHING_CAP` in `lib/services/links.ts`).
+- Adding a new filter dimension requires updating both the client `LinkFilterParams` type and the `filtered_links` SQL function together.
 
 ### Tag privacy
 
