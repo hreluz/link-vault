@@ -1,17 +1,19 @@
 'use client'
 
+import { useState } from 'react'
 import { useToast } from '@/components/ToastProvider'
 import { useLinkModals } from './useLinkModals'
 import { useLinks } from './useLinks'
 import { useLinkFilters } from './useLinkFilters'
 import { useLinksSelection } from './useLinksSelection'
-import type { LinkWithTags } from '@/lib/services/links'
+import { getMatchingLinkIds, SELECT_ALL_MATCHING_CAP, type LinkWithTags } from '@/lib/services/links'
 import type { LinkStatus } from '@/lib/types/database'
 
 export function useLinkList() {
   const modals = useLinkModals()
+  const filters = useLinkFilters()
   const {
-    links, loading,
+    links, totalCount, hasMore, loading, loadingMore, loadMore,
     handleStatusChange: changeStatus,
     handleEdit: editLink,
     handleDelete: deleteLink,
@@ -21,10 +23,10 @@ export function useLinkList() {
     handleBulkDelete,
     handleBulkCategoryChange,
     handleBulkAddTags,
-  } = useLinks()
-  const filters = useLinkFilters(links)
+  } = useLinks(filters.filterParams)
   const { addToast } = useToast()
   const selection = useLinksSelection()
+  const [selectingAllMatching, setSelectingAllMatching] = useState(false)
 
   function handleStatusChange(id: string, status: LinkStatus) {
     changeStatus(id, status)
@@ -79,12 +81,29 @@ export function useLinkList() {
     handleBulkAddTags(ids, tagNames)
   }
 
+  async function handleSelectAllMatching() {
+    setSelectingAllMatching(true)
+    const { ids, totalCount: matchingCount } = await getMatchingLinkIds(filters.filterParams)
+    selection.selectAll(ids)
+    setSelectingAllMatching(false)
+    if (matchingCount > SELECT_ALL_MATCHING_CAP) {
+      addToast(
+        `Selected first ${SELECT_ALL_MATCHING_CAP.toLocaleString()} of ${matchingCount.toLocaleString()} matching — narrow your filter to select more.`
+      )
+    }
+  }
+
   return {
     ...modals,
     ...filters,
     ...selection,
     links,
+    totalCount,
+    hasMore,
     loading,
+    loadingMore,
+    loadMore,
+    selectingAllMatching,
     handleStatusChange,
     handleLinkOpen,
     handleEdit,
@@ -96,6 +115,7 @@ export function useLinkList() {
     handleBulkDeleteSelected,
     handleBulkRecategorize,
     handleBulkTagSelected,
+    handleSelectAllMatching,
     addToast,
   }
 }
