@@ -8,8 +8,8 @@ import BulkDeleteModal from './BulkDeleteModal'
 
 export default function BulkActionToolbar() {
   const {
-    isSelectionMode, selectedCount, selectedIds,
-    selectAll, clearAll, results,
+    isSelectionMode, selectedCount,
+    clearAll, totalCount, selectingAllMatching, handleSelectAllMatching,
     handleBulkArchive,
   } = useLinkListContext()
 
@@ -19,12 +19,11 @@ export default function BulkActionToolbar() {
 
   if (!isSelectionMode) return null
 
-  const allResultIds = results.map(l => l.id)
-  const allSelected = allResultIds.length > 0 && allResultIds.every(id => selectedIds.has(id))
+  const allSelected = totalCount > 0 && selectedCount === totalCount
 
   function handleSelectAll() {
     if (allSelected) clearAll()
-    else selectAll(allResultIds)
+    else handleSelectAllMatching()
   }
 
   return (
@@ -33,9 +32,10 @@ export default function BulkActionToolbar() {
         <div className="flex items-center gap-3 overflow-x-auto scrollbar-hide">
           <button
             onClick={handleSelectAll}
-            className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+            disabled={selectingAllMatching}
+            className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
           >
-            {allSelected ? 'Deselect all' : 'Select all'}
+            {allSelected ? 'Deselect all' : selectingAllMatching ? 'Selecting…' : `Select all ${totalCount}`}
           </button>
 
           <div className="h-4 w-px shrink-0 bg-slate-200 dark:bg-slate-700" />

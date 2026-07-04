@@ -222,7 +222,36 @@ export interface Database {
       }
     }
     Views: Record<string, never>
-    Functions: Record<string, never>
+    Functions: {
+      search_links: {
+        Args: {
+          p_search: string | null
+          p_category_id: string | null
+          p_statuses: LinkStatus[] | null
+          p_tag_names: string[] | null
+          p_tag_mode: string
+          p_favorites_only: boolean
+          p_unlocked_tag_names: string[] | null
+          p_sort_by: string
+          p_limit: number
+          p_offset: number
+        }
+        Returns: Array<Database['public']['Tables']['links']['Row'] & { tags: string[]; total_count: number }>
+      }
+      search_link_ids: {
+        Args: {
+          p_search: string | null
+          p_category_id: string | null
+          p_statuses: LinkStatus[] | null
+          p_tag_names: string[] | null
+          p_tag_mode: string
+          p_favorites_only: boolean
+          p_unlocked_tag_names: string[] | null
+          p_limit: number
+        }
+        Returns: Array<{ id: string; total_count: number }>
+      }
+    }
     Enums: {
       link_status: LinkStatus
     }

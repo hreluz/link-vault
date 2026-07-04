@@ -1,16 +1,16 @@
 // @vitest-environment jsdom
-// Integration tests for useLinkList — verifies the composition of the three sub-hooks.
+// Integration tests for useLinkList — verifies the composition of the sub-hooks.
 // Detailed behavior is covered in useLinks, useLinkFilters, and useLinkModals tests.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { useLinkList } from '@/lib/hooks/links/useLinkList'
-import type { LinkWithTags } from '@/lib/services/links'
+import type { LinkWithTags, LinkFilterParams } from '@/lib/services/links'
 
 const mockAddToast = vi.fn()
 
 const { LINK_A, LINK_B, LINK_C } = vi.hoisted(() => {
-  const base = { user_id: 'user-1', description: '', notes: null, image_url: null, deleted_at: null }
+  const base = { user_id: 'user-1', description: '', notes: null, image_url: null, deleted_at: null, duration: null }
   const LINK_A: LinkWithTags = {
     ...base, id: '1', title: 'Alpha Article', site_name: 'alpha.com',
     category_id: 'cat-article', status: 'unread', is_favorite: false,
@@ -33,13 +33,19 @@ const { LINK_A, LINK_B, LINK_C } = vi.hoisted(() => {
 })
 
 vi.mock('@/components/ToastProvider', () => ({
-  useToast: () => ({ addToast: mockAddToast }),
+  useToast: () => ({ addToast: mockAddToast, dismissToast: vi.fn() }),
 }))
 
 vi.mock('@/lib/services/links', () => ({
-  getLinks: vi.fn(),
+  getLinksPage: vi.fn(),
+  getMatchingLinkIds: vi.fn(),
+  SELECT_ALL_MATCHING_CAP: 2000,
   deleteLink: vi.fn().mockResolvedValue(true),
   toggleLinkFavorite: vi.fn().mockResolvedValue(true),
+  bulkUpdateStatus: vi.fn().mockResolvedValue(true),
+  bulkSoftDelete: vi.fn().mockResolvedValue(true),
+  bulkUpdateCategory: vi.fn().mockResolvedValue(true),
+  bulkAddTags: vi.fn().mockResolvedValue(true),
 }))
 
 vi.mock('@/lib/services/tags', () => ({
@@ -57,14 +63,21 @@ vi.mock('@/lib/context/TagsContext', () => ({
   useTagsContext: () => ({ tags: [], loading: false, refetchTags: vi.fn() }),
 }))
 
-import { getLinks } from '@/lib/services/links'
+import { getLinksPage } from '@/lib/services/links'
 import { getPrivateTagNames } from '@/lib/services/tags'
-const mockGetLinks = vi.mocked(getLinks)
+const mockGetLinksPage = vi.mocked(getLinksPage)
 const mockGetPrivateTagNames = vi.mocked(getPrivateTagNames)
+
+function fakeSearchLinks(params: LinkFilterParams) {
+  let filtered = [LINK_A, LINK_B, LINK_C]
+  if (params.categoryId) filtered = filtered.filter(l => l.category_id === params.categoryId)
+  if (params.favoritesOnly) filtered = filtered.filter(l => l.is_favorite)
+  return { links: filtered, totalCount: filtered.length }
+}
 
 beforeEach(() => {
   vi.clearAllMocks()
-  mockGetLinks.mockResolvedValue([LINK_A, LINK_B, LINK_C])
+  mockGetLinksPage.mockImplementation(async params => fakeSearchLinks(params))
   mockGetPrivateTagNames.mockResolvedValue([])
   mockUseUnlockedTags.mockReturnValue({ unlockedTagNames: new Set(), unlockTag: vi.fn(), lockTag: vi.fn(), lockAll: vi.fn() })
 })
@@ -76,18 +89,18 @@ async function renderLoaded() {
 }
 
 describe('useLinkList (integration)', () => {
-  it('exposes all links and results after loading', async () => {
+  it('exposes loaded links and the true totalCount', async () => {
     const { result } = await renderLoaded()
     expect(result.current.links).toHaveLength(3)
-    expect(result.current.results).toHaveLength(3)
+    expect(result.current.totalCount).toBe(3)
   })
 
-  it('results reflect active filters (links and filters are wired together)', async () => {
+  it('links reflect active filters (useLinks and useLinkFilters are wired together)', async () => {
     const { result } = await renderLoaded()
 
     act(() => result.current.setCategory('cat-youtube'))
 
-    expect(result.current.results.map(l => l.id)).toEqual(['2'])
+    await waitFor(() => expect(result.current.links.map(l => l.id)).toEqual(['2']))
   })
 
   it('exposes addToast from the toast context', async () => {
@@ -99,13 +112,13 @@ describe('useLinkList (integration)', () => {
   })
 
   describe('handleDelete', () => {
-    it('removes the active link from results', async () => {
+    it('removes the active link from links', async () => {
       const { result } = await renderLoaded()
 
       act(() => result.current.setActiveLink(LINK_A))
       act(() => result.current.handleDelete())
 
-      expect(result.current.results.find(l => l.id === '1')).toBeUndefined()
+      expect(result.current.links.find(l => l.id === '1')).toBeUndefined()
     })
 
     it('clears activeLink after deletion', async () => {
@@ -122,7 +135,7 @@ describe('useLinkList (integration)', () => {
 
       act(() => result.current.handleDelete())
 
-      expect(result.current.results).toHaveLength(3)
+      expect(result.current.links).toHaveLength(3)
       expect(mockAddToast).not.toHaveBeenCalled()
     })
   })
@@ -207,12 +220,12 @@ describe('useLinkList (integration)', () => {
   })
 
   describe('handleDeleteById', () => {
-    it('removes the link with the given id from results without requiring activeLink', async () => {
+    it('removes the link with the given id from links without requiring activeLink', async () => {
       const { result } = await renderLoaded()
 
       act(() => result.current.handleDeleteById('1'))
 
-      expect(result.current.results.find(l => l.id === '1')).toBeUndefined()
+      expect(result.current.links.find(l => l.id === '1')).toBeUndefined()
     })
 
     it('leaves other links intact', async () => {
@@ -220,8 +233,8 @@ describe('useLinkList (integration)', () => {
 
       act(() => result.current.handleDeleteById('2'))
 
-      expect(result.current.results).toHaveLength(2)
-      expect(result.current.results.map(l => l.id)).toEqual(expect.arrayContaining(['1', '3']))
+      expect(result.current.links).toHaveLength(2)
+      expect(result.current.links.map(l => l.id)).toEqual(expect.arrayContaining(['1', '3']))
     })
 
     it('does not clear or require activeLink', async () => {
@@ -235,24 +248,24 @@ describe('useLinkList (integration)', () => {
   })
 
   describe('favoritesOnly', () => {
-    it('is passed through from useLinkFilters and filters results', async () => {
+    it('is passed through from useLinkFilters and filters links', async () => {
       const { result } = await renderLoaded()
 
       act(() => result.current.setFavoritesOnly(true))
 
-      expect(result.current.results.map(l => l.id)).toEqual(['2'])
+      await waitFor(() => expect(result.current.links.map(l => l.id)).toEqual(['2']))
     })
   })
 
   describe('handleCreate', () => {
-    it('prepends the new link and it appears in results', async () => {
+    it('prepends the new link and it appears in links', async () => {
       const { result } = await renderLoaded()
       const newLink = { ...LINK_A, id: '99', title: 'Brand New', created_at: '2026-12-31T00:00:00Z' }
 
       act(() => result.current.handleCreate(newLink))
 
-      expect(result.current.results[0].id).toBe('99')
-      expect(result.current.results).toHaveLength(4)
+      expect(result.current.links[0].id).toBe('99')
+      expect(result.current.links).toHaveLength(4)
     })
   })
 })

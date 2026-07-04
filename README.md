@@ -12,9 +12,10 @@ A personal "save for later" app for bookmarking links across content types — v
 - **Favorites** — star any link; an "All Links / ⭐ Favorites" pill toggle in the main dashboard view filters the same list down to starred links, with full search, filter, sort, and bulk-action support in either mode
 - **Filter & sort** — filter by category, tag, status; sort by newest / oldest / alphabetical / status
 - **Search** — full-text search across title, domain, notes, and tags; `#tag` syntax supported
+- **Infinite scroll** — the link list loads in pages of 40 as you scroll; search, filtering, and sorting all run server-side, so results stay correct and fast no matter how large your library gets
 - **Trash** — soft-delete with 2-second undo toast; restore or permanently delete from the trash view
 - **Swipe-to-delete** — left swipe gesture on mobile
-- **Bulk actions** — long-press a card (or tap "Select" in the header) to enter selection mode; select multiple links then archive, delete, re-categorize, or add tags in one shot; delete requires modal confirmation; all mutations are optimistic with rollback on failure
+- **Bulk actions** — long-press a card (or tap "Select" in the header) to enter selection mode; select multiple links then archive, delete, re-categorize, or add tags in one shot; "Select all" selects every link matching your current filter (not just what's loaded), up to 2,000 at a time; delete requires modal confirmation; all mutations are optimistic with rollback on failure
 - **Import / Export** — fully functional at `/dashboard/config/import-export`; export all links as JSON or CSV; import from pasted URLs (one per line), pasted JSON, or file upload (.json / .csv); CSV supports a `category` column and pipe-separated `tags`; duplicate URLs are detected per-user and skipped automatically
 - **Change password** — requires current password verification before updating
 - **Dark mode** — theme toggle with no flash on load
