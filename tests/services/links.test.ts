@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { getLinks, createLink, updateLink, toggleLinkFavorite, deleteLink, importLinks } from '@/lib/services/links'
+import {
+  getLinks, createLink, updateLink, toggleLinkFavorite, deleteLink, importLinks,
+  getLinksPage, getMatchingLinkIds, SELECT_ALL_MATCHING_CAP,
+  type LinkFilterParams,
+} from '@/lib/services/links'
 
 // ── shared mocks ──────────────────────────────────────────────────────────────
 
@@ -26,6 +30,8 @@ const {
   mockLinkTagsDelete, mockLinkTagsDeleteEq,
   // importLinks duplicate check: from('links').select('id').eq().eq().is().maybySingle()
   mockDupCheck, mockDupCheckIs, mockDupCheckEqUrl, mockDupCheckEqUser,
+  // getLinksPage / getMatchingLinkIds: rpc('search_links' | 'search_link_ids', args).returns()
+  mockRpc, mockRpcReturns,
 } = vi.hoisted(() => {
   const mockReturns = vi.fn()
   const mockOrder = vi.fn(() => ({ returns: mockReturns }))
@@ -65,6 +71,9 @@ const {
   const mockDupCheckEqUrl = vi.fn(() => ({ is: mockDupCheckIs }))
   const mockDupCheckEqUser = vi.fn(() => ({ eq: mockDupCheckEqUrl }))
 
+  const mockRpcReturns = vi.fn()
+  const mockRpc = vi.fn(() => ({ returns: mockRpcReturns }))
+
   return {
     mockGetLinksSelect, mockGetLinksIs, mockOrder, mockReturns,
     mockGetUser,
@@ -75,6 +84,7 @@ const {
     mockTagsUpsert, mockTagsSelect, mockTagsIn,
     mockLinkTagsInsert, mockLinkTagsDelete, mockLinkTagsDeleteEq,
     mockDupCheck, mockDupCheckIs, mockDupCheckEqUrl, mockDupCheckEqUser,
+    mockRpc, mockRpcReturns,
   }
 })
 
@@ -91,6 +101,7 @@ vi.mock('@/lib/supabase/client', () => ({
       if (table === 'link_tags') return { insert: mockLinkTagsInsert, delete: mockLinkTagsDelete }
       return {}
     }),
+    rpc: mockRpc,
   })),
 }))
 
@@ -113,7 +124,13 @@ beforeEach(() => {
   mockLinkTagsInsert.mockResolvedValue({ error: null })
   mockLinkTagsDeleteEq.mockResolvedValue({ error: null })
   mockDupCheck.mockResolvedValue({ data: [] })
+  mockRpcReturns.mockResolvedValue({ data: [], error: null })
 })
+
+const BASE_FILTER_PARAMS: LinkFilterParams = {
+  search: '', categoryId: null, statuses: [], tagNames: [], tagMode: 'any',
+  favoritesOnly: false, sortBy: 'newest', unlockedTagNames: [],
+}
 
 // ── getLinks ──────────────────────────────────────────────────────────────────
 
@@ -650,5 +667,178 @@ describe('toggleLinkFavorite', () => {
     await toggleLinkFavorite('42', false)
 
     expect(mockFavoriteToggleEq).toHaveBeenCalledWith('id', '42')
+  })
+})
+
+// ── getLinksPage ──────────────────────────────────────────────────────────────
+
+describe('getLinksPage', () => {
+  it('calls the search_links RPC with limit/offset and mapped filter args', async () => {
+    await getLinksPage(BASE_FILTER_PARAMS, 40, 0)
+
+    expect(mockRpc).toHaveBeenCalledWith('search_links', {
+      p_search: null,
+      p_category_id: null,
+      p_statuses: null,
+      p_tag_names: null,
+      p_tag_mode: 'any',
+      p_favorites_only: false,
+      p_unlocked_tag_names: null,
+      p_sort_by: 'newest',
+      p_limit: 40,
+      p_offset: 0,
+    })
+  })
+
+  it('passes a non-empty search string through, and null for an empty one', async () => {
+    await getLinksPage({ ...BASE_FILTER_PARAMS, search: 'react' }, 40, 0)
+    expect(mockRpc).toHaveBeenCalledWith('search_links', expect.objectContaining({ p_search: 'react' }))
+
+    await getLinksPage({ ...BASE_FILTER_PARAMS, search: '' }, 40, 0)
+    expect(mockRpc).toHaveBeenCalledWith('search_links', expect.objectContaining({ p_search: null }))
+  })
+
+  it('passes non-empty statuses/tagNames arrays through, and null for empty ones', async () => {
+    await getLinksPage({ ...BASE_FILTER_PARAMS, statuses: ['unread'], tagNames: ['react', 'css'] }, 40, 0)
+
+    expect(mockRpc).toHaveBeenCalledWith('search_links', expect.objectContaining({
+      p_statuses: ['unread'],
+      p_tag_names: ['react', 'css'],
+    }))
+  })
+
+  it('passes categoryId, tagMode, favoritesOnly, sortBy, and offset through as given', async () => {
+    await getLinksPage(
+      { ...BASE_FILTER_PARAMS, categoryId: 'cat-1', tagMode: 'all', favoritesOnly: true, sortBy: 'alphabetical' },
+      40, 80,
+    )
+
+    expect(mockRpc).toHaveBeenCalledWith('search_links', expect.objectContaining({
+      p_category_id: 'cat-1',
+      p_tag_mode: 'all',
+      p_favorites_only: true,
+      p_sort_by: 'alphabetical',
+      p_offset: 80,
+    }))
+  })
+
+  it('passes unlockedTagNames through, and null when empty', async () => {
+    await getLinksPage({ ...BASE_FILTER_PARAMS, unlockedTagNames: ['secret'] }, 40, 0)
+    expect(mockRpc).toHaveBeenCalledWith('search_links', expect.objectContaining({ p_unlocked_tag_names: ['secret'] }))
+  })
+
+  it('strips total_count from each returned link and returns the links array', async () => {
+    mockRpcReturns.mockResolvedValue({
+      data: [{ ...RAW_LINK, tags: ['react'], total_count: 5 }, { ...RAW_LINK, id: '2', tags: [], total_count: 5 }],
+      error: null,
+    })
+
+    const result = await getLinksPage(BASE_FILTER_PARAMS, 40, 0)
+
+    expect(result.links).toHaveLength(2)
+    expect(result.links[0]).not.toHaveProperty('total_count')
+    expect(result.links[0].tags).toEqual(['react'])
+  })
+
+  it('returns totalCount from the first row', async () => {
+    mockRpcReturns.mockResolvedValue({
+      data: [{ ...RAW_LINK, tags: [], total_count: 92 }],
+      error: null,
+    })
+
+    const result = await getLinksPage(BASE_FILTER_PARAMS, 40, 0)
+
+    expect(result.totalCount).toBe(92)
+  })
+
+  it('returns an empty page with totalCount 0 on error', async () => {
+    mockRpcReturns.mockResolvedValue({ data: null, error: { message: 'DB error' } })
+
+    const result = await getLinksPage(BASE_FILTER_PARAMS, 40, 0)
+
+    expect(result).toEqual({ links: [], totalCount: 0 })
+  })
+
+  it('returns an empty page with totalCount 0 when data is null', async () => {
+    mockRpcReturns.mockResolvedValue({ data: null, error: null })
+
+    const result = await getLinksPage(BASE_FILTER_PARAMS, 40, 0)
+
+    expect(result).toEqual({ links: [], totalCount: 0 })
+  })
+
+  it('returns totalCount 0 when the result set is empty', async () => {
+    mockRpcReturns.mockResolvedValue({ data: [], error: null })
+
+    const result = await getLinksPage(BASE_FILTER_PARAMS, 40, 0)
+
+    expect(result).toEqual({ links: [], totalCount: 0 })
+  })
+})
+
+// ── getMatchingLinkIds ────────────────────────────────────────────────────────
+
+describe('getMatchingLinkIds', () => {
+  it('calls the search_link_ids RPC with the mapped filter args and the select-all cap as the limit', async () => {
+    await getMatchingLinkIds(BASE_FILTER_PARAMS)
+
+    expect(mockRpc).toHaveBeenCalledWith('search_link_ids', {
+      p_search: null,
+      p_category_id: null,
+      p_statuses: null,
+      p_tag_names: null,
+      p_tag_mode: 'any',
+      p_favorites_only: false,
+      p_unlocked_tag_names: null,
+      p_limit: SELECT_ALL_MATCHING_CAP,
+    })
+  })
+
+  it('reflects an active filter in the RPC args', async () => {
+    await getMatchingLinkIds({ ...BASE_FILTER_PARAMS, categoryId: 'cat-1', favoritesOnly: true })
+
+    expect(mockRpc).toHaveBeenCalledWith('search_link_ids', expect.objectContaining({
+      p_category_id: 'cat-1',
+      p_favorites_only: true,
+    }))
+  })
+
+  it('returns the matching ids and the true totalCount', async () => {
+    mockRpcReturns.mockResolvedValue({
+      data: [{ id: '1', total_count: 3 }, { id: '2', total_count: 3 }, { id: '3', total_count: 3 }],
+      error: null,
+    })
+
+    const result = await getMatchingLinkIds(BASE_FILTER_PARAMS)
+
+    expect(result).toEqual({ ids: ['1', '2', '3'], totalCount: 3 })
+  })
+
+  it('returns totalCount from the response even when capped below the true match count', async () => {
+    // e.g. 5000 links match, but only SELECT_ALL_MATCHING_CAP ids come back
+    mockRpcReturns.mockResolvedValue({
+      data: [{ id: '1', total_count: 5000 }],
+      error: null,
+    })
+
+    const result = await getMatchingLinkIds(BASE_FILTER_PARAMS)
+
+    expect(result.totalCount).toBe(5000)
+  })
+
+  it('returns empty ids and totalCount 0 on error', async () => {
+    mockRpcReturns.mockResolvedValue({ data: null, error: { message: 'DB error' } })
+
+    const result = await getMatchingLinkIds(BASE_FILTER_PARAMS)
+
+    expect(result).toEqual({ ids: [], totalCount: 0 })
+  })
+
+  it('returns empty ids and totalCount 0 when data is null', async () => {
+    mockRpcReturns.mockResolvedValue({ data: null, error: null })
+
+    const result = await getMatchingLinkIds(BASE_FILTER_PARAMS)
+
+    expect(result).toEqual({ ids: [], totalCount: 0 })
   })
 })

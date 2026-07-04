@@ -3,7 +3,7 @@
 import { useLinkListContext } from './LinkListContext'
 
 export default function LinkListHeader() {
-  const { results, setModalOpen, isSelectionMode, selectedCount, enterSelectionMode, exitSelectionMode, favoritesOnly } = useLinkListContext()
+  const { totalCount, setModalOpen, isSelectionMode, selectedCount, enterSelectionMode, exitSelectionMode, favoritesOnly } = useLinkListContext()
 
   if (isSelectionMode) {
     return (
@@ -28,7 +28,7 @@ export default function LinkListHeader() {
           {favoritesOnly ? 'Favorites' : 'Your Links'}
         </h1>
         <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
-          {results.length} link{results.length !== 1 ? 's' : ''}
+          {totalCount} link{totalCount !== 1 ? 's' : ''}
         </p>
       </div>
       <div className="flex items-center gap-2">

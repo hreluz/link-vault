@@ -1,7 +1,21 @@
 import { createClient } from '@/lib/supabase/client'
 import type { LinkStatus, Tables } from '@/lib/types/database'
+import type { SortBy } from '@/app/dashboard/link/FilterSheet'
 
 export type LinkWithTags = Tables<'links'> & { tags: string[] }
+
+export type LinkFilterParams = {
+  search: string
+  categoryId: string | null
+  statuses: LinkStatus[]
+  tagNames: string[]
+  tagMode: 'any' | 'all'
+  favoritesOnly: boolean
+  sortBy: SortBy
+  unlockedTagNames: string[]
+}
+
+export const SELECT_ALL_MATCHING_CAP = 2000
 
 type LinkQueryRow = Tables<'links'> & {
   link_tags: Array<{ tags: { name: string } | null }>
@@ -160,6 +174,65 @@ export async function getLinks(): Promise<LinkWithTags[]> {
     ...link,
     tags: link_tags.flatMap(lt => lt.tags?.name ? [lt.tags.name] : []),
   }))
+}
+
+function toRpcFilterArgs(params: LinkFilterParams) {
+  return {
+    p_search: params.search || null,
+    p_category_id: params.categoryId,
+    p_statuses: params.statuses.length ? params.statuses : null,
+    p_tag_names: params.tagNames.length ? params.tagNames : null,
+    p_tag_mode: params.tagMode,
+    p_favorites_only: params.favoritesOnly,
+    p_unlocked_tag_names: params.unlockedTagNames.length ? params.unlockedTagNames : null,
+  }
+}
+
+export type LinksPage = { links: LinkWithTags[]; totalCount: number }
+
+export async function getLinksPage(
+  params: LinkFilterParams,
+  limit: number,
+  offset: number,
+): Promise<LinksPage> {
+  const supabase = createClient()
+
+  const { data, error } = await supabase
+    .rpc('search_links', {
+      ...toRpcFilterArgs(params),
+      p_sort_by: params.sortBy,
+      p_limit: limit,
+      p_offset: offset,
+    })
+    .returns<(LinkWithTags & { total_count: number })[]>()
+
+  if (error || !data) return { links: [], totalCount: 0 }
+
+  return {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- destructured only to omit it from `link`
+    links: data.map(({ total_count, ...link }) => link),
+    totalCount: data[0]?.total_count ?? 0,
+  }
+}
+
+export type MatchingLinkIds = { ids: string[]; totalCount: number }
+
+export async function getMatchingLinkIds(params: LinkFilterParams): Promise<MatchingLinkIds> {
+  const supabase = createClient()
+
+  const { data, error } = await supabase
+    .rpc('search_link_ids', {
+      ...toRpcFilterArgs(params),
+      p_limit: SELECT_ALL_MATCHING_CAP,
+    })
+    .returns<{ id: string; total_count: number }[]>()
+
+  if (error || !data) return { ids: [], totalCount: 0 }
+
+  return {
+    ids: data.map(row => row.id),
+    totalCount: data[0]?.total_count ?? 0,
+  }
 }
 
 export async function deleteLink(id: string): Promise<boolean> {

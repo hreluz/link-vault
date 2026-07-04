@@ -40,3 +40,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local verification screenshots (from manual/browser QA runs, not committed)
+/.verification-screenshots/
