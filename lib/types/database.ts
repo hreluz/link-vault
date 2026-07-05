@@ -36,14 +36,10 @@ export interface Database {
         Row: {
           id: string
           user_id: string
-          url: string
-          title: string | null
-          description: string | null
-          site_name: string | null
-          image_url: string | null
-          duration: string | null
+          enc_payload: string
+          enc_iv: string
+          url_fingerprint: string
           category_id: string | null
-          notes: string | null
           status: LinkStatus
           is_favorite: boolean
           created_at: string
@@ -53,14 +49,10 @@ export interface Database {
         Insert: {
           id?: string
           user_id: string
-          url: string
-          title?: string | null
-          description?: string | null
-          site_name?: string | null
-          image_url?: string | null
-          duration?: string | null
+          enc_payload: string
+          enc_iv: string
+          url_fingerprint: string
           category_id?: string | null
-          notes?: string | null
           status?: LinkStatus
           is_favorite?: boolean
           created_at?: string
@@ -68,14 +60,10 @@ export interface Database {
           deleted_at?: string | null
         }
         Update: {
-          url?: string
-          title?: string | null
-          description?: string | null
-          site_name?: string | null
-          image_url?: string | null
-          duration?: string | null
+          enc_payload?: string
+          enc_iv?: string
+          url_fingerprint?: string
           category_id?: string | null
-          notes?: string | null
           status?: LinkStatus
           is_favorite?: boolean
           updated_at?: string
@@ -87,22 +75,22 @@ export interface Database {
         Row: {
           id: string
           user_id: string
-          name: string
-          color: string | null
+          enc_payload: string
+          enc_iv: string
           is_private: boolean
           created_at: string
         }
         Insert: {
           id?: string
           user_id: string
-          name: string
-          color?: string | null
+          enc_payload: string
+          enc_iv: string
           is_private?: boolean
           created_at?: string
         }
         Update: {
-          name?: string
-          color?: string | null
+          enc_payload?: string
+          enc_iv?: string
           is_private?: boolean
         }
         Relationships: []
@@ -155,28 +143,22 @@ export interface Database {
         Row: {
           id: string
           user_id: string
-          name: string
-          description: string | null
-          color: string | null
-          emoticon: string | null
+          enc_payload: string
+          enc_iv: string
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
           user_id: string
-          name: string
-          description?: string | null
-          color?: string | null
-          emoticon?: string | null
+          enc_payload: string
+          enc_iv: string
           created_at?: string
           updated_at?: string
         }
         Update: {
-          name?: string
-          description?: string | null
-          color?: string | null
-          emoticon?: string | null
+          enc_payload?: string
+          enc_iv?: string
           updated_at?: string
         }
         Relationships: []
@@ -186,18 +168,51 @@ export interface Database {
           id: string
           category_id: string
           user_id: string
-          domain: string
+          enc_payload: string
+          enc_iv: string
           created_at: string
         }
         Insert: {
           id?: string
           category_id: string
           user_id: string
-          domain: string
+          enc_payload: string
+          enc_iv: string
           created_at?: string
         }
         Update: {
-          domain?: string
+          enc_payload?: string
+          enc_iv?: string
+        }
+        Relationships: []
+      }
+      user_encryption_keys: {
+        Row: {
+          id: string
+          user_id: string
+          salt: string
+          wrapped_dek: string
+          wrapped_dek_iv: string
+          kdf_iterations: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          salt: string
+          wrapped_dek: string
+          wrapped_dek_iv: string
+          kdf_iterations?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          salt?: string
+          wrapped_dek?: string
+          wrapped_dek_iv?: string
+          kdf_iterations?: number
+          updated_at?: string
         }
         Relationships: []
       }
@@ -225,13 +240,12 @@ export interface Database {
     Functions: {
       search_links: {
         Args: {
-          p_search: string | null
           p_category_id: string | null
           p_statuses: LinkStatus[] | null
-          p_tag_names: string[] | null
+          p_tag_ids: string[] | null
           p_tag_mode: string
           p_favorites_only: boolean
-          p_unlocked_tag_names: string[] | null
+          p_unlocked_tag_ids: string[] | null
           p_sort_by: string
           p_limit: number
           p_offset: number
@@ -240,13 +254,12 @@ export interface Database {
       }
       search_link_ids: {
         Args: {
-          p_search: string | null
           p_category_id: string | null
           p_statuses: LinkStatus[] | null
-          p_tag_names: string[] | null
+          p_tag_ids: string[] | null
           p_tag_mode: string
           p_favorites_only: boolean
-          p_unlocked_tag_names: string[] | null
+          p_unlocked_tag_ids: string[] | null
           p_limit: number
         }
         Returns: Array<{ id: string; total_count: number }>
@@ -269,3 +282,4 @@ export type Category = Tables<'categories'>
 export type CategoryDomain = Tables<'category_domains'>
 export type PrivateTagSettings = Tables<'private_tag_settings'>
 export type AppSettings = Tables<'app_settings'>
+export type UserEncryptionKey = Tables<'user_encryption_keys'>

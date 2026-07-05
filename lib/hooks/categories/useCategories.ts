@@ -10,8 +10,10 @@ import {
   PROTECTED_CATEGORY_NAME,
   type Category,
 } from '@/lib/services/categories'
+import { useVault } from '@/lib/context/VaultContext'
 
 export function useCategories() {
+  const { dek } = useVault()
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [adding, setAdding] = useState(false)
@@ -28,18 +30,19 @@ export function useCategories() {
   const [editColor, setEditColor] = useState('indigo')
 
   useEffect(() => {
-    getCategories().then(data => {
+    if (!dek) return
+    getCategories(dek).then(data => {
       setCategories(data)
       setLoading(false)
     })
-  }, [])
+  }, [dek])
 
   function openAdd() { setAdding(true); setAddError(null); setEditingId(null); setDeletingId(null) }
   function closeAdd() { setAdding(false); setAddError(null); setNewIcon(''); setNewName(''); setNewColor('indigo') }
 
   async function handleAdd() {
-    if (!newName.trim()) return
-    const result = await createCategory({ name: newName.trim(), emoticon: newIcon.trim() || '🔗', color: newColor })
+    if (!newName.trim() || !dek) return
+    const result = await createCategory({ name: newName.trim(), emoticon: newIcon.trim() || '🔗', color: newColor }, dek)
     if (result.error === 'name_taken') {
       setAddError('A category with that name already exists.')
       return
@@ -59,8 +62,8 @@ export function useCategories() {
   }
 
   async function handleSaveEdit() {
-    if (!editName.trim() || !editingId) return
-    const result = await updateCategory({ id: editingId, name: editName.trim(), emoticon: editIcon.trim() || '🔗', color: editColor })
+    if (!editName.trim() || !editingId || !dek) return
+    const result = await updateCategory({ id: editingId, name: editName.trim(), emoticon: editIcon.trim() || '🔗', color: editColor }, dek)
     if (result.error === 'name_taken') {
       setEditError('A category with that name already exists.')
       return

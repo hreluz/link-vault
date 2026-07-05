@@ -11,6 +11,11 @@ vi.mock('@/lib/services/category-domains', () => ({
   removeCategoryDomain: vi.fn(),
 }))
 
+const FAKE_DEK = {} as CryptoKey
+vi.mock('@/lib/context/VaultContext', () => ({
+  useVault: () => ({ dek: FAKE_DEK, isUnlocked: true, unlock: vi.fn(), changePassword: vi.fn(), lock: vi.fn() }),
+}))
+
 import { getCategoryDomains, addCategoryDomain, removeCategoryDomain } from '@/lib/services/category-domains'
 const mockGet = vi.mocked(getCategoryDomains)
 const mockAdd = vi.mocked(addCategoryDomain)
@@ -57,7 +62,7 @@ describe('useCategoryDomains', () => {
     it('passes the categoryId to the service', async () => {
       await renderLoaded('cat-99')
 
-      expect(mockGet).toHaveBeenCalledWith('cat-99')
+      expect(mockGet).toHaveBeenCalledWith('cat-99', FAKE_DEK)
     })
   })
 

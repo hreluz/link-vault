@@ -21,6 +21,11 @@ vi.mock('@/lib/services/tags', async (importOriginal) => {
   }
 })
 
+const { FAKE_DEK } = vi.hoisted(() => ({ FAKE_DEK: {} as CryptoKey }))
+vi.mock('@/lib/context/VaultContext', () => ({
+  useVault: () => ({ dek: FAKE_DEK, isUnlocked: true, unlock: vi.fn(), changePassword: vi.fn(), lock: vi.fn() }),
+}))
+
 // ── fixtures ──────────────────────────────────────────────────────────────────
 
 const MOCK_TAG: TagWithCount = {
@@ -111,11 +116,11 @@ describe('useTagList — addTag', () => {
     act(() => result.current.setNewName('My Vue App'))
     act(() => result.current.setNewColor('emerald'))
     await act(async () => result.current.addTag())
-    expect(createTag).toHaveBeenCalledWith({ name: 'my-vue-app', color: 'emerald', is_private: false })
+    expect(createTag).toHaveBeenCalledWith({ name: 'my-vue-app', color: 'emerald', is_private: false }, FAKE_DEK)
   })
 
   it('appends the new tag with link_count 0 and closes the form', async () => {
-    const newTagData = { id: '3', user_id: 'u1', name: 'vue', color: 'emerald', created_at: '2026-01-01T00:00:00Z' }
+    const newTagData = { id: '3', user_id: 'u1', name: 'vue', color: 'emerald', is_private: false, created_at: '2026-01-01T00:00:00Z' }
     vi.mocked(createTag).mockResolvedValue({ data: newTagData, error: null })
     const { result } = await setup()
     act(() => result.current.openAdd())
@@ -201,7 +206,7 @@ describe('useTagList — saveEdit', () => {
     act(() => result.current.setEditName('React 19'))
     act(() => result.current.setEditColor('sky'))
     await act(async () => result.current.saveEdit())
-    expect(updateTag).toHaveBeenCalledWith({ id: MOCK_TAG.id, name: 'react-19', color: 'sky', is_private: false })
+    expect(updateTag).toHaveBeenCalledWith({ id: MOCK_TAG.id, name: 'react-19', color: 'sky', is_private: false }, FAKE_DEK)
   })
 
   it('updates the tag in the list and clears editingId', async () => {

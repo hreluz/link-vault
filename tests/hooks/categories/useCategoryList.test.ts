@@ -9,6 +9,11 @@ const mockGetCategories = vi.hoisted(() => vi.fn())
 
 vi.mock('@/lib/services/categories', () => ({ getCategories: mockGetCategories }))
 
+const FAKE_DEK = {} as CryptoKey
+vi.mock('@/lib/context/VaultContext', () => ({
+  useVault: () => ({ dek: FAKE_DEK, isUnlocked: true, unlock: vi.fn(), changePassword: vi.fn(), lock: vi.fn() }),
+}))
+
 const MOCK_CATEGORIES: Category[] = [
   { id: '1', user_id: 'u1', name: 'Article', description: null, color: '#3B82F6', emoticon: '📄', created_at: '', updated_at: '' },
   { id: '2', user_id: 'u1', name: 'YouTube', description: null, color: '#FF0000', emoticon: '📺', created_at: '', updated_at: '' },

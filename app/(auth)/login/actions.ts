@@ -1,9 +1,8 @@
 'use server'
 
-import { redirect } from 'next/navigation'
 import { signIn } from '@/lib/services/auth'
 
-export type LoginState = { error?: string } | null
+export type LoginState = { error?: string; success?: boolean } | null
 
 export async function loginAction(
   _prev: LoginState,
@@ -15,5 +14,5 @@ export async function loginAction(
   const result = await signIn(email, password)
   if (!result.success) return { error: result.error }
 
-  redirect('/dashboard')
+  return { success: true }
 }

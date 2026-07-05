@@ -1,30 +1,19 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest'
 import { getCategories, createCategory, updateCategory, deleteCategory, getCategoryLinksCount, seedDefaultCategories, SEED_CATEGORIES, PROTECTED_CATEGORY_NAME } from '@/lib/services/categories'
-import type { Category } from '@/lib/services/categories'
+import { generateDek, encryptJson, decryptJson } from '@/lib/crypto/vault'
 
 // ── hoisted mocks ─────────────────────────────────────────────────────────────
 
 const {
   mockGetUser,
-  mockOrder,
-  mockNameCheckMaybeSingle,
-  mockIlike,
-  mockNeq,
+  mockCategoriesSelect,
   mockInsert, mockInsertSingle,
   mockUpdate, mockUpdateEq, mockUpdateSingle,
   mockDeleteEq,
-  mockNameCheckEq,
   mockLinksCountEq,
 } = vi.hoisted(() => {
-  const mockOrder = vi.fn()
   const mockGetUser = vi.fn()
-
-  // name-check chain: select().eq().ilike().maybeSingle()   (create)
-  //                   select().eq().ilike().neq().maybeSingle()  (update)
-  const mockNameCheckMaybeSingle = vi.fn()
-  const mockNeq = vi.fn(() => ({ maybeSingle: mockNameCheckMaybeSingle }))
-  const mockIlike = vi.fn(() => ({ maybeSingle: mockNameCheckMaybeSingle, neq: mockNeq }))
-  const mockNameCheckEq = vi.fn(() => ({ ilike: mockIlike }))
+  const mockCategoriesSelect = vi.fn()
 
   const mockInsertSingle = vi.fn()
   const mockInsertSelect = vi.fn(() => ({ single: mockInsertSingle }))
@@ -36,20 +25,14 @@ const {
   const mockUpdate = vi.fn(() => ({ eq: mockUpdateEq }))
 
   const mockDeleteEq = vi.fn()
-  const mockDelete = vi.fn(() => ({ eq: mockDeleteEq }))
-
   const mockLinksCountEq = vi.fn()
 
   return {
     mockGetUser,
-    mockOrder,
-    mockNameCheckMaybeSingle,
-    mockIlike,
-    mockNeq,
-    mockNameCheckEq,
+    mockCategoriesSelect,
     mockInsert, mockInsertSingle,
     mockUpdate, mockUpdateEq, mockUpdateSingle,
-    mockDeleteEq, mockDelete,
+    mockDeleteEq,
     mockLinksCountEq,
   }
 })
@@ -60,7 +43,7 @@ vi.mock('@/lib/supabase/client', () => ({
     from: vi.fn((table: string) => {
       if (table === 'links') return { select: vi.fn(() => ({ eq: mockLinksCountEq })) }
       return {
-        select: vi.fn(() => ({ order: mockOrder, eq: mockNameCheckEq })),
+        select: vi.fn(() => mockCategoriesSelect()),
         insert: mockInsert,
         update: mockUpdate,
         delete: vi.fn(() => ({ eq: mockDeleteEq })),
@@ -78,9 +61,10 @@ function makeSeedClient({
   count?: number | null
   countError?: object | null
 } = {}) {
-  const seededRows = SEED_CATEGORIES.map((cat, i) => ({ ...cat, id: `seeded-${i}`, user_id: 'user-123' }))
-  const mockCatInsertSelect = vi.fn().mockResolvedValue({ data: count === 0 ? seededRows : null })
-  const mockCatInsert = vi.fn().mockReturnValue({ select: mockCatInsertSelect })
+  const mockCatInsertSelect = vi.fn().mockImplementation(async (rows: Array<{ user_id: string; enc_payload: string; enc_iv: string }>) => ({
+    data: count === 0 ? rows.map((r, i) => ({ ...r, id: `seeded-${i}`, created_at: '', updated_at: '' })) : null,
+  }))
+  const mockCatInsert = vi.fn((rows: unknown) => ({ select: () => mockCatInsertSelect(rows) }))
   const mockDomainInsert = vi.fn().mockResolvedValue({ error: null })
   const mockEq = vi.fn().mockResolvedValue({ count, error: countError })
   const mockSelectCount = vi.fn().mockReturnValue({ eq: mockEq })
@@ -93,9 +77,15 @@ function makeSeedClient({
   return { client: { from } as unknown as ReturnType<typeof import('@/lib/supabase/client').createClient>, mockInsert: mockCatInsert, mockDomainInsert, from }
 }
 
-const MOCK_CAT: Category = {
-  id: '1', user_id: 'u1', name: 'Article', description: 'Blog posts',
-  color: '#3B82F6', emoticon: '📄', created_at: '', updated_at: '',
+let dek: CryptoKey
+
+beforeAll(async () => {
+  dek = await generateDek()
+})
+
+async function encryptCategoryRow(id: string, name: string, description: string | null, color: string | null, emoticon: string | null) {
+  const { ciphertext, iv } = await encryptJson({ name, description, color, emoticon }, dek)
+  return { id, user_id: 'u1', enc_payload: ciphertext, enc_iv: iv, created_at: '', updated_at: '' }
 }
 
 beforeEach(() => {
@@ -105,25 +95,26 @@ beforeEach(() => {
 // ── getCategories ─────────────────────────────────────────────────────────────
 
 describe('getCategories', () => {
-  it('returns categories ordered alphabetically by name', async () => {
-    mockOrder.mockResolvedValue({ data: [MOCK_CAT], error: null })
+  it('decrypts and returns categories ordered alphabetically by name', async () => {
+    const zebra = await encryptCategoryRow('1', 'Zebra', null, null, null)
+    const apple = await encryptCategoryRow('2', 'Apple', null, null, null)
+    mockCategoriesSelect.mockResolvedValue({ data: [zebra, apple], error: null })
 
-    const result = await getCategories()
+    const result = await getCategories(dek)
 
-    expect(result).toEqual([MOCK_CAT])
-    expect(mockOrder).toHaveBeenCalledWith('name', { ascending: true })
+    expect(result.map(c => c.name)).toEqual(['Apple', 'Zebra'])
   })
 
   it('returns [] on error', async () => {
-    mockOrder.mockResolvedValue({ data: null, error: { message: 'DB error' } })
+    mockCategoriesSelect.mockResolvedValue({ data: null, error: { message: 'DB error' } })
 
-    expect(await getCategories()).toEqual([])
+    expect(await getCategories(dek)).toEqual([])
   })
 
   it('returns [] when data is null', async () => {
-    mockOrder.mockResolvedValue({ data: null, error: null })
+    mockCategoriesSelect.mockResolvedValue({ data: null, error: null })
 
-    expect(await getCategories()).toEqual([])
+    expect(await getCategories(dek)).toEqual([])
   })
 })
 
@@ -132,49 +123,54 @@ describe('getCategories', () => {
 describe('createCategory', () => {
   beforeEach(() => {
     mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } })
-    mockNameCheckMaybeSingle.mockResolvedValue({ data: null, error: null })
+    mockCategoriesSelect.mockResolvedValue({ data: [], error: null })
   })
 
   it('returns the created category on success', async () => {
-    mockInsertSingle.mockResolvedValue({ data: MOCK_CAT, error: null })
+    const row = await encryptCategoryRow('1', 'Article', 'Blog posts', '#3B82F6', '📄')
+    mockInsertSingle.mockResolvedValue({ data: row, error: null })
 
-    const result = await createCategory({ name: 'Article', emoticon: '📄', color: '#3B82F6' })
+    const result = await createCategory({ name: 'Article', emoticon: '📄', color: '#3B82F6' }, dek)
 
-    expect(result).toEqual({ data: MOCK_CAT, error: null })
+    expect(result.data?.name).toBe('Article')
+    expect(result.error).toBeNull()
   })
 
-  it('includes name, emoticon, and color in the insert payload', async () => {
-    mockInsertSingle.mockResolvedValue({ data: MOCK_CAT, error: null })
+  it('encrypts name, emoticon, and color into the insert payload', async () => {
+    const row = await encryptCategoryRow('1', 'Article', null, 'indigo', '📄')
+    mockInsertSingle.mockResolvedValue({ data: row, error: null })
 
-    await createCategory({ name: 'Article', emoticon: '📄', color: 'indigo' })
+    await createCategory({ name: 'Article', emoticon: '📄', color: 'indigo' }, dek)
 
-    expect(mockInsert).toHaveBeenCalledWith(
-      expect.objectContaining({ name: 'Article', emoticon: '📄', color: 'indigo', user_id: 'u1' }),
-    )
+    const call = mockInsert.mock.calls[0][0]
+    expect(call.user_id).toBe('u1')
+    const decrypted = await decryptJson<{ name: string; color: string | null; emoticon: string | null }>(call.enc_payload, call.enc_iv, dek)
+    expect(decrypted).toEqual(expect.objectContaining({ name: 'Article', emoticon: '📄', color: 'indigo' }))
   })
 
   it('returns name_taken when a category with the same name exists', async () => {
-    mockNameCheckMaybeSingle.mockResolvedValue({ data: { id: '99' }, error: null })
+    const existing = await encryptCategoryRow('99', 'Article', null, null, null)
+    mockCategoriesSelect.mockResolvedValue({ data: [existing], error: null })
 
-    const result = await createCategory({ name: 'Article' })
+    const result = await createCategory({ name: 'Article' }, dek)
 
     expect(result).toEqual({ data: null, error: 'name_taken' })
     expect(mockInsert).not.toHaveBeenCalled()
   })
 
   it('performs the name check case-insensitively', async () => {
-    mockNameCheckMaybeSingle.mockResolvedValue({ data: null, error: null })
-    mockInsertSingle.mockResolvedValue({ data: MOCK_CAT, error: null })
+    const existing = await encryptCategoryRow('99', 'Article', null, null, null)
+    mockCategoriesSelect.mockResolvedValue({ data: [existing], error: null })
 
-    await createCategory({ name: 'article' })
+    const result = await createCategory({ name: 'article' }, dek)
 
-    expect(mockIlike).toHaveBeenCalledWith('name', 'article')
+    expect(result).toEqual({ data: null, error: 'name_taken' })
   })
 
   it('returns unauthenticated when there is no user', async () => {
     mockGetUser.mockResolvedValue({ data: { user: null } })
 
-    const result = await createCategory({ name: 'Article' })
+    const result = await createCategory({ name: 'Article' }, dek)
 
     expect(result).toEqual({ data: null, error: 'unauthenticated' })
     expect(mockInsert).not.toHaveBeenCalled()
@@ -183,7 +179,7 @@ describe('createCategory', () => {
   it('returns db_error on insert failure', async () => {
     mockInsertSingle.mockResolvedValue({ data: null, error: { message: 'DB error' } })
 
-    const result = await createCategory({ name: 'Article' })
+    const result = await createCategory({ name: 'Article' }, dek)
 
     expect(result).toEqual({ data: null, error: 'db_error' })
   })
@@ -194,46 +190,53 @@ describe('createCategory', () => {
 describe('updateCategory', () => {
   beforeEach(() => {
     mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } })
-    mockNameCheckMaybeSingle.mockResolvedValue({ data: null, error: null })
+    mockCategoriesSelect.mockResolvedValue({ data: [], error: null })
   })
 
   it('returns the updated category on success', async () => {
-    const updated = { ...MOCK_CAT, name: 'Updated', emoticon: '🆕' }
-    mockUpdateSingle.mockResolvedValue({ data: updated, error: null })
+    const row = await encryptCategoryRow('1', 'Updated', null, null, '🆕')
+    mockUpdateSingle.mockResolvedValue({ data: row, error: null })
 
-    const result = await updateCategory({ id: '1', name: 'Updated', emoticon: '🆕' })
+    const result = await updateCategory({ id: '1', name: 'Updated', emoticon: '🆕' }, dek)
 
-    expect(result).toEqual({ data: updated, error: null })
+    expect(result.data?.name).toBe('Updated')
+    expect(result.data?.emoticon).toBe('🆕')
   })
 
   it('filters by id when updating', async () => {
-    mockUpdateSingle.mockResolvedValue({ data: MOCK_CAT, error: null })
+    const row = await encryptCategoryRow('cat-99', 'X', null, null, null)
+    mockUpdateSingle.mockResolvedValue({ data: row, error: null })
 
-    await updateCategory({ id: 'cat-99', name: 'X' })
+    await updateCategory({ id: 'cat-99', name: 'X' }, dek)
 
     expect(mockUpdateEq).toHaveBeenCalledWith('id', 'cat-99')
   })
 
   it('excludes the current category from the name-conflict check', async () => {
-    mockUpdateSingle.mockResolvedValue({ data: MOCK_CAT, error: null })
+    const self = await encryptCategoryRow('cat-99', 'Article', null, null, null)
+    mockCategoriesSelect.mockResolvedValue({ data: [self], error: null })
+    const row = await encryptCategoryRow('cat-99', 'Article', null, null, null)
+    mockUpdateSingle.mockResolvedValue({ data: row, error: null })
 
-    await updateCategory({ id: 'cat-99', name: 'Article' })
+    const result = await updateCategory({ id: 'cat-99', name: 'Article' }, dek)
 
-    expect(mockNeq).toHaveBeenCalledWith('id', 'cat-99')
+    expect(result.error).toBeNull()
   })
 
   it('performs the name-conflict check case-insensitively', async () => {
-    mockUpdateSingle.mockResolvedValue({ data: MOCK_CAT, error: null })
+    const existing = await encryptCategoryRow('other', 'Article', null, null, null)
+    mockCategoriesSelect.mockResolvedValue({ data: [existing], error: null })
 
-    await updateCategory({ id: '1', name: 'article' })
+    const result = await updateCategory({ id: '1', name: 'article' }, dek)
 
-    expect(mockIlike).toHaveBeenCalledWith('name', 'article')
+    expect(result).toEqual({ data: null, error: 'name_taken' })
   })
 
   it('returns name_taken when another category has the same name', async () => {
-    mockNameCheckMaybeSingle.mockResolvedValue({ data: { id: '99' }, error: null })
+    const existing = await encryptCategoryRow('99', 'Article', null, null, null)
+    mockCategoriesSelect.mockResolvedValue({ data: [existing], error: null })
 
-    const result = await updateCategory({ id: '1', name: 'Article' })
+    const result = await updateCategory({ id: '1', name: 'Article' }, dek)
 
     expect(result).toEqual({ data: null, error: 'name_taken' })
     expect(mockUpdate).not.toHaveBeenCalled()
@@ -242,7 +245,7 @@ describe('updateCategory', () => {
   it('returns unauthenticated when there is no user', async () => {
     mockGetUser.mockResolvedValue({ data: { user: null } })
 
-    const result = await updateCategory({ id: '1', name: 'Article' })
+    const result = await updateCategory({ id: '1', name: 'Article' }, dek)
 
     expect(result).toEqual({ data: null, error: 'unauthenticated' })
     expect(mockUpdate).not.toHaveBeenCalled()
@@ -251,7 +254,7 @@ describe('updateCategory', () => {
   it('returns db_error on update failure', async () => {
     mockUpdateSingle.mockResolvedValue({ data: null, error: { message: 'DB error' } })
 
-    const result = await updateCategory({ id: '1', name: 'X' })
+    const result = await updateCategory({ id: '1', name: 'X' }, dek)
 
     expect(result).toEqual({ data: null, error: 'db_error' })
   })
@@ -317,18 +320,21 @@ describe('seedDefaultCategories', () => {
   it('inserts all default categories when the user has none', async () => {
     const { client, mockInsert: mockInsertSeed } = makeSeedClient({ count: 0 })
 
-    await seedDefaultCategories(client, 'user-123')
+    await seedDefaultCategories(client, 'user-123', dek)
 
     expect(mockInsertSeed).toHaveBeenCalledOnce()
-    expect(mockInsertSeed).toHaveBeenCalledWith(
-      SEED_CATEGORIES.map(cat => ({ ...cat, user_id: 'user-123' })),
+    const [inserted] = mockInsertSeed.mock.calls[0]
+    expect(inserted.every((r: { user_id: string }) => r.user_id === 'user-123')).toBe(true)
+    const decrypted = await Promise.all(
+      inserted.map((r: { enc_payload: string; enc_iv: string }) => decryptJson(r.enc_payload, r.enc_iv, dek)),
     )
+    expect(decrypted).toEqual(SEED_CATEGORIES)
   })
 
   it('skips insertion when the user already has categories', async () => {
     const { client, mockInsert: mockInsertSeed } = makeSeedClient({ count: 3 })
 
-    await seedDefaultCategories(client, 'user-123')
+    await seedDefaultCategories(client, 'user-123', dek)
 
     expect(mockInsertSeed).not.toHaveBeenCalled()
   })
@@ -336,7 +342,7 @@ describe('seedDefaultCategories', () => {
   it('skips insertion when the count query fails', async () => {
     const { client, mockInsert: mockInsertSeed } = makeSeedClient({ count: null, countError: { message: 'error' } })
 
-    await seedDefaultCategories(client, 'user-123')
+    await seedDefaultCategories(client, 'user-123', dek)
 
     expect(mockInsertSeed).not.toHaveBeenCalled()
   })
@@ -344,7 +350,7 @@ describe('seedDefaultCategories', () => {
   it('inserts exactly 9 categories', async () => {
     const { client, mockInsert: mockInsertSeed } = makeSeedClient({ count: 0 })
 
-    await seedDefaultCategories(client, 'user-123')
+    await seedDefaultCategories(client, 'user-123', dek)
 
     const [inserted] = mockInsertSeed.mock.calls[0]
     expect(inserted).toHaveLength(9)
@@ -353,16 +359,19 @@ describe('seedDefaultCategories', () => {
   it('includes the protected "Not defined" category', async () => {
     const { client, mockInsert: mockInsertSeed } = makeSeedClient({ count: 0 })
 
-    await seedDefaultCategories(client, 'user-123')
+    await seedDefaultCategories(client, 'user-123', dek)
 
     const [inserted] = mockInsertSeed.mock.calls[0]
-    expect(inserted.some((c: { name: string }) => c.name === PROTECTED_CATEGORY_NAME)).toBe(true)
+    const decrypted = await Promise.all(
+      inserted.map((r: { enc_payload: string; enc_iv: string }) => decryptJson<{ name: string }>(r.enc_payload, r.enc_iv, dek)),
+    )
+    expect(decrypted.some(c => c.name === PROTECTED_CATEGORY_NAME)).toBe(true)
   })
 
   it('sets user_id on every inserted category', async () => {
     const { client, mockInsert: mockInsertSeed } = makeSeedClient({ count: 0 })
 
-    await seedDefaultCategories(client, 'user-abc')
+    await seedDefaultCategories(client, 'user-abc', dek)
 
     const [inserted] = mockInsertSeed.mock.calls[0]
     expect(inserted.every((c: { user_id: string }) => c.user_id === 'user-abc')).toBe(true)
@@ -371,18 +380,20 @@ describe('seedDefaultCategories', () => {
   it('inserts domain rows for the seeded categories', async () => {
     const { client, mockDomainInsert } = makeSeedClient({ count: 0 })
 
-    await seedDefaultCategories(client, 'user-123')
+    await seedDefaultCategories(client, 'user-123', dek)
 
     expect(mockDomainInsert).toHaveBeenCalledOnce()
     const [domainRows] = mockDomainInsert.mock.calls[0]
-    const domains = domainRows.map((r: { domain: string }) => r.domain)
-    expect(domains).toEqual(expect.arrayContaining(['youtube.com', 'youtu.be', 'instagram.com', 'tiktok.com', 'vm.tiktok.com', 'twitter.com', 'x.com', 't.co', 'github.com']))
+    const domains = await Promise.all(
+      domainRows.map((r: { enc_payload: string; enc_iv: string }) => decryptJson<{ domain: string }>(r.enc_payload, r.enc_iv, dek)),
+    )
+    expect(domains.map(d => d.domain)).toEqual(expect.arrayContaining(['youtube.com', 'youtu.be', 'instagram.com', 'tiktok.com', 'vm.tiktok.com', 'twitter.com', 'x.com', 't.co', 'github.com']))
   })
 
   it('sets user_id on every inserted domain row', async () => {
     const { client, mockDomainInsert } = makeSeedClient({ count: 0 })
 
-    await seedDefaultCategories(client, 'user-abc')
+    await seedDefaultCategories(client, 'user-abc', dek)
 
     const [domainRows] = mockDomainInsert.mock.calls[0]
     expect(domainRows.every((r: { user_id: string }) => r.user_id === 'user-abc')).toBe(true)
@@ -391,7 +402,7 @@ describe('seedDefaultCategories', () => {
   it('does not insert domain rows when seeding is skipped', async () => {
     const { client, mockDomainInsert } = makeSeedClient({ count: 3 })
 
-    await seedDefaultCategories(client, 'user-123')
+    await seedDefaultCategories(client, 'user-123', dek)
 
     expect(mockDomainInsert).not.toHaveBeenCalled()
   })

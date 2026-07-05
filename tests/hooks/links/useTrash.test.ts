@@ -11,7 +11,7 @@ const { LINK_A, LINK_B } = vi.hoisted(() => {
   const base = {
     url: 'https://example.com', description: 'desc', notes: null,
     user_id: 'user-1', category_id: null, status: 'unread' as const,
-    is_favorite: false, image_url: null, created_at: '2026-01-01T00:00:00Z',
+    is_favorite: false, image_url: null, duration: null, created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z', deleted_at: '2026-06-01T00:00:00Z',
   }
   const LINK_A: TrashedLink = { ...base, id: '1', title: 'Alpha Article', site_name: 'alpha.com', tags: ['react'] }
@@ -26,6 +26,24 @@ vi.mock('@/lib/services/trash', () => ({
   restoreLink: vi.fn(),
   deleteLinkPermanently: vi.fn(),
   emptyTrash: vi.fn(),
+}))
+
+// A stable dek reference across renders -- a fresh object every call would
+// re-trigger the fetch effect (whose deps include dek) on every re-render.
+const { FAKE_DEK } = vi.hoisted(() => ({ FAKE_DEK: {} as CryptoKey }))
+vi.mock('@/lib/context/VaultContext', () => ({
+  useVault: () => ({ dek: FAKE_DEK, isUnlocked: true, unlock: vi.fn(), changePassword: vi.fn(), lock: vi.fn() }),
+}))
+
+vi.mock('@/lib/context/TagsContext', () => ({
+  useTagsContext: () => ({
+    tags: [
+      { id: 'react', name: 'react', color: null, is_private: false, created_at: '', link_count: 0 },
+      { id: 'vue', name: 'vue', color: null, is_private: false, created_at: '', link_count: 0 },
+    ],
+    loading: false,
+    refetchTags: vi.fn(),
+  }),
 }))
 
 import { getTrashedLinks, restoreLink, deleteLinkPermanently, emptyTrash } from '@/lib/services/trash'

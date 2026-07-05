@@ -1,41 +1,33 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest'
 import {
   getTags, createTag, updateTag, deleteTag, getTagLinksCount, toKebabCase,
-  getPrivateTagNames, setPrivateTagPassword, verifyPrivateTagPassword, getPrivateTagSettings,
+  getPrivateTagIds, setPrivateTagPassword, verifyPrivateTagPassword, getPrivateTagSettings,
+  syncTagsByName,
 } from '@/lib/services/tags'
-import type { Tag } from '@/lib/services/tags'
+import { generateDek, encryptJson } from '@/lib/crypto/vault'
 
 // ── hoisted mocks ─────────────────────────────────────────────────────────────
 
 const {
   mockGetUser,
-  mockOrder,
-  mockNameCheckMaybeSingle,
-  mockIlike,
-  mockNeq,
-  mockNameCheckEq,
-  mockPrivateTagIdsEq,
-  mockInsert, mockInsertSingle,
-  mockUpdate, mockUpdateEq, mockUpdateSingle,
+  mockTagsSelect,
+  mockInsertSingle,
+  mockUpdateSingle,
   mockDeleteEq,
   mockLinkTagsCountEq,
   mockLinkTagsIn,
   mockLinksDeleteIn,
   mockTagsDeleteIn,
-  mockPrivateNamesEq,
+  mockPrivateIdsEq,
   mockSettingsMaybeSingle,
   mockSettingsEq,
   mockSettingsUpdateEq,
   mockUpsert,
+  mockInsert,
+  mockUpdate,
 } = vi.hoisted(() => {
-  const mockOrder = vi.fn()
   const mockGetUser = vi.fn()
-
-  const mockNameCheckMaybeSingle = vi.fn()
-  const mockNeq = vi.fn(() => ({ maybeSingle: mockNameCheckMaybeSingle }))
-  const mockIlike = vi.fn(() => ({ maybeSingle: mockNameCheckMaybeSingle, neq: mockNeq }))
-  const mockPrivateTagIdsEq = vi.fn()
-  const mockNameCheckEq = vi.fn(() => ({ ilike: mockIlike, eq: mockPrivateTagIdsEq }))
+  const mockTagsSelect = vi.fn()
 
   const mockInsertSingle = vi.fn()
   const mockInsertSelect = vi.fn(() => ({ single: mockInsertSingle }))
@@ -51,7 +43,7 @@ const {
   const mockLinkTagsIn = vi.fn()
   const mockLinksDeleteIn = vi.fn()
   const mockTagsDeleteIn = vi.fn()
-  const mockPrivateNamesEq = vi.fn()
+  const mockPrivateIdsEq = vi.fn()
 
   const mockSettingsMaybeSingle = vi.fn()
   const mockSettingsEq = vi.fn(() => ({ maybeSingle: mockSettingsMaybeSingle }))
@@ -60,24 +52,21 @@ const {
 
   return {
     mockGetUser,
-    mockOrder,
-    mockNameCheckMaybeSingle,
-    mockIlike,
-    mockNeq,
-    mockNameCheckEq,
-    mockPrivateTagIdsEq,
-    mockInsert, mockInsertSingle,
-    mockUpdate, mockUpdateEq, mockUpdateSingle,
+    mockTagsSelect,
+    mockInsertSingle,
+    mockUpdateSingle,
     mockDeleteEq,
     mockLinkTagsCountEq,
     mockLinkTagsIn,
     mockLinksDeleteIn,
     mockTagsDeleteIn,
-    mockPrivateNamesEq,
+    mockPrivateIdsEq,
     mockSettingsMaybeSingle,
     mockSettingsEq,
     mockSettingsUpdateEq,
     mockUpsert,
+    mockInsert,
+    mockUpdate,
   }
 })
 
@@ -103,8 +92,18 @@ vi.mock('@/lib/supabase/client', () => ({
       // tags (default)
       return {
         select: vi.fn((col?: string) => {
-          if (col === 'name') return { eq: mockPrivateNamesEq }
-          return { order: mockOrder, eq: mockNameCheckEq }
+          if (col === 'id') {
+            // Two different real call sites share `.select('id')`:
+            // getPrivateTagIds does one `.eq('is_private', true)`; nukeAllData
+            // chains `.eq('user_id', ...).eq('is_private', true)`.
+            return {
+              eq: vi.fn((field: string, value: unknown) => {
+                if (field === 'user_id') return { eq: mockPrivateIdsEq }
+                return mockPrivateIdsEq(field, value)
+              }),
+            }
+          }
+          return mockTagsSelect()
         }),
         insert: mockInsert,
         update: mockUpdate,
@@ -116,14 +115,24 @@ vi.mock('@/lib/supabase/client', () => ({
 
 // ── fixtures ──────────────────────────────────────────────────────────────────
 
-const MOCK_TAG: Tag = {
-  id: '1', user_id: 'u1', name: 'React', color: 'indigo',
-  is_private: false, created_at: '2026-01-01T00:00:00Z',
+let dek: CryptoKey
+
+beforeAll(async () => {
+  dek = await generateDek()
+})
+
+async function encryptTagRow(id: string, name: string, color: string | null, isPrivate = false) {
+  const { ciphertext, iv } = await encryptJson({ name, color }, dek)
+  return {
+    id, user_id: 'u1', enc_payload: ciphertext, enc_iv: iv,
+    is_private: isPrivate, created_at: '2026-01-01T00:00:00Z',
+  }
 }
 
-const MOCK_TAG_ROW = {
-  ...MOCK_TAG,
-  link_tags: [{ id: 'lt1' }, { id: 'lt2' }],
+/** getTags always joins `link_tags(id)`; use this variant for rows fed to `mockTagsSelect`
+ *  (real insert/update responses never carry this field, so `encryptTagRow` above omits it). */
+async function encryptTagRowForSelect(id: string, name: string, color: string | null, isPrivate = false) {
+  return { ...await encryptTagRow(id, name, color, isPrivate), link_tags: [{ id: 'lt1' }, { id: 'lt2' }] }
 }
 
 beforeEach(() => {
@@ -161,48 +170,53 @@ describe('toKebabCase', () => {
 // ── getTags ───────────────────────────────────────────────────────────────────
 
 describe('getTags', () => {
-  it('returns tags ordered alphabetically by name', async () => {
-    mockOrder.mockResolvedValue({ data: [MOCK_TAG_ROW], error: null })
+  it('decrypts and returns tags ordered alphabetically by name', async () => {
+    const b = await encryptTagRowForSelect('b', 'zebra', null)
+    const a = await encryptTagRowForSelect('a', 'apple', null)
+    mockTagsSelect.mockResolvedValue({ data: [b, a], error: null })
 
-    await getTags()
+    const result = await getTags(dek)
 
-    expect(mockOrder).toHaveBeenCalledWith('name', { ascending: true })
+    expect(result.map(t => t.name)).toEqual(['apple', 'zebra'])
   })
 
   it('maps link_tags array to a link_count number', async () => {
-    mockOrder.mockResolvedValue({ data: [MOCK_TAG_ROW], error: null })
+    const row = await encryptTagRowForSelect('1', 'react', 'indigo')
+    mockTagsSelect.mockResolvedValue({ data: [row], error: null })
 
-    const result = await getTags()
+    const result = await getTags(dek)
 
     expect(result[0].link_count).toBe(2)
   })
 
   it('sets link_count to 0 when there are no associated links', async () => {
-    mockOrder.mockResolvedValue({ data: [{ ...MOCK_TAG_ROW, link_tags: [] }], error: null })
+    const row = await encryptTagRow('1', 'react', null)
+    mockTagsSelect.mockResolvedValue({ data: [{ ...row, link_tags: [] }], error: null })
 
-    const result = await getTags()
+    const result = await getTags(dek)
 
     expect(result[0].link_count).toBe(0)
   })
 
   it('strips link_tags from the returned objects', async () => {
-    mockOrder.mockResolvedValue({ data: [MOCK_TAG_ROW], error: null })
+    const row = await encryptTagRowForSelect('1', 'react', null)
+    mockTagsSelect.mockResolvedValue({ data: [row], error: null })
 
-    const result = await getTags()
+    const result = await getTags(dek)
 
     expect(result[0]).not.toHaveProperty('link_tags')
   })
 
   it('returns [] on error', async () => {
-    mockOrder.mockResolvedValue({ data: null, error: { message: 'DB error' } })
+    mockTagsSelect.mockResolvedValue({ data: null, error: { message: 'DB error' } })
 
-    expect(await getTags()).toEqual([])
+    expect(await getTags(dek)).toEqual([])
   })
 
   it('returns [] when data is null', async () => {
-    mockOrder.mockResolvedValue({ data: null, error: null })
+    mockTagsSelect.mockResolvedValue({ data: null, error: null })
 
-    expect(await getTags()).toEqual([])
+    expect(await getTags(dek)).toEqual([])
   })
 })
 
@@ -211,46 +225,42 @@ describe('getTags', () => {
 describe('createTag', () => {
   beforeEach(() => {
     mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } })
-    mockNameCheckMaybeSingle.mockResolvedValue({ data: null, error: null })
+    mockTagsSelect.mockResolvedValue({ data: [], error: null })
   })
 
   it('returns the created tag on success', async () => {
-    mockInsertSingle.mockResolvedValue({ data: MOCK_TAG, error: null })
+    const row = await encryptTagRow('1', 'react', 'indigo')
+    mockInsertSingle.mockResolvedValue({ data: row, error: null })
 
-    const result = await createTag({ name: 'React', color: 'indigo' })
+    const result = await createTag({ name: 'React', color: 'indigo' }, dek)
 
-    expect(result).toEqual({ data: MOCK_TAG, error: null })
+    expect(result).toEqual({ data: { id: '1', user_id: 'u1', name: 'react', color: 'indigo', is_private: false, created_at: '2026-01-01T00:00:00Z' }, error: null })
   })
 
-  it('includes kebab-cased name, color, and user_id in the insert payload', async () => {
-    mockInsertSingle.mockResolvedValue({ data: MOCK_TAG, error: null })
+  it('encrypts the kebab-cased name and color into the insert payload', async () => {
+    const row = await encryptTagRow('1', 'my-react-tag', 'indigo')
+    mockInsertSingle.mockResolvedValue({ data: row, error: null })
 
-    await createTag({ name: 'My React Tag', color: 'indigo' })
+    await createTag({ name: 'My React Tag', color: 'indigo' }, dek)
 
-    expect(mockInsert).toHaveBeenCalledWith(
-      expect.objectContaining({ name: 'my-react-tag', color: 'indigo', user_id: 'u1' }),
-    )
-  })
-
-  it('converts the name to kebab-case before the name-conflict check', async () => {
-    mockInsertSingle.mockResolvedValue({ data: MOCK_TAG, error: null })
-
-    await createTag({ name: 'My React Tag' })
-
-    expect(mockIlike).toHaveBeenCalledWith('name', 'my-react-tag')
+    const call = mockInsert.mock.calls[0][0]
+    expect(call.user_id).toBe('u1')
+    expect(call.enc_payload).toBeTypeOf('string')
+    expect(call.enc_payload).not.toContain('react')
   })
 
   it('returns db_error when the kebab-case name is empty', async () => {
-    const result = await createTag({ name: '!!!' })
+    const result = await createTag({ name: '!!!' }, dek)
 
     expect(result).toEqual({ data: null, error: 'db_error' })
     expect(mockInsert).not.toHaveBeenCalled()
   })
 
   it('returns name_taken when a tag with the same name exists', async () => {
-    mockNameCheckMaybeSingle.mockResolvedValue({ data: { id: '99' }, error: null })
+    const existing = await encryptTagRowForSelect('99', 'react', null)
+    mockTagsSelect.mockResolvedValue({ data: [existing], error: null })
 
-    const result = await createTag({ name: 'React' })
+    const result = await createTag({ name: 'React' }, dek)
 
     expect(result).toEqual({ data: null, error: 'name_taken' })
     expect(mockInsert).not.toHaveBeenCalled()
@@ -259,7 +269,7 @@ describe('createTag', () => {
   it('returns unauthenticated when there is no user', async () => {
     mockGetUser.mockResolvedValue({ data: { user: null } })
 
-    const result = await createTag({ name: 'React' })
+    const result = await createTag({ name: 'React' }, dek)
 
     expect(result).toEqual({ data: null, error: 'unauthenticated' })
     expect(mockInsert).not.toHaveBeenCalled()
@@ -268,7 +278,7 @@ describe('createTag', () => {
   it('returns db_error on insert failure', async () => {
     mockInsertSingle.mockResolvedValue({ data: null, error: { message: 'DB error' } })
 
-    const result = await createTag({ name: 'React' })
+    const result = await createTag({ name: 'React' }, dek)
 
     expect(result).toEqual({ data: null, error: 'db_error' })
   })
@@ -279,69 +289,69 @@ describe('createTag', () => {
 describe('updateTag', () => {
   beforeEach(() => {
     mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } })
-    mockNameCheckMaybeSingle.mockResolvedValue({ data: null, error: null })
+    mockTagsSelect.mockResolvedValue({ data: [], error: null })
   })
 
   it('returns the updated tag on success', async () => {
-    const updated = { ...MOCK_TAG, name: 'React 19' }
-    mockUpdateSingle.mockResolvedValue({ data: updated, error: null })
+    const row = await encryptTagRow('1', 'react-19', null)
+    mockUpdateSingle.mockResolvedValue({ data: row, error: null })
 
-    const result = await updateTag({ id: '1', name: 'React 19' })
+    const result = await updateTag({ id: '1', name: 'React 19' }, dek)
 
-    expect(result).toEqual({ data: updated, error: null })
+    expect(result.data?.name).toBe('react-19')
   })
 
   it('filters by id when updating', async () => {
-    mockUpdateSingle.mockResolvedValue({ data: MOCK_TAG, error: null })
+    const row = await encryptTagRow('tag-99', 'x', null)
+    mockUpdateSingle.mockResolvedValue({ data: row, error: null })
 
-    await updateTag({ id: 'tag-99', name: 'X' })
+    await updateTag({ id: 'tag-99', name: 'X' }, dek)
 
-    expect(mockUpdateEq).toHaveBeenCalledWith('id', 'tag-99')
+    expect(mockUpdate).toHaveBeenCalled()
   })
 
   it('excludes the current tag from the name-conflict check', async () => {
-    mockUpdateSingle.mockResolvedValue({ data: MOCK_TAG, error: null })
+    const self = await encryptTagRowForSelect('tag-99', 'react', null)
+    mockTagsSelect.mockResolvedValue({ data: [self], error: null })
+    const row = await encryptTagRow('tag-99', 'react', null)
+    mockUpdateSingle.mockResolvedValue({ data: row, error: null })
 
-    await updateTag({ id: 'tag-99', name: 'React' })
+    const result = await updateTag({ id: 'tag-99', name: 'React' }, dek)
 
-    expect(mockNeq).toHaveBeenCalledWith('id', 'tag-99')
+    expect(result.error).toBeNull()
   })
 
   it('performs the name-conflict check case-insensitively', async () => {
-    mockUpdateSingle.mockResolvedValue({ data: MOCK_TAG, error: null })
+    const existing = await encryptTagRowForSelect('other', 'react', null)
+    mockTagsSelect.mockResolvedValue({ data: [existing], error: null })
 
-    await updateTag({ id: '1', name: 'react' })
+    const result = await updateTag({ id: '1', name: 'react' }, dek)
 
-    expect(mockIlike).toHaveBeenCalledWith('name', 'react')
+    expect(result).toEqual({ data: null, error: 'name_taken' })
   })
 
   it('converts the name to kebab-case before updating', async () => {
-    mockUpdateSingle.mockResolvedValue({ data: MOCK_TAG, error: null })
+    const row = await encryptTagRow('1', 'my-react-tag', null)
+    mockUpdateSingle.mockResolvedValue({ data: row, error: null })
 
-    await updateTag({ id: '1', name: 'My React Tag' })
+    await updateTag({ id: '1', name: 'My React Tag' }, dek)
 
-    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ name: 'my-react-tag' }))
-  })
-
-  it('converts the name to kebab-case before the name-conflict check', async () => {
-    mockUpdateSingle.mockResolvedValue({ data: MOCK_TAG, error: null })
-
-    await updateTag({ id: '1', name: 'My React Tag' })
-
-    expect(mockIlike).toHaveBeenCalledWith('name', 'my-react-tag')
+    const call = mockUpdate.mock.calls[0][0]
+    expect(call.enc_payload).toBeTypeOf('string')
   })
 
   it('returns db_error when the kebab-case name is empty', async () => {
-    const result = await updateTag({ id: '1', name: '!!!' })
+    const result = await updateTag({ id: '1', name: '!!!' }, dek)
 
     expect(result).toEqual({ data: null, error: 'db_error' })
     expect(mockUpdate).not.toHaveBeenCalled()
   })
 
   it('returns name_taken when another tag has the same name', async () => {
-    mockNameCheckMaybeSingle.mockResolvedValue({ data: { id: '99' }, error: null })
+    const existing = await encryptTagRowForSelect('99', 'react', null)
+    mockTagsSelect.mockResolvedValue({ data: [existing], error: null })
 
-    const result = await updateTag({ id: '1', name: 'React' })
+    const result = await updateTag({ id: '1', name: 'React' }, dek)
 
     expect(result).toEqual({ data: null, error: 'name_taken' })
     expect(mockUpdate).not.toHaveBeenCalled()
@@ -350,7 +360,7 @@ describe('updateTag', () => {
   it('returns unauthenticated when there is no user', async () => {
     mockGetUser.mockResolvedValue({ data: { user: null } })
 
-    const result = await updateTag({ id: '1', name: 'React' })
+    const result = await updateTag({ id: '1', name: 'React' }, dek)
 
     expect(result).toEqual({ data: null, error: 'unauthenticated' })
     expect(mockUpdate).not.toHaveBeenCalled()
@@ -359,7 +369,7 @@ describe('updateTag', () => {
   it('returns db_error on update failure', async () => {
     mockUpdateSingle.mockResolvedValue({ data: null, error: { message: 'DB error' } })
 
-    const result = await updateTag({ id: '1', name: 'X' })
+    const result = await updateTag({ id: '1', name: 'X' }, dek)
 
     expect(result).toEqual({ data: null, error: 'db_error' })
   })
@@ -419,41 +429,72 @@ describe('deleteTag', () => {
   })
 })
 
-// ── getPrivateTagNames ────────────────────────────────────────────────────────
+// ── syncTagsByName ────────────────────────────────────────────────────────────
 
-describe('getPrivateTagNames', () => {
-  it('returns names of private tags', async () => {
-    mockPrivateNamesEq.mockResolvedValue({ data: [{ name: 'secret' }, { name: 'work' }], error: null })
+describe('syncTagsByName', () => {
+  beforeEach(() => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } })
+  })
 
-    const result = await getPrivateTagNames()
+  it('resolves existing tags by name to their ids without inserting', async () => {
+    const existing = await encryptTagRowForSelect('tag-1', 'react', null)
+    mockTagsSelect.mockResolvedValue({ data: [existing], error: null })
 
-    expect(result).toEqual(['secret', 'work'])
+    const ids = await syncTagsByName(['react'], dek)
+
+    expect(ids).toEqual(['tag-1'])
+    expect(mockInsert).not.toHaveBeenCalled()
+  })
+
+  it('creates missing tags and returns their new ids', async () => {
+    mockTagsSelect.mockResolvedValue({ data: [], error: null })
+    mockInsertSingle.mockResolvedValue({ data: { id: 'new-1' }, error: null })
+
+    const ids = await syncTagsByName(['fresh-tag'], dek)
+
+    expect(ids).toEqual(['new-1'])
+    expect(mockInsert).toHaveBeenCalled()
+  })
+
+  it('defaults to a single "no-tag" entry when given an empty array', async () => {
+    mockTagsSelect.mockResolvedValue({ data: [], error: null })
+    mockInsertSingle.mockResolvedValue({ data: { id: 'no-tag-id' }, error: null })
+
+    const ids = await syncTagsByName([], dek)
+
+    expect(ids).toEqual(['no-tag-id'])
+  })
+})
+
+// ── getPrivateTagIds ──────────────────────────────────────────────────────────
+
+describe('getPrivateTagIds', () => {
+  it('returns ids of private tags', async () => {
+    mockPrivateIdsEq.mockResolvedValue({ data: [{ id: 'tag-a' }, { id: 'tag-b' }], error: null })
+
+    const result = await getPrivateTagIds()
+
+    expect(result).toEqual(['tag-a', 'tag-b'])
   })
 
   it('queries with is_private = true', async () => {
-    mockPrivateNamesEq.mockResolvedValue({ data: [], error: null })
+    mockPrivateIdsEq.mockResolvedValue({ data: [], error: null })
 
-    await getPrivateTagNames()
+    await getPrivateTagIds()
 
-    expect(mockPrivateNamesEq).toHaveBeenCalledWith('is_private', true)
+    expect(mockPrivateIdsEq).toHaveBeenCalledWith('is_private', true)
   })
 
   it('returns [] when data is null', async () => {
-    mockPrivateNamesEq.mockResolvedValue({ data: null, error: null })
+    mockPrivateIdsEq.mockResolvedValue({ data: null, error: null })
 
-    expect(await getPrivateTagNames()).toEqual([])
-  })
-
-  it('returns [] on error', async () => {
-    mockPrivateNamesEq.mockResolvedValue({ data: null, error: { message: 'DB error' } })
-
-    expect(await getPrivateTagNames()).toEqual([])
+    expect(await getPrivateTagIds()).toEqual([])
   })
 
   it('returns an empty array when no private tags exist', async () => {
-    mockPrivateNamesEq.mockResolvedValue({ data: [], error: null })
+    mockPrivateIdsEq.mockResolvedValue({ data: [], error: null })
 
-    expect(await getPrivateTagNames()).toEqual([])
+    expect(await getPrivateTagIds()).toEqual([])
   })
 })
 
@@ -535,7 +576,7 @@ describe('verifyPrivateTagPassword', () => {
     mockSettingsUpdateEq.mockResolvedValue({ error: null })
     mockDeleteEq.mockResolvedValue({ error: null })
     // nuke defaults — no private tags, so nuke short-circuits cleanly
-    mockPrivateTagIdsEq.mockResolvedValue({ data: [], error: null })
+    mockPrivateIdsEq.mockResolvedValue({ data: [], error: null })
     mockLinkTagsIn.mockResolvedValue({ data: [], error: null })
     mockLinksDeleteIn.mockResolvedValue({ error: null })
     mockTagsDeleteIn.mockResolvedValue({ error: null })
@@ -593,7 +634,7 @@ describe('verifyPrivateTagPassword', () => {
   it('deletes only private-tag-associated links and private tags on nuke', async () => {
     const hash = await makeHash('correct')
     mockSettingsMaybeSingle.mockResolvedValue({ data: { password_hash: hash, failed_attempts: 4 }, error: null })
-    mockPrivateTagIdsEq.mockResolvedValue({ data: [{ id: 'tag-private' }], error: null })
+    mockPrivateIdsEq.mockResolvedValue({ data: [{ id: 'tag-private' }], error: null })
     mockLinkTagsIn.mockResolvedValue({ data: [{ link_id: 'link-1' }], error: null })
 
     await verifyPrivateTagPassword('wrong')
@@ -606,7 +647,7 @@ describe('verifyPrivateTagPassword', () => {
   it('deduplicates link IDs when a link has multiple private tags', async () => {
     const hash = await makeHash('correct')
     mockSettingsMaybeSingle.mockResolvedValue({ data: { password_hash: hash, failed_attempts: 4 }, error: null })
-    mockPrivateTagIdsEq.mockResolvedValue({ data: [{ id: 'tag-a' }, { id: 'tag-b' }], error: null })
+    mockPrivateIdsEq.mockResolvedValue({ data: [{ id: 'tag-a' }, { id: 'tag-b' }], error: null })
     mockLinkTagsIn.mockResolvedValue({
       data: [{ link_id: 'link-1' }, { link_id: 'link-1' }, { link_id: 'link-2' }],
       error: null,
@@ -620,7 +661,7 @@ describe('verifyPrivateTagPassword', () => {
   it('skips link deletion when no links are tagged with private tags', async () => {
     const hash = await makeHash('correct')
     mockSettingsMaybeSingle.mockResolvedValue({ data: { password_hash: hash, failed_attempts: 4 }, error: null })
-    mockPrivateTagIdsEq.mockResolvedValue({ data: [{ id: 'tag-private' }], error: null })
+    mockPrivateIdsEq.mockResolvedValue({ data: [{ id: 'tag-private' }], error: null })
     mockLinkTagsIn.mockResolvedValue({ data: [], error: null })
 
     await verifyPrivateTagPassword('wrong')
@@ -632,7 +673,7 @@ describe('verifyPrivateTagPassword', () => {
   it('skips link and tag deletion when there are no private tags', async () => {
     const hash = await makeHash('correct')
     mockSettingsMaybeSingle.mockResolvedValue({ data: { password_hash: hash, failed_attempts: 4 }, error: null })
-    // mockPrivateTagIdsEq already returns [] from beforeEach
+    // mockPrivateIdsEq already returns [] from beforeEach
 
     await verifyPrivateTagPassword('wrong')
 

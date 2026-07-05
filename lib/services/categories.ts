@@ -1,8 +1,38 @@
 import { createClient } from '@/lib/supabase/client'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Database, Tables } from '@/lib/types/database'
+import type { Database } from '@/lib/types/database'
+import { toEncryptedColumns, fromEncryptedColumns } from '@/lib/crypto/encryptedRow'
 
-export type Category = Tables<'categories'>
+export type Category = {
+  id: string
+  user_id: string
+  name: string
+  description: string | null
+  color: string | null
+  emoticon: string | null
+  created_at: string
+  updated_at: string
+}
+
+type CategoryPayload = {
+  name: string
+  description: string | null
+  color: string | null
+  emoticon: string | null
+}
+
+type CategoryRow = {
+  id: string
+  user_id: string
+  enc_payload: string
+  enc_iv: string
+  created_at: string
+  updated_at: string
+}
+
+function decryptRow(row: CategoryRow, dek: CryptoKey): Promise<Category> {
+  return fromEncryptedColumns<CategoryPayload, CategoryRow>(row, dek)
+}
 
 export type DefaultCategory = {
   name: string
@@ -33,16 +63,17 @@ const SEED_DOMAINS: Record<string, string[]> = {
   'GitHub':    ['github.com'],
 }
 
-export async function getCategories(): Promise<Category[]> {
+export async function getCategories(dek: CryptoKey): Promise<Category[]> {
   const supabase = createClient()
 
   const { data, error } = await supabase
     .from('categories')
     .select('*')
-    .order('name', { ascending: true })
 
   if (error || !data) return []
-  return data
+
+  const categories = await Promise.all(data.map(row => decryptRow(row, dek)))
+  return categories.sort((a, b) => a.name.localeCompare(b.name))
 }
 
 export type CreateCategoryInput = {
@@ -56,28 +87,30 @@ export type CreateCategoryResult =
   | { data: Category; error: null }
   | { data: null; error: 'name_taken' | 'unauthenticated' | 'db_error' }
 
-export async function createCategory(input: CreateCategoryInput): Promise<CreateCategoryResult> {
+export async function createCategory(input: CreateCategoryInput, dek: CryptoKey): Promise<CreateCategoryResult> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { data: null, error: 'unauthenticated' }
 
-  const { data: existing } = await supabase
-    .from('categories')
-    .select('id')
-    .eq('user_id', user.id)
-    .ilike('name', input.name.trim())
-    .maybeSingle()
+  const name = input.name.trim()
+  const existing = await getCategories(dek)
+  if (existing.some(c => c.name.toLowerCase() === name.toLowerCase())) {
+    return { data: null, error: 'name_taken' }
+  }
 
-  if (existing) return { data: null, error: 'name_taken' }
+  const encoded = await toEncryptedColumns<CategoryPayload>(
+    { name, description: input.description ?? null, color: input.color ?? null, emoticon: input.emoticon ?? null },
+    dek,
+  )
 
   const { data, error } = await supabase
     .from('categories')
-    .insert({ user_id: user.id, name: input.name, emoticon: input.emoticon ?? null, color: input.color ?? null, description: input.description ?? null })
+    .insert({ user_id: user.id, ...encoded })
     .select()
     .single()
 
   if (error || !data) return { data: null, error: 'db_error' }
-  return { data, error: null }
+  return { data: await decryptRow(data, dek), error: null }
 }
 
 export type UpdateCategoryInput = {
@@ -92,30 +125,31 @@ export type UpdateCategoryResult =
   | { data: Category; error: null }
   | { data: null; error: 'name_taken' | 'unauthenticated' | 'db_error' }
 
-export async function updateCategory(input: UpdateCategoryInput): Promise<UpdateCategoryResult> {
+export async function updateCategory(input: UpdateCategoryInput, dek: CryptoKey): Promise<UpdateCategoryResult> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { data: null, error: 'unauthenticated' }
 
-  const { data: existing } = await supabase
-    .from('categories')
-    .select('id')
-    .eq('user_id', user.id)
-    .ilike('name', input.name.trim())
-    .neq('id', input.id)
-    .maybeSingle()
+  const name = input.name.trim()
+  const existing = await getCategories(dek)
+  if (existing.some(c => c.id !== input.id && c.name.toLowerCase() === name.toLowerCase())) {
+    return { data: null, error: 'name_taken' }
+  }
 
-  if (existing) return { data: null, error: 'name_taken' }
+  const encoded = await toEncryptedColumns<CategoryPayload>(
+    { name, description: input.description ?? null, color: input.color ?? null, emoticon: input.emoticon ?? null },
+    dek,
+  )
 
   const { data, error } = await supabase
     .from('categories')
-    .update({ name: input.name, emoticon: input.emoticon ?? null, color: input.color ?? null, description: input.description ?? null })
+    .update(encoded)
     .eq('id', input.id)
     .select()
     .single()
 
   if (error || !data) return { data: null, error: 'db_error' }
-  return { data, error: null }
+  return { data: await decryptRow(data, dek), error: null }
 }
 
 export async function getCategoryLinksCount(id: string): Promise<number> {
@@ -133,7 +167,7 @@ export async function deleteCategory(id: string): Promise<boolean> {
   return !error
 }
 
-export async function getOrCreateCategoryByName(name: string): Promise<string | null> {
+export async function getOrCreateCategoryByName(name: string, dek: CryptoKey): Promise<string | null> {
   const trimmedName = name.trim()
   if (!trimmedName) return null
 
@@ -141,18 +175,18 @@ export async function getOrCreateCategoryByName(name: string): Promise<string | 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
-  const { data: existing } = await supabase
-    .from('categories')
-    .select('id')
-    .eq('user_id', user.id)
-    .ilike('name', trimmedName)
-    .maybeSingle()
+  const existing = await getCategories(dek)
+  const match = existing.find(c => c.name.toLowerCase() === trimmedName.toLowerCase())
+  if (match) return match.id
 
-  if (existing) return (existing as { id: string }).id
+  const encoded = await toEncryptedColumns<CategoryPayload>(
+    { name: trimmedName, description: null, color: null, emoticon: null },
+    dek,
+  )
 
   const { data: created, error } = await supabase
     .from('categories')
-    .insert({ user_id: user.id, name: trimmedName })
+    .insert({ user_id: user.id, ...encoded })
     .select()
     .single()
 
@@ -163,6 +197,7 @@ export async function getOrCreateCategoryByName(name: string): Promise<string | 
 export async function seedDefaultCategories(
   supabase: SupabaseClient<Database>,
   userId: string,
+  dek: CryptoKey,
 ): Promise<void> {
   const { count, error } = await supabase
     .from('categories')
@@ -171,17 +206,28 @@ export async function seedDefaultCategories(
 
   if (error || count === null || count > 0) return
 
+  const categoryRows = await Promise.all(SEED_CATEGORIES.map(async cat => {
+    const encoded = await toEncryptedColumns<CategoryPayload>(cat, dek)
+    return { user_id: userId, ...encoded }
+  }))
+
   const { data: inserted } = await supabase
     .from('categories')
-    .insert(SEED_CATEGORIES.map(cat => ({ ...cat, user_id: userId })))
+    .insert(categoryRows)
     .select()
 
   if (!inserted) return
 
-  const domainRows = inserted.flatMap(cat => {
-    const domains = SEED_DOMAINS[cat.name] ?? []
-    return domains.map(domain => ({ category_id: cat.id, user_id: userId, domain }))
-  })
+  // Insertion order matches SEED_CATEGORIES order, so index back into it for domain lookup.
+  const domainRows = await Promise.all(
+    inserted.flatMap((cat, index) => {
+      const domains = SEED_DOMAINS[SEED_CATEGORIES[index].name] ?? []
+      return domains.map(async domain => {
+        const encoded = await toEncryptedColumns({ domain }, dek)
+        return { category_id: cat.id, user_id: userId, ...encoded }
+      })
+    }),
+  )
 
   if (domainRows.length > 0) {
     await supabase.from('category_domains').insert(domainRows)

@@ -7,24 +7,28 @@ import {
   removeCategoryDomain,
   type CategoryDomain,
 } from '@/lib/services/category-domains'
+import { useVault } from '@/lib/context/VaultContext'
 
 export function useCategoryDomains(categoryId: string) {
+  const { dek } = useVault()
   const [domains, setDomains] = useState<CategoryDomain[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
+    if (!dek) return
     setLoading(true)
-    const data = await getCategoryDomains(categoryId)
+    const data = await getCategoryDomains(categoryId, dek)
     setDomains(data)
     setLoading(false)
-  }, [categoryId])
+  }, [categoryId, dek])
 
   useEffect(() => { load() }, [load])
 
   async function add(rawDomain: string): Promise<boolean> {
+    if (!dek) return false
     setError(null)
-    const result = await addCategoryDomain(categoryId, rawDomain)
+    const result = await addCategoryDomain(categoryId, rawDomain, dek)
     if (result.error === 'domain_taken') {
       setError('That domain is already assigned to a category.')
       return false

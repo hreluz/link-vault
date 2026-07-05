@@ -3,6 +3,7 @@
 import type { SortBy } from './FilterSheet'
 import { useLinkListContext } from './LinkListContext'
 import { useCategoryList } from '@/lib/hooks/categories/useCategoryList'
+import { useAvailableTagsWithIds } from '@/lib/hooks/tags/useAvailableTags'
 
 const SORT_LABELS: Record<SortBy, string> = {
   newest: 'Newest first', oldest: 'Oldest first', alphabetical: 'A → Z', status: 'By status',
@@ -12,13 +13,14 @@ export default function ActiveFilterChips() {
   const {
     sortBy, setSortBy,
     category, setCategory,
-    selectedTags, setSelectedTags,
+    selectedTagIds, setSelectedTagIds,
     resetFilters,
   } = useLinkListContext()
   const { categories } = useCategoryList()
+  const availableTags = useAvailableTagsWithIds()
   const activeCategory = categories.find(c => c.id === category)
 
-  const hasChips = sortBy !== 'newest' || category !== 'all' || selectedTags.length > 0
+  const hasChips = sortBy !== 'newest' || category !== 'all' || selectedTagIds.length > 0
   if (!hasChips) return null
 
   return (
@@ -41,13 +43,13 @@ export default function ActiveFilterChips() {
           <span className="text-indigo-400" aria-hidden="true">✕</span>
         </button>
       )}
-      {selectedTags.map(tag => (
+      {selectedTagIds.map(tagId => (
         <button
-          key={tag}
-          onClick={() => setSelectedTags(prev => prev.filter(t => t !== tag))}
+          key={tagId}
+          onClick={() => setSelectedTagIds(prev => prev.filter(id => id !== tagId))}
           className="flex items-center gap-1.5 rounded-full bg-indigo-100 px-3 py-1 text-sm font-medium text-indigo-700 transition hover:bg-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-300 dark:hover:bg-indigo-900/60"
         >
-          {tag}
+          {availableTags.find(t => t.id === tagId)?.name ?? tagId}
           <span className="text-indigo-400" aria-hidden="true">✕</span>
         </button>
       ))}
