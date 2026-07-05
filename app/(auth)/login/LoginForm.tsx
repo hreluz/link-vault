@@ -1,20 +1,20 @@
 'use client'
 
 import { useActionState, useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { loginAction } from './actions'
 import { useVault } from '@/lib/context/VaultContext'
-import { seedDefaultCategories } from '@/lib/services/categories'
-import { createClient } from '@/lib/supabase/client'
 
 export default function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { unlock } = useVault()
   const [state, action, pending] = useActionState(loginAction, null)
   const [password, setPassword] = useState('')
   const [vaultError, setVaultError] = useState<string | null>(null)
   const [unlocking, setUnlocking] = useState(false)
+  const confirmError = searchParams.get('confirmError')
 
   useEffect(() => {
     if (!state?.success) return
@@ -31,12 +31,6 @@ export default function LoginForm() {
         setVaultError('Could not unlock your vault. Please try again.')
         setUnlocking(false)
         return
-      }
-
-      if (status === 'created') {
-        const supabase = createClient()
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) await seedDefaultCategories(supabase, user.id, dek)
       }
 
       router.push('/dashboard')
@@ -81,9 +75,9 @@ export default function LoginForm() {
         />
       </div>
 
-      {(state?.error || vaultError) && (
+      {(state?.error || vaultError || confirmError) && (
         <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
-          {state?.error ?? vaultError}
+          {state?.error ?? vaultError ?? 'That confirmation link is invalid or expired. Please sign up again.'}
         </p>
       )}
 
