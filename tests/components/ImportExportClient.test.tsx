@@ -64,6 +64,19 @@ vi.mock('next/link', () => ({
     React.createElement('a', { href }, children),
 }))
 
+const FAKE_DEK = {} as CryptoKey
+vi.mock('@/lib/context/VaultContext', () => ({
+  useVault: () => ({ dek: FAKE_DEK, isUnlocked: true, unlock: vi.fn(), changePassword: vi.fn(), lock: vi.fn() }),
+}))
+
+vi.mock('@/lib/context/TagsContext', () => ({
+  useTagsContext: () => ({
+    tags: [{ id: 'react', name: 'react', color: null, is_private: false, created_at: '', link_count: 0 }],
+    loading: false,
+    refetchTags: vi.fn(),
+  }),
+}))
+
 // ── setup ─────────────────────────────────────────────────────────────────────
 
 beforeEach(() => {
@@ -162,7 +175,7 @@ describe('ImportExportClient', () => {
       fireEvent.change(select(), { target: { value: 'cat-2' } })
       clickImport()
 
-      await waitFor(() => expect(mockImportLinks).toHaveBeenCalledWith(expect.any(Array), 'cat-2'))
+      await waitFor(() => expect(mockImportLinks).toHaveBeenCalledWith(expect.any(Array), 'cat-2', FAKE_DEK))
     })
   })
 
@@ -219,6 +232,7 @@ describe('ImportExportClient', () => {
         expect(mockImportLinks).toHaveBeenCalledWith(
           [{ url: 'https://example.com', tags: [] }, { url: 'https://github.com', tags: [] }],
           'cat-0',
+          FAKE_DEK,
         ),
       )
     })
@@ -232,6 +246,7 @@ describe('ImportExportClient', () => {
         expect(mockImportLinks).toHaveBeenCalledWith(
           [{ url: 'https://example.com', tags: [] }],
           expect.anything(),
+          FAKE_DEK,
         ),
       )
     })
@@ -340,6 +355,7 @@ describe('ImportExportClient', () => {
         expect(mockImportLinks).toHaveBeenCalledWith(
           [{ url: 'https://example.com', tags: ['react'] }],
           expect.anything(),
+          FAKE_DEK,
         ),
       )
     })
@@ -392,6 +408,7 @@ describe('ImportExportClient', () => {
         expect(mockImportLinks).toHaveBeenCalledWith(
           [{ url: 'https://example.com', tags: ['test'] }],
           expect.anything(),
+          FAKE_DEK,
         ),
       )
     })
@@ -466,7 +483,7 @@ describe('ImportExportClient', () => {
       clickImport()
 
       await waitFor(() =>
-        expect(mockGetOrCreateCategoryByName).toHaveBeenCalledWith('Article'),
+        expect(mockGetOrCreateCategoryByName).toHaveBeenCalledWith('Article', FAKE_DEK),
       )
     })
 
@@ -486,6 +503,7 @@ describe('ImportExportClient', () => {
             expect.objectContaining({ url: 'https://example.com', category_id: 'cat-resolved' }),
           ]),
           expect.anything(),
+          FAKE_DEK,
         ),
       )
     })
@@ -506,7 +524,7 @@ describe('ImportExportClient', () => {
       clickImport()
 
       await waitFor(() =>
-        expect(mockGetOrCreateCategoryByName).toHaveBeenCalledWith('Article'),
+        expect(mockGetOrCreateCategoryByName).toHaveBeenCalledWith('Article', FAKE_DEK),
       )
     })
 
@@ -531,6 +549,7 @@ describe('ImportExportClient', () => {
             expect.objectContaining({ url: 'https://example.com', category_id: null }),
           ]),
           expect.anything(),
+          FAKE_DEK,
         ),
       )
       expect(mockGetOrCreateCategoryByName).not.toHaveBeenCalled()

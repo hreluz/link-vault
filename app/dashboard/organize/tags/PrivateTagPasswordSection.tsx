@@ -9,8 +9,8 @@ import { useUnlockedTags } from '@/lib/context/UnlockedTagsContext'
 
 export function PrivateTagPasswordSection() {
   const router = useRouter()
-  const { unlockedTagNames } = useUnlockedTags()
-  const isUnlocked = unlockedTagNames.size > 0
+  const { unlockedTagIds } = useUnlockedTags()
+  const isUnlocked = unlockedTagIds.size > 0
   const [hasPassword, setHasPassword] = useState(false)
   const [currentHint, setCurrentHint] = useState<string | null>(null)
   const [currentPassword, setCurrentPassword] = useState('')

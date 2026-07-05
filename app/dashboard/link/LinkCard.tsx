@@ -4,6 +4,7 @@ import { useRef } from 'react'
 import SwipeableCard from '@/components/SwipeableCard'
 import type { LinkWithTags } from '@/lib/services/links'
 import type { Category } from '@/lib/services/categories'
+import { useTagNameLookup } from '@/lib/hooks/tags/useTagNameLookup'
 import { STATUS_CONFIG } from '../config'
 
 interface Props {
@@ -24,6 +25,7 @@ export default function LinkCard({
   isSelectionMode, isSelected, onSelect, onLongPress,
 }: Props) {
   const status = STATUS_CONFIG[link.status]
+  const tagNameById = useTagNameLookup()
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   function startLongPress() {
@@ -158,9 +160,9 @@ export default function LinkCard({
             <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${status.badge}`}>
               {status.label}
             </span>
-            {link.tags.map(tag => (
-              <span key={tag} className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                {tag}
+            {link.tags.map(tagId => (
+              <span key={tagId} className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                {tagNameById.get(tagId) ?? tagId}
               </span>
             ))}
           </div>

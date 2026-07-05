@@ -10,6 +10,11 @@ vi.mock('@/lib/services/category-domains', () => ({
   getCategoryIdByDomain: vi.fn(),
 }))
 
+const FAKE_DEK = {} as CryptoKey
+vi.mock('@/lib/context/VaultContext', () => ({
+  useVault: () => ({ dek: FAKE_DEK, isUnlocked: true, unlock: vi.fn(), changePassword: vi.fn(), lock: vi.fn() }),
+}))
+
 import { getCategoryIdByDomain } from '@/lib/services/category-domains'
 const mockGetCategoryIdByDomain = vi.mocked(getCategoryIdByDomain)
 

@@ -7,6 +7,7 @@ import type { LinkWithTags, LinkFilterParams } from '@/lib/services/links'
 
 const mockAddToast = vi.fn()
 const mockDismissToast = vi.fn()
+const FAKE_DEK = { fake: true } as unknown as CryptoKey
 
 const { LINK_A, LINK_B, LINK_PRIVATE } = vi.hoisted(() => {
   const LINK_A: LinkWithTags = {
@@ -31,8 +32,8 @@ const { LINK_A, LINK_B, LINK_PRIVATE } = vi.hoisted(() => {
 })
 
 const FILTER_PARAMS: LinkFilterParams = {
-  search: '', categoryId: null, statuses: [], tagNames: [], tagMode: 'any',
-  favoritesOnly: false, sortBy: 'newest', unlockedTagNames: [],
+  textSearch: '', categoryId: null, statuses: [], tagIds: [], tagMode: 'any',
+  favoritesOnly: false, sortBy: 'newest', unlockedTagIds: [],
 }
 
 vi.mock('@/components/ToastProvider', () => ({
@@ -41,6 +42,8 @@ vi.mock('@/components/ToastProvider', () => ({
 
 vi.mock('@/lib/services/links', () => ({
   getLinksPage: vi.fn(),
+  getMatchingLinkIds: vi.fn(),
+  getLinksByIds: vi.fn(),
   toggleLinkFavorite: vi.fn(),
   deleteLink: vi.fn(),
   bulkUpdateStatus: vi.fn(),
@@ -50,9 +53,9 @@ vi.mock('@/lib/services/links', () => ({
 }))
 
 vi.mock('@/lib/services/tags', () => ({
-  getPrivateTagNames: vi.fn(),
-  isTagVisible: (isPrivate: boolean, name: string, unlockedTagNames: Set<string>) =>
-    !isPrivate || unlockedTagNames.has(name),
+  getPrivateTagIds: vi.fn(),
+  isTagVisible: (isPrivate: boolean, id: string, unlockedTagIds: Set<string>) =>
+    !isPrivate || unlockedTagIds.has(id),
 }))
 
 const mockUseUnlockedTags = vi.fn()
@@ -65,15 +68,19 @@ vi.mock('@/lib/context/TagsContext', () => ({
   useTagsContext: () => ({ tags: [], loading: false, refetchTags: mockRefetchTags }),
 }))
 
+vi.mock('@/lib/context/VaultContext', () => ({
+  useVault: () => ({ dek: FAKE_DEK, isUnlocked: true, unlock: vi.fn(), changePassword: vi.fn(), lock: vi.fn() }),
+}))
+
 import {
   getLinksPage, toggleLinkFavorite, deleteLink,
   bulkUpdateStatus, bulkSoftDelete, bulkUpdateCategory, bulkAddTags,
 } from '@/lib/services/links'
-import { getPrivateTagNames } from '@/lib/services/tags'
+import { getPrivateTagIds } from '@/lib/services/tags'
 const mockGetLinksPage = vi.mocked(getLinksPage)
 const mockToggleFavorite = vi.mocked(toggleLinkFavorite)
 const mockDeleteLink = vi.mocked(deleteLink)
-const mockGetPrivateTagNames = vi.mocked(getPrivateTagNames)
+const mockGetPrivateTagIds = vi.mocked(getPrivateTagIds)
 const mockBulkUpdateStatus = vi.mocked(bulkUpdateStatus)
 const mockBulkSoftDelete = vi.mocked(bulkSoftDelete)
 const mockBulkUpdateCategory = vi.mocked(bulkUpdateCategory)
@@ -83,14 +90,15 @@ beforeEach(() => {
   vi.clearAllMocks()
   mockAddToast.mockReturnValue('toast-id')
   mockGetLinksPage.mockResolvedValue({ links: [LINK_A, LINK_B], totalCount: 2 })
-  mockGetPrivateTagNames.mockResolvedValue([])
+  mockGetPrivateTagIds.mockResolvedValue([])
   mockToggleFavorite.mockResolvedValue(true)
   mockDeleteLink.mockResolvedValue(true)
   mockBulkUpdateStatus.mockResolvedValue(true)
   mockBulkSoftDelete.mockResolvedValue(true)
   mockBulkUpdateCategory.mockResolvedValue(true)
-  mockBulkAddTags.mockResolvedValue(true)
-  mockUseUnlockedTags.mockReturnValue({ unlockedTagNames: new Set(), unlockTag: vi.fn(), lockTag: vi.fn(), lockAll: vi.fn() })
+  // Default: every requested tag name already exists with the same id (fine for these unit tests).
+  mockBulkAddTags.mockImplementation(async (_ids, names) => names)
+  mockUseUnlockedTags.mockReturnValue({ unlockedTagIds: new Set(), unlockTag: vi.fn(), lockTag: vi.fn(), lockAll: vi.fn() })
 })
 
 async function renderLoaded(params: LinkFilterParams = FILTER_PARAMS) {
@@ -113,9 +121,9 @@ describe('useLinks', () => {
       expect(result.current.loading).toBe(false)
     })
 
-    it('fetches the first page with the given filter params', async () => {
+    it('fetches the first page with the given filter params and the vault key', async () => {
       await renderLoaded()
-      expect(mockGetLinksPage).toHaveBeenCalledWith(FILTER_PARAMS, 40, 0)
+      expect(mockGetLinksPage).toHaveBeenCalledWith(FILTER_PARAMS, 40, 0, FAKE_DEK)
     })
 
     it('exposes totalCount and hasMore from the service response', async () => {
@@ -134,7 +142,7 @@ describe('useLinks', () => {
       mockGetLinksPage.mockResolvedValue({ links: [LINK_B], totalCount: 2 })
       await act(async () => { result.current.loadMore() })
 
-      expect(mockGetLinksPage).toHaveBeenLastCalledWith(FILTER_PARAMS, 40, 1)
+      expect(mockGetLinksPage).toHaveBeenLastCalledWith(FILTER_PARAMS, 40, 1, FAKE_DEK)
       expect(result.current.links.map(l => l.id)).toEqual(['1', '2'])
       expect(result.current.hasMore).toBe(false)
     })
@@ -143,15 +151,15 @@ describe('useLinks', () => {
   describe('privacy filtering', () => {
     it('shows all links when there are no private tags', async () => {
       mockGetLinksPage.mockResolvedValue({ links: [LINK_A, LINK_B], totalCount: 2 })
-      mockGetPrivateTagNames.mockResolvedValue([])
+      mockGetPrivateTagIds.mockResolvedValue([])
       const { result } = await renderLoaded()
       expect(result.current.links).toHaveLength(2)
     })
 
     it('hides a link whose tag is private and locked', async () => {
       mockGetLinksPage.mockResolvedValue({ links: [LINK_A, LINK_PRIVATE], totalCount: 2 })
-      mockGetPrivateTagNames.mockResolvedValue(['private-stuff'])
-      mockUseUnlockedTags.mockReturnValue({ unlockedTagNames: new Set(), unlockTag: vi.fn(), lockTag: vi.fn(), lockAll: vi.fn() })
+      mockGetPrivateTagIds.mockResolvedValue(['private-stuff'])
+      mockUseUnlockedTags.mockReturnValue({ unlockedTagIds: new Set(), unlockTag: vi.fn(), lockTag: vi.fn(), lockAll: vi.fn() })
       const { result } = await renderLoaded()
       expect(result.current.links).toHaveLength(1)
       expect(result.current.links[0].id).toBe('1')
@@ -159,8 +167,8 @@ describe('useLinks', () => {
 
     it('shows a link whose private tag has been unlocked', async () => {
       mockGetLinksPage.mockResolvedValue({ links: [LINK_A, LINK_PRIVATE], totalCount: 2 })
-      mockGetPrivateTagNames.mockResolvedValue(['private-stuff'])
-      mockUseUnlockedTags.mockReturnValue({ unlockedTagNames: new Set(['private-stuff']), unlockTag: vi.fn(), lockTag: vi.fn(), lockAll: vi.fn() })
+      mockGetPrivateTagIds.mockResolvedValue(['private-stuff'])
+      mockUseUnlockedTags.mockReturnValue({ unlockedTagIds: new Set(['private-stuff']), unlockTag: vi.fn(), lockTag: vi.fn(), lockAll: vi.fn() })
       const { result } = await renderLoaded()
       expect(result.current.links).toHaveLength(2)
     })
@@ -168,16 +176,16 @@ describe('useLinks', () => {
     it('hides a link that has both a public and a locked private tag', async () => {
       const mixedLink: LinkWithTags = { ...LINK_A, id: '5', tags: ['react', 'private-stuff'] }
       mockGetLinksPage.mockResolvedValue({ links: [mixedLink], totalCount: 1 })
-      mockGetPrivateTagNames.mockResolvedValue(['private-stuff'])
-      mockUseUnlockedTags.mockReturnValue({ unlockedTagNames: new Set(), unlockTag: vi.fn(), lockTag: vi.fn(), lockAll: vi.fn() })
+      mockGetPrivateTagIds.mockResolvedValue(['private-stuff'])
+      mockUseUnlockedTags.mockReturnValue({ unlockedTagIds: new Set(), unlockTag: vi.fn(), lockTag: vi.fn(), lockAll: vi.fn() })
       const { result } = await renderLoaded()
       expect(result.current.links).toHaveLength(0)
     })
 
     it('shows all links once all private tags are unlocked', async () => {
       mockGetLinksPage.mockResolvedValue({ links: [LINK_A, LINK_B, LINK_PRIVATE], totalCount: 3 })
-      mockGetPrivateTagNames.mockResolvedValue(['private-stuff'])
-      mockUseUnlockedTags.mockReturnValue({ unlockedTagNames: new Set(['private-stuff']), unlockTag: vi.fn(), lockTag: vi.fn(), lockAll: vi.fn() })
+      mockGetPrivateTagIds.mockResolvedValue(['private-stuff'])
+      mockUseUnlockedTags.mockReturnValue({ unlockedTagIds: new Set(['private-stuff']), unlockTag: vi.fn(), lockTag: vi.fn(), lockAll: vi.fn() })
       const { result } = await renderLoaded()
       expect(result.current.links).toHaveLength(3)
     })
@@ -572,7 +580,7 @@ describe('useLinks', () => {
   })
 
   describe('handleBulkAddTags', () => {
-    it('appends new tags to all matching links', async () => {
+    it('appends the resolved tag ids to all matching links', async () => {
       const { result } = await renderLoaded()
 
       await act(async () => { await result.current.handleBulkAddTags(['1', '2'], ['ts', 'node']) })
@@ -598,12 +606,12 @@ describe('useLinks', () => {
       expect(tags.filter(t => t === 'react')).toHaveLength(1)
     })
 
-    it('calls bulkAddTags with correct ids and tag names', async () => {
+    it('calls bulkAddTags with correct ids, tag names, and the vault key', async () => {
       const { result } = await renderLoaded()
 
       await act(async () => { await result.current.handleBulkAddTags(['1', '2'], ['node']) })
 
-      expect(mockBulkAddTags).toHaveBeenCalledWith(['1', '2'], ['node'])
+      expect(mockBulkAddTags).toHaveBeenCalledWith(['1', '2'], ['node'], FAKE_DEK)
     })
 
     it('refetches the shared tags cache on success', async () => {
@@ -615,7 +623,7 @@ describe('useLinks', () => {
     })
 
     it('does not refetch the shared tags cache on failure', async () => {
-      mockBulkAddTags.mockResolvedValue(false)
+      mockBulkAddTags.mockResolvedValue(null)
       const { result } = await renderLoaded()
 
       await act(async () => { await result.current.handleBulkAddTags(['1'], ['new-tag']) })
@@ -623,8 +631,8 @@ describe('useLinks', () => {
       expect(mockRefetchTags).not.toHaveBeenCalled()
     })
 
-    it('rolls back tags on service failure', async () => {
-      mockBulkAddTags.mockResolvedValue(false)
+    it('does not modify links on service failure', async () => {
+      mockBulkAddTags.mockResolvedValue(null)
       const { result } = await renderLoaded()
 
       await act(async () => { await result.current.handleBulkAddTags(['1'], ['new-tag']) })
@@ -633,7 +641,7 @@ describe('useLinks', () => {
     })
 
     it('toasts an error on failure', async () => {
-      mockBulkAddTags.mockResolvedValue(false)
+      mockBulkAddTags.mockResolvedValue(null)
       const { result } = await renderLoaded()
 
       await act(async () => { await result.current.handleBulkAddTags(['1'], ['new-tag']) })

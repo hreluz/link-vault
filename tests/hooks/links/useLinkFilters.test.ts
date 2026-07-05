@@ -9,8 +9,14 @@ vi.mock('@/lib/context/UnlockedTagsContext', () => ({
   useUnlockedTags: () => mockUseUnlockedTags(),
 }))
 
+const mockUseTagsContext = vi.fn()
+vi.mock('@/lib/context/TagsContext', () => ({
+  useTagsContext: () => mockUseTagsContext(),
+}))
+
 beforeEach(() => {
-  mockUseUnlockedTags.mockReturnValue({ unlockedTagNames: new Set(), unlockTag: vi.fn(), lockTag: vi.fn(), lockAll: vi.fn() })
+  mockUseUnlockedTags.mockReturnValue({ unlockedTagIds: new Set(), unlockTag: vi.fn(), lockTag: vi.fn(), lockAll: vi.fn() })
+  mockUseTagsContext.mockReturnValue({ tags: [], loading: false, refetchTags: vi.fn() })
 })
 
 describe('useLinkFilters', () => {
@@ -19,7 +25,7 @@ describe('useLinkFilters', () => {
       const { result } = renderHook(() => useLinkFilters())
       expect(result.current.category).toBe('all')
       expect(result.current.searchQuery).toBe('')
-      expect(result.current.selectedTags).toEqual([])
+      expect(result.current.selectedTagIds).toEqual([])
       expect(result.current.tagMode).toBe('any')
       expect(result.current.selectedStatuses).toEqual([])
       expect(result.current.sortBy).toBe('newest')
@@ -32,8 +38,8 @@ describe('useLinkFilters', () => {
     it('derives an initial filterParams matching the default state', () => {
       const { result } = renderHook(() => useLinkFilters())
       expect(result.current.filterParams).toEqual({
-        search: '', categoryId: null, statuses: [], tagNames: [], tagMode: 'any',
-        favoritesOnly: false, sortBy: 'newest', unlockedTagNames: [],
+        textSearch: '', categoryId: null, statuses: [], tagIds: [], tagMode: 'any',
+        favoritesOnly: false, sortBy: 'newest', unlockedTagIds: [],
       })
     })
   })
@@ -48,12 +54,12 @@ describe('useLinkFilters', () => {
       expect(result.current.filterParams.categoryId).toBeNull()
     })
 
-    it('reflects selected statuses, tags, tagMode, favoritesOnly, and sortBy', () => {
+    it('reflects selected statuses, tag ids, tagMode, favoritesOnly, and sortBy', () => {
       const { result } = renderHook(() => useLinkFilters())
 
       act(() => {
         result.current.setSelectedStatuses(['unread', 'watching'])
-        result.current.setSelectedTags(['react', 'css'])
+        result.current.setSelectedTagIds(['tag-react', 'tag-css'])
         result.current.setTagMode('all')
         result.current.setFavoritesOnly(true)
         result.current.setSortBy('alphabetical')
@@ -61,17 +67,34 @@ describe('useLinkFilters', () => {
 
       expect(result.current.filterParams).toMatchObject({
         statuses: ['unread', 'watching'],
-        tagNames: ['react', 'css'],
+        tagIds: ['tag-react', 'tag-css'],
         tagMode: 'all',
         favoritesOnly: true,
         sortBy: 'alphabetical',
       })
     })
 
-    it('includes unlockedTagNames from the private-tags context as an array', () => {
-      mockUseUnlockedTags.mockReturnValue({ unlockedTagNames: new Set(['secret']), unlockTag: vi.fn(), lockTag: vi.fn(), lockAll: vi.fn() })
+    it('includes unlockedTagIds from the private-tags context as an array', () => {
+      mockUseUnlockedTags.mockReturnValue({ unlockedTagIds: new Set(['secret-id']), unlockTag: vi.fn(), lockTag: vi.fn(), lockAll: vi.fn() })
       const { result } = renderHook(() => useLinkFilters())
-      expect(result.current.filterParams.unlockedTagNames).toEqual(['secret'])
+      expect(result.current.filterParams.unlockedTagIds).toEqual(['secret-id'])
+    })
+
+    it('resolves a #tag token in the search box to its tag id and folds it into tagIds', () => {
+      mockUseTagsContext.mockReturnValue({
+        tags: [{ id: 'tag-react', name: 'react', color: null, is_private: false, created_at: '', link_count: 0 }],
+        loading: false,
+        refetchTags: vi.fn(),
+      })
+      vi.useFakeTimers()
+      const { result } = renderHook(() => useLinkFilters())
+
+      act(() => result.current.setSearchQuery('#react'))
+      act(() => { vi.advanceTimersByTime(350) })
+
+      expect(result.current.filterParams.tagIds).toEqual(['tag-react'])
+      expect(result.current.filterParams.textSearch).toBe('')
+      vi.useRealTimers()
     })
   })
 
@@ -79,21 +102,21 @@ describe('useLinkFilters', () => {
     beforeEach(() => vi.useFakeTimers())
     afterEach(() => vi.useRealTimers())
 
-    it('does not update filterParams.search immediately on keystroke', () => {
+    it('does not update filterParams.textSearch immediately on keystroke', () => {
       const { result } = renderHook(() => useLinkFilters())
 
       act(() => result.current.setSearchQuery('alpha'))
 
-      expect(result.current.filterParams.search).toBe('')
+      expect(result.current.filterParams.textSearch).toBe('')
     })
 
-    it('updates filterParams.search ~350ms after the last keystroke', () => {
+    it('updates filterParams.textSearch ~350ms after the last keystroke', () => {
       const { result } = renderHook(() => useLinkFilters())
 
       act(() => result.current.setSearchQuery('alpha'))
       act(() => { vi.advanceTimersByTime(350) })
 
-      expect(result.current.filterParams.search).toBe('alpha')
+      expect(result.current.filterParams.textSearch).toBe('alpha')
     })
 
     it('trims whitespace from the debounced search value', () => {
@@ -102,7 +125,7 @@ describe('useLinkFilters', () => {
       act(() => result.current.setSearchQuery('  alpha  '))
       act(() => { vi.advanceTimersByTime(350) })
 
-      expect(result.current.filterParams.search).toBe('alpha')
+      expect(result.current.filterParams.textSearch).toBe('alpha')
     })
 
     it('resets the debounce timer on each keystroke', () => {
@@ -113,10 +136,10 @@ describe('useLinkFilters', () => {
       act(() => result.current.setSearchQuery('alpha'))
       act(() => { vi.advanceTimersByTime(200) })
 
-      expect(result.current.filterParams.search).toBe('')
+      expect(result.current.filterParams.textSearch).toBe('')
 
       act(() => { vi.advanceTimersByTime(150) })
-      expect(result.current.filterParams.search).toBe('alpha')
+      expect(result.current.filterParams.textSearch).toBe('alpha')
     })
 
     it('updates hasActiveFilters/isHashTagSearch immediately, without waiting for the debounce', () => {
@@ -144,7 +167,7 @@ describe('useLinkFilters', () => {
 
     it('counts each selected tag individually', () => {
       const { result } = renderHook(() => useLinkFilters())
-      act(() => result.current.setSelectedTags(['react', 'css']))
+      act(() => result.current.setSelectedTagIds(['tag-react', 'tag-css']))
       expect(result.current.activeFilterCount).toBe(2)
     })
 
@@ -170,7 +193,7 @@ describe('useLinkFilters', () => {
       act(() => {
         result.current.setCategory('cat-article')
         result.current.setSelectedStatuses(['read'])
-        result.current.setSelectedTags(['react'])
+        result.current.setSelectedTagIds(['tag-react'])
         result.current.setSortBy('oldest')
         result.current.setSearchQuery('something')
       })
@@ -178,7 +201,7 @@ describe('useLinkFilters', () => {
 
       expect(result.current.category).toBe('all')
       expect(result.current.selectedStatuses).toEqual([])
-      expect(result.current.selectedTags).toEqual([])
+      expect(result.current.selectedTagIds).toEqual([])
       expect(result.current.tagMode).toBe('any')
       expect(result.current.sortBy).toBe('newest')
       expect(result.current.searchQuery).toBe('')

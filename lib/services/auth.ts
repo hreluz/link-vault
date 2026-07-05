@@ -1,5 +1,4 @@
 import { createClient } from '@/lib/supabase/server'
-import { seedDefaultCategories } from '@/lib/services/categories'
 import { isAdminEmail } from '@/lib/auth/admin'
 
 export type AuthResult =
@@ -8,11 +7,10 @@ export type AuthResult =
 
 export async function signIn(email: string, password: string): Promise<AuthResult> {
   const supabase = await createClient()
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+  const { error } = await supabase.auth.signInWithPassword({ email, password })
   if (error) return { success: false, error: error.message }
-  if (data.user) {
-    await seedDefaultCategories(supabase, data.user.id)
-  }
+  // seedDefaultCategories now runs client-side, after the vault key exists
+  // (categories/domains are encrypted, so seeding needs the DEK) -- see LoginForm.
   return { success: true }
 }
 

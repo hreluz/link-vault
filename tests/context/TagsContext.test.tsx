@@ -7,7 +7,12 @@ import { TagsProvider, useTagsContext } from '@/lib/context/TagsContext'
 import type { TagWithCount } from '@/lib/services/tags'
 
 const mockGetTags = vi.fn()
-vi.mock('@/lib/services/tags', () => ({ getTags: () => mockGetTags() }))
+vi.mock('@/lib/services/tags', () => ({ getTags: (dek: CryptoKey) => mockGetTags(dek) }))
+
+const FAKE_DEK = {} as CryptoKey
+vi.mock('@/lib/context/VaultContext', () => ({
+  useVault: () => ({ dek: FAKE_DEK, isUnlocked: true, unlock: vi.fn(), changePassword: vi.fn(), lock: vi.fn() }),
+}))
 
 function wrapper({ children }: { children: React.ReactNode }) {
   return <TagsProvider>{children}</TagsProvider>

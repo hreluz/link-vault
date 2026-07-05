@@ -13,7 +13,7 @@ describe('UnlockedTagsContext', () => {
   describe('initial state', () => {
     it('starts with no unlocked tags', () => {
       const { result } = renderHook(() => useUnlockedTags(), { wrapper })
-      expect(result.current.unlockedTagNames.size).toBe(0)
+      expect(result.current.unlockedTagIds.size).toBe(0)
     })
   })
 
@@ -23,7 +23,7 @@ describe('UnlockedTagsContext', () => {
 
       act(() => result.current.unlockTag('secret'))
 
-      expect(result.current.unlockedTagNames.has('secret')).toBe(true)
+      expect(result.current.unlockedTagIds.has('secret')).toBe(true)
     })
 
     it('can unlock multiple tags independently', () => {
@@ -34,8 +34,8 @@ describe('UnlockedTagsContext', () => {
         result.current.unlockTag('work')
       })
 
-      expect(result.current.unlockedTagNames.has('secret')).toBe(true)
-      expect(result.current.unlockedTagNames.has('work')).toBe(true)
+      expect(result.current.unlockedTagIds.has('secret')).toBe(true)
+      expect(result.current.unlockedTagIds.has('work')).toBe(true)
     })
 
     it('is idempotent — unlocking the same tag twice has no effect', () => {
@@ -46,7 +46,7 @@ describe('UnlockedTagsContext', () => {
         result.current.unlockTag('secret')
       })
 
-      expect(result.current.unlockedTagNames.size).toBe(1)
+      expect(result.current.unlockedTagIds.size).toBe(1)
     })
   })
 
@@ -57,7 +57,7 @@ describe('UnlockedTagsContext', () => {
       act(() => result.current.unlockTag('secret'))
       act(() => result.current.lockTag('secret'))
 
-      expect(result.current.unlockedTagNames.has('secret')).toBe(false)
+      expect(result.current.unlockedTagIds.has('secret')).toBe(false)
     })
 
     it('does not affect other unlocked tags', () => {
@@ -69,8 +69,8 @@ describe('UnlockedTagsContext', () => {
       })
       act(() => result.current.lockTag('secret'))
 
-      expect(result.current.unlockedTagNames.has('work')).toBe(true)
-      expect(result.current.unlockedTagNames.has('secret')).toBe(false)
+      expect(result.current.unlockedTagIds.has('work')).toBe(true)
+      expect(result.current.unlockedTagIds.has('secret')).toBe(false)
     })
 
     it('is a no-op when the tag is not unlocked', () => {
@@ -78,7 +78,7 @@ describe('UnlockedTagsContext', () => {
 
       act(() => result.current.lockTag('never-unlocked'))
 
-      expect(result.current.unlockedTagNames.size).toBe(0)
+      expect(result.current.unlockedTagIds.size).toBe(0)
     })
   })
 
@@ -93,7 +93,7 @@ describe('UnlockedTagsContext', () => {
       })
       act(() => result.current.lockAll())
 
-      expect(result.current.unlockedTagNames.size).toBe(0)
+      expect(result.current.unlockedTagIds.size).toBe(0)
     })
 
     it('is a no-op when nothing is unlocked', () => {
@@ -101,14 +101,14 @@ describe('UnlockedTagsContext', () => {
 
       act(() => result.current.lockAll())
 
-      expect(result.current.unlockedTagNames.size).toBe(0)
+      expect(result.current.unlockedTagIds.size).toBe(0)
     })
   })
 
   describe('default context (no provider)', () => {
     it('returns an empty set when used outside a provider', () => {
       const { result } = renderHook(() => useUnlockedTags())
-      expect(result.current.unlockedTagNames.size).toBe(0)
+      expect(result.current.unlockedTagIds.size).toBe(0)
     })
   })
 })

@@ -12,10 +12,12 @@ import {
   type TagWithCount,
 } from '@/lib/services/tags'
 import { useTagsContext } from '@/lib/context/TagsContext'
+import { useVault } from '@/lib/context/VaultContext'
 
 export type { TagWithCount }
 
 export function useTagList() {
+  const { dek } = useVault()
   const { refetchTags } = useTagsContext()
   const [tags, setTags] = useState<TagWithCount[]>([])
   const [loading, setLoading] = useState(true)
@@ -33,20 +35,21 @@ export function useTagList() {
   const [editIsPrivate, setEditIsPrivate] = useState(false)
 
   useEffect(() => {
-    getTags().then(data => {
+    if (!dek) return
+    getTags(dek).then(data => {
       setTags(data)
       setLoading(false)
     })
-  }, [])
+  }, [dek])
 
   function openAdd() { setAdding(true); setAddError(null); setEditingId(null); setDeletingId(null) }
   function closeAdd() { setAdding(false); setAddError(null); setNewName(''); setNewColor(COLORS[0].value); setNewIsPrivate(false) }
 
   async function addTag() {
     const name = toKebabCase(newName)
-    if (!name) return
+    if (!name || !dek) return
     setAddError(null)
-    const result = await createTag({ name, color: newColor, is_private: newIsPrivate })
+    const result = await createTag({ name, color: newColor, is_private: newIsPrivate }, dek)
     if (result.error === 'name_taken') { setAddError('A tag with that name already exists.'); return }
     if (result.error) { setAddError('Something went wrong. Please try again.'); return }
     setTags(prev => [...prev, { ...result.data, link_count: 0 }])
@@ -66,9 +69,9 @@ export function useTagList() {
 
   async function saveEdit() {
     const name = toKebabCase(editName)
-    if (!name || !editingId) return
+    if (!name || !editingId || !dek) return
     setEditError(null)
-    const result = await updateTag({ id: editingId, name, color: editColor, is_private: editIsPrivate })
+    const result = await updateTag({ id: editingId, name, color: editColor, is_private: editIsPrivate }, dek)
     if (result.error === 'name_taken') { setEditError('A tag with that name already exists.'); return }
     if (result.error) { setEditError('Something went wrong. Please try again.'); return }
     setTags(prev => prev.map(t =>

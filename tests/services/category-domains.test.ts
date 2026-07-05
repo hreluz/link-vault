@@ -1,27 +1,22 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest'
 import {
   getCategoryDomains,
   addCategoryDomain,
   removeCategoryDomain,
   getCategoryIdByDomain,
 } from '@/lib/services/category-domains'
-import type { CategoryDomain } from '@/lib/services/category-domains'
+import { generateDek, encryptJson } from '@/lib/crypto/vault'
 
 // ── hoisted mocks ─────────────────────────────────────────────────────────────
 
 const {
   mockGetUser,
-  mockOrder,
-  mockMaybeSingle,
   mockEq,
   mockSingle,
-  mockInsertSelect,
   mockInsert,
   mockDeleteEq,
 } = vi.hoisted(() => {
-  const mockOrder = vi.fn()
-  const mockMaybeSingle = vi.fn()
-  const mockEq = vi.fn(() => ({ order: mockOrder, maybeSingle: mockMaybeSingle }))
+  const mockEq = vi.fn()
 
   const mockSingle = vi.fn()
   const mockInsertSelect = vi.fn(() => ({ single: mockSingle }))
@@ -32,11 +27,8 @@ const {
 
   return {
     mockGetUser,
-    mockOrder,
-    mockMaybeSingle,
     mockEq,
     mockSingle,
-    mockInsertSelect,
     mockInsert,
     mockDeleteEq,
   }
@@ -53,13 +45,15 @@ vi.mock('@/lib/supabase/client', () => ({
   })),
 }))
 
-const DOMAIN_A: CategoryDomain = {
-  id: 'd1', category_id: 'cat-1', user_id: 'u1',
-  domain: 'github.com', created_at: '2026-01-01T00:00:00Z',
-}
-const DOMAIN_B: CategoryDomain = {
-  id: 'd2', category_id: 'cat-1', user_id: 'u1',
-  domain: 'youtube.com', created_at: '2026-01-01T00:00:00Z',
+let dek: CryptoKey
+
+beforeAll(async () => {
+  dek = await generateDek()
+})
+
+async function encryptDomainRow(id: string, categoryId: string, domain: string) {
+  const { ciphertext, iv } = await encryptJson({ domain }, dek)
+  return { id, category_id: categoryId, user_id: 'u1', enc_payload: ciphertext, enc_iv: iv, created_at: '2026-01-01T00:00:00Z' }
 }
 
 beforeEach(() => {
@@ -70,76 +64,83 @@ beforeEach(() => {
 // ── getCategoryDomains ────────────────────────────────────────────────────────
 
 describe('getCategoryDomains', () => {
-  it('returns domains for the given category', async () => {
-    mockOrder.mockResolvedValue({ data: [DOMAIN_A, DOMAIN_B], error: null })
+  it('decrypts and returns domains for the given category, sorted', async () => {
+    const b = await encryptDomainRow('d2', 'cat-1', 'youtube.com')
+    const a = await encryptDomainRow('d1', 'cat-1', 'github.com')
+    mockEq.mockResolvedValue({ data: [b, a], error: null })
 
-    const result = await getCategoryDomains('cat-1')
+    const result = await getCategoryDomains('cat-1', dek)
 
-    expect(result).toEqual([DOMAIN_A, DOMAIN_B])
+    expect(result.map(d => d.domain)).toEqual(['github.com', 'youtube.com'])
     expect(mockEq).toHaveBeenCalledWith('category_id', 'cat-1')
-    expect(mockOrder).toHaveBeenCalledWith('domain', { ascending: true })
   })
 
   it('returns [] on DB error', async () => {
-    mockOrder.mockResolvedValue({ data: null, error: { message: 'err' } })
+    mockEq.mockResolvedValue({ data: null, error: { message: 'err' } })
 
-    expect(await getCategoryDomains('cat-1')).toEqual([])
+    expect(await getCategoryDomains('cat-1', dek)).toEqual([])
   })
 
   it('returns [] when data is null', async () => {
-    mockOrder.mockResolvedValue({ data: null, error: null })
+    mockEq.mockResolvedValue({ data: null, error: null })
 
-    expect(await getCategoryDomains('cat-1')).toEqual([])
+    expect(await getCategoryDomains('cat-1', dek)).toEqual([])
   })
 })
 
 // ── addCategoryDomain ─────────────────────────────────────────────────────────
 
 describe('addCategoryDomain', () => {
-  it('returns the created domain on success', async () => {
-    mockSingle.mockResolvedValue({ data: DOMAIN_A, error: null })
-
-    const result = await addCategoryDomain('cat-1', 'github.com')
-
-    expect(result).toEqual({ data: DOMAIN_A, error: null })
+  beforeEach(() => {
+    mockEq.mockResolvedValue({ data: [], error: null })
   })
 
-  it('inserts with the normalized domain and correct ids', async () => {
-    mockSingle.mockResolvedValue({ data: DOMAIN_A, error: null })
+  it('returns the created domain on success', async () => {
+    const row = await encryptDomainRow('d1', 'cat-1', 'github.com')
+    mockSingle.mockResolvedValue({ data: row, error: null })
 
-    await addCategoryDomain('cat-1', '  GitHub.com  ')
+    const result = await addCategoryDomain('cat-1', 'github.com', dek)
+
+    expect(result.data?.domain).toBe('github.com')
+    expect(result.error).toBeNull()
+  })
+
+  it('encrypts the normalized domain with correct ids into the insert payload', async () => {
+    const row = await encryptDomainRow('d1', 'cat-1', 'github.com')
+    mockSingle.mockResolvedValue({ data: row, error: null })
+
+    await addCategoryDomain('cat-1', '  GitHub.com  ', dek)
 
     expect(mockInsert).toHaveBeenCalledWith(
-      expect.objectContaining({ category_id: 'cat-1', user_id: 'u1', domain: 'github.com' }),
+      expect.objectContaining({ category_id: 'cat-1', user_id: 'u1' }),
     )
   })
 
   it('strips www. prefix from the domain', async () => {
-    mockSingle.mockResolvedValue({ data: DOMAIN_A, error: null })
+    const row = await encryptDomainRow('d1', 'cat-1', 'github.com')
+    mockSingle.mockResolvedValue({ data: row, error: null })
 
-    await addCategoryDomain('cat-1', 'www.github.com')
+    const result = await addCategoryDomain('cat-1', 'www.github.com', dek)
 
-    expect(mockInsert).toHaveBeenCalledWith(
-      expect.objectContaining({ domain: 'github.com' }),
-    )
+    expect(result.data?.domain).toBe('github.com')
   })
 
   it('returns invalid_domain for empty input', async () => {
-    const result = await addCategoryDomain('cat-1', '   ')
+    const result = await addCategoryDomain('cat-1', '   ', dek)
 
     expect(result).toEqual({ data: null, error: 'invalid_domain' })
     expect(mockInsert).not.toHaveBeenCalled()
   })
 
   it('returns invalid_domain when input has no dot', async () => {
-    const result = await addCategoryDomain('cat-1', 'nodot')
+    const result = await addCategoryDomain('cat-1', 'nodot', dek)
 
     expect(result).toEqual({ data: null, error: 'invalid_domain' })
     expect(mockInsert).not.toHaveBeenCalled()
   })
 
   it('returns invalid_domain when input contains spaces', async () => {
-    const result = await addCategoryDomain('cat-1', 'bad domain.com')
+    const result = await addCategoryDomain('cat-1', 'bad domain.com', dek)
 
     expect(result).toEqual({ data: null, error: 'invalid_domain' })
     expect(mockInsert).not.toHaveBeenCalled()
@@ -148,24 +149,26 @@ describe('addCategoryDomain', () => {
   it('returns unauthenticated when there is no user', async () => {
     mockGetUser.mockResolvedValue({ data: { user: null } })
 
-    const result = await addCategoryDomain('cat-1', 'github.com')
+    const result = await addCategoryDomain('cat-1', 'github.com', dek)
 
     expect(result).toEqual({ data: null, error: 'unauthenticated' })
     expect(mockInsert).not.toHaveBeenCalled()
   })
 
-  it('returns domain_taken on unique constraint violation', async () => {
-    mockSingle.mockResolvedValue({ data: null, error: { code: '23505', message: 'unique' } })
+  it('returns domain_taken when the decrypted existing domains already contain it', async () => {
+    const existing = await encryptDomainRow('d1', 'cat-2', 'github.com')
+    mockEq.mockResolvedValue({ data: [existing], error: null })
 
-    const result = await addCategoryDomain('cat-1', 'github.com')
+    const result = await addCategoryDomain('cat-1', 'github.com', dek)
 
     expect(result).toEqual({ data: null, error: 'domain_taken' })
+    expect(mockInsert).not.toHaveBeenCalled()
   })
 
-  it('returns db_error on other insert failures', async () => {
-    mockSingle.mockResolvedValue({ data: null, error: { code: '42000', message: 'err' } })
+  it('returns db_error on insert failure', async () => {
+    mockSingle.mockResolvedValue({ data: null, error: { message: 'err' } })
 
-    const result = await addCategoryDomain('cat-1', 'github.com')
+    const result = await addCategoryDomain('cat-1', 'github.com', dek)
 
     expect(result).toEqual({ data: null, error: 'db_error' })
   })
@@ -199,35 +202,38 @@ describe('removeCategoryDomain', () => {
 
 describe('getCategoryIdByDomain', () => {
   it('returns the category_id for a matched domain', async () => {
-    mockMaybeSingle.mockResolvedValue({ data: { category_id: 'cat-yt' } })
+    const row = await encryptDomainRow('d1', 'cat-yt', 'youtube.com')
+    mockEq.mockResolvedValue({ data: [row], error: null })
 
-    const result = await getCategoryIdByDomain('youtube.com')
+    const result = await getCategoryIdByDomain('youtube.com', dek)
 
     expect(result).toBe('cat-yt')
-    expect(mockEq).toHaveBeenCalledWith('domain', 'youtube.com')
+    expect(mockEq).toHaveBeenCalledWith('user_id', 'u1')
   })
 
   it('strips www. when looking up', async () => {
-    mockMaybeSingle.mockResolvedValue({ data: { category_id: 'cat-yt' } })
+    const row = await encryptDomainRow('d1', 'cat-yt', 'youtube.com')
+    mockEq.mockResolvedValue({ data: [row], error: null })
 
-    await getCategoryIdByDomain('www.youtube.com')
+    const result = await getCategoryIdByDomain('www.youtube.com', dek)
 
-    expect(mockEq).toHaveBeenCalledWith('domain', 'youtube.com')
+    expect(result).toBe('cat-yt')
   })
 
   it('returns null when no domain matches', async () => {
-    mockMaybeSingle.mockResolvedValue({ data: null })
+    const row = await encryptDomainRow('d1', 'cat-yt', 'youtube.com')
+    mockEq.mockResolvedValue({ data: [row], error: null })
 
-    expect(await getCategoryIdByDomain('unknown.com')).toBeNull()
+    expect(await getCategoryIdByDomain('unknown.com', dek)).toBeNull()
   })
 
   it('returns null for an invalid hostname', async () => {
-    expect(await getCategoryIdByDomain('nodot')).toBeNull()
-    expect(mockMaybeSingle).not.toHaveBeenCalled()
+    expect(await getCategoryIdByDomain('nodot', dek)).toBeNull()
+    expect(mockEq).not.toHaveBeenCalled()
   })
 
   it('returns null for an empty hostname', async () => {
-    expect(await getCategoryIdByDomain('')).toBeNull()
-    expect(mockMaybeSingle).not.toHaveBeenCalled()
+    expect(await getCategoryIdByDomain('', dek)).toBeNull()
+    expect(mockEq).not.toHaveBeenCalled()
   })
 })

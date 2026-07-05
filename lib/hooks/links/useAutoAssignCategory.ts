@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react'
 import { PROTECTED_CATEGORY_NAME } from '@/lib/services/categories'
 import { getCategoryIdByDomain } from '@/lib/services/category-domains'
+import { useVault } from '@/lib/context/VaultContext'
 import type { Category } from '@/lib/services/categories'
 
 type FormSlice = {
@@ -16,6 +17,7 @@ export function useAutoAssignCategory(
   categories: Category[],
   active: boolean,
 ) {
+  const { dek } = useVault()
   const notDefinedId = useRef<string | null>(null)
   const autoAssignedId = useRef<string | null>(null)
 
@@ -30,11 +32,11 @@ export function useAutoAssignCategory(
   }, [active, categories])
 
   useEffect(() => {
-    if (!form.url) return
+    if (!form.url || !dek) return
     let cancelled = false
     try {
       const hostname = new URL(form.url).hostname
-      getCategoryIdByDomain(hostname).then(id => {
+      getCategoryIdByDomain(hostname, dek).then(id => {
         if (cancelled) return
         const isAutoOrDefault =
           form.categoryId === notDefinedId.current ||
@@ -49,5 +51,5 @@ export function useAutoAssignCategory(
     } catch { /* invalid url */ }
     return () => { cancelled = true }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.url])
+  }, [form.url, dek])
 }

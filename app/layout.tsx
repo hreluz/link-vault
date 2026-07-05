@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { VaultProvider } from "@/lib/context/VaultContext";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -39,8 +40,10 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col bg-slate-50 dark:bg-slate-950">
         <ThemeProvider>
-          {children}
-          <Toaster position="bottom-right" richColors />
+          <VaultProvider>
+            {children}
+            <Toaster position="bottom-right" richColors />
+          </VaultProvider>
         </ThemeProvider>
       </body>
     </html>
