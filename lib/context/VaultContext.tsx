@@ -6,6 +6,7 @@ import {
   deriveKek, generateDek, wrapDek, unwrapDek, generateSalt, DEFAULT_KDF_ITERATIONS,
 } from '@/lib/crypto/vault'
 import { getVaultKeyRow, createVaultKeyRow, updateVaultKeyRow } from '@/lib/services/vault'
+import { seedDefaultCategories } from '@/lib/services/categories'
 
 export type UnlockStatus = 'created' | 'unlocked' | 'wrong_password' | 'error'
 export type UnlockOutcome = { status: UnlockStatus; dek: CryptoKey | null }
@@ -45,6 +46,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
         salt, wrappedDek: wrapped, wrappedDekIv: iv, kdfIterations: DEFAULT_KDF_ITERATIONS,
       })
       if (!created) return { status: 'error', dek: null }
+      await seedDefaultCategories(supabase, user.id, newDek)
       setDek(newDek)
       return { status: 'created', dek: newDek }
     }

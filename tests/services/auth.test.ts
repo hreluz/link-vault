@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { signIn, signUp, signOut } from '@/lib/services/auth'
+import { signIn, signUp, signOut, confirmSignup } from '@/lib/services/auth'
 
 const {
   mockSignInWithPassword,
   mockSignUp,
   mockSignOut,
+  mockVerifyOtp,
   mockIsAdminEmail,
   mockUpdateEq,
   mockUpdate,
@@ -17,6 +18,7 @@ const {
     mockSignInWithPassword: vi.fn(),
     mockSignUp: vi.fn(),
     mockSignOut: vi.fn(),
+    mockVerifyOtp: vi.fn(),
     mockIsAdminEmail: vi.fn().mockReturnValue(false),
     mockUpdateEq,
     mockUpdate,
@@ -30,6 +32,7 @@ vi.mock('@/lib/supabase/server', () => ({
       signInWithPassword: mockSignInWithPassword,
       signUp: mockSignUp,
       signOut: mockSignOut,
+      verifyOtp: mockVerifyOtp,
     },
     from: mockFrom,
   }),
@@ -131,5 +134,27 @@ describe('signOut', () => {
     await signOut()
 
     expect(mockSignOut).toHaveBeenCalledOnce()
+  })
+})
+
+describe('confirmSignup', () => {
+  it('returns success when the token is valid', async () => {
+    mockVerifyOtp.mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null })
+
+    const result = await confirmSignup('token-abc', 'signup')
+
+    expect(result).toEqual({ success: true })
+    expect(mockVerifyOtp).toHaveBeenCalledWith({ type: 'signup', token_hash: 'token-abc' })
+  })
+
+  it('returns the error message when the token is invalid or expired', async () => {
+    mockVerifyOtp.mockResolvedValue({
+      data: { user: null },
+      error: { message: 'Token has expired or is invalid' },
+    })
+
+    const result = await confirmSignup('bad-token', 'signup')
+
+    expect(result).toEqual({ success: false, error: 'Token has expired or is invalid' })
   })
 })
