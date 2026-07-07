@@ -12,12 +12,14 @@ const {
   mockCreateVaultKeyRow,
   mockUpdateVaultKeyRow,
   mockSeedDefaultCategories,
+  mockSeedMockLinks,
 } = vi.hoisted(() => ({
   mockGetUser: vi.fn(),
   mockGetVaultKeyRow: vi.fn(),
   mockCreateVaultKeyRow: vi.fn(),
   mockUpdateVaultKeyRow: vi.fn(),
   mockSeedDefaultCategories: vi.fn(),
+  mockSeedMockLinks: vi.fn(),
 }))
 
 vi.mock('@/lib/supabase/client', () => ({
@@ -31,6 +33,9 @@ vi.mock('@/lib/services/vault', () => ({
 vi.mock('@/lib/services/categories', () => ({
   seedDefaultCategories: mockSeedDefaultCategories,
 }))
+vi.mock('@/lib/services/mockLinks', () => ({
+  seedMockLinks: mockSeedMockLinks,
+}))
 
 function wrapper({ children }: { children: React.ReactNode }) {
   return <VaultProvider>{children}</VaultProvider>
@@ -38,7 +43,7 @@ function wrapper({ children }: { children: React.ReactNode }) {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1' } } })
+  mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1', email: 'user@example.com' } } })
 })
 
 describe('VaultContext.unlock', () => {
@@ -60,7 +65,22 @@ describe('VaultContext.unlock', () => {
       kdfIterations: DEFAULT_KDF_ITERATIONS,
     }))
     expect(mockSeedDefaultCategories).toHaveBeenCalledWith(expect.anything(), 'user-1', outcome!.dek)
+    expect(mockSeedMockLinks).not.toHaveBeenCalled()
     expect(result.current.isUnlocked).toBe(true)
+  })
+
+  it('seeds mock links on first-ever unlock for test@linkvault.dev, but not for any other email', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1', email: 'test@linkvault.dev' } } })
+    mockGetVaultKeyRow.mockResolvedValue(null)
+    mockCreateVaultKeyRow.mockResolvedValue(true)
+
+    const { result } = renderHook(() => useVault(), { wrapper })
+
+    let outcome: Awaited<ReturnType<typeof result.current.unlock>>
+    await act(async () => { outcome = await result.current.unlock('password123') })
+
+    expect(outcome!.status).toBe('created')
+    expect(mockSeedMockLinks).toHaveBeenCalledWith(outcome!.dek)
   })
 
   it('does not create a vault key or seed when creating the row fails', async () => {

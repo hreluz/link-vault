@@ -7,6 +7,9 @@ import {
 } from '@/lib/crypto/vault'
 import { getVaultKeyRow, createVaultKeyRow, updateVaultKeyRow } from '@/lib/services/vault'
 import { seedDefaultCategories } from '@/lib/services/categories'
+import { seedMockLinks } from '@/lib/services/mockLinks'
+
+const MOCK_DATA_TEST_EMAIL = 'test@linkvault.dev'
 
 export type UnlockStatus = 'created' | 'unlocked' | 'wrong_password' | 'error'
 export type UnlockOutcome = { status: UnlockStatus; dek: CryptoKey | null }
@@ -47,6 +50,9 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       })
       if (!created) return { status: 'error', dek: null }
       await seedDefaultCategories(supabase, user.id, newDek)
+      if (user.email === MOCK_DATA_TEST_EMAIL) {
+        await seedMockLinks(newDek)
+      }
       setDek(newDek)
       return { status: 'created', dek: newDek }
     }
