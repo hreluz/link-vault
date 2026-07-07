@@ -71,7 +71,6 @@ The central entity. Every saved link has:
 | `site_name` | string \| null | auto-extracted from URL (e.g. `youtube.com`) |
 | `image_url` | string \| null | og:image URL; stored as-is (not uploaded); shown as full-bleed thumbnail on `LinkCard` |
 | `duration` | string \| null | video duration (e.g. `4:33`); auto-fetched for YouTube via Data API v3; editable for any platform |
-| `content_type` | `ContentType` | see below |
 | `notes` | string \| null | free-form personal notes |
 | `category_id` | string \| null | FK → categories |
 | `status` | `LinkStatus` | see below |

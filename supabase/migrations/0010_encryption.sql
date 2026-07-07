@@ -6,11 +6,11 @@
 -- per row, encrypted client-side with a per-user vault key (DEK)
 -- that only ever exists in the browser. See ENCRYPTION.md.
 --
--- Existing mock seed data (0003_seed_mock_links.sql, 0005) is
--- plaintext and cannot be encrypted from SQL -- the DEK never
--- touches the server. It's wiped here; the test user's default
--- categories/domains are reseeded automatically (now encrypted)
--- on next login via seedDefaultCategories.
+-- Existing plaintext mock seed data cannot be encrypted from SQL --
+-- the DEK never touches the server. It's wiped here; the test
+-- user's default categories/domains and mock links are reseeded
+-- automatically (now encrypted) on next login via
+-- seedDefaultCategories / seedMockLinks (lib/services/mockLinks.ts).
 -- ============================================================
 
 -- ============================================================
