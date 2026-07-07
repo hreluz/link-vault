@@ -3,36 +3,36 @@
 import { createContext, useContext, useState } from 'react'
 
 type UnlockedTagsContextType = {
-  unlockedTagNames: Set<string>
-  unlockTag: (name: string) => void
-  lockTag: (name: string) => void
+  unlockedTagIds: Set<string>
+  unlockTag: (id: string) => void
+  lockTag: (id: string) => void
   lockAll: () => void
 }
 
 const UnlockedTagsContext = createContext<UnlockedTagsContextType>({
-  unlockedTagNames: new Set(),
+  unlockedTagIds: new Set(),
   unlockTag: () => {},
   lockTag: () => {},
   lockAll: () => {},
 })
 
 export function UnlockedTagsProvider({ children }: { children: React.ReactNode }) {
-  const [unlockedTagNames, setUnlockedTagNames] = useState<Set<string>>(new Set())
+  const [unlockedTagIds, setUnlockedTagIds] = useState<Set<string>>(new Set())
 
-  function unlockTag(name: string) {
-    setUnlockedTagNames(prev => { const next = new Set(prev); next.add(name); return next })
+  function unlockTag(id: string) {
+    setUnlockedTagIds(prev => { const next = new Set(prev); next.add(id); return next })
   }
 
-  function lockTag(name: string) {
-    setUnlockedTagNames(prev => { const next = new Set(prev); next.delete(name); return next })
+  function lockTag(id: string) {
+    setUnlockedTagIds(prev => { const next = new Set(prev); next.delete(id); return next })
   }
 
   function lockAll() {
-    setUnlockedTagNames(new Set())
+    setUnlockedTagIds(new Set())
   }
 
   return (
-    <UnlockedTagsContext.Provider value={{ unlockedTagNames, unlockTag, lockTag, lockAll }}>
+    <UnlockedTagsContext.Provider value={{ unlockedTagIds, unlockTag, lockTag, lockAll }}>
       {children}
     </UnlockedTagsContext.Provider>
   )

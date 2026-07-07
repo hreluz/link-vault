@@ -11,14 +11,18 @@ A personal "save for later" app for bookmarking links across content types — v
 - **Status tracking** — Unread → Watching → Read → Archived workflow
 - **Favorites** — star any link; an "All Links / ⭐ Favorites" pill toggle in the main dashboard view filters the same list down to starred links, with full search, filter, sort, and bulk-action support in either mode
 - **Filter & sort** — filter by category, tag, status; sort by newest / oldest / alphabetical / status
-- **Search** — full-text search across title, domain, notes, and tags; `#tag` syntax supported
-- **Infinite scroll** — the link list loads in pages of 40 as you scroll; search, filtering, and sorting all run server-side, so results stay correct and fast no matter how large your library gets
+- **Search** — substring search across title, url, domain, notes, and tags; `#tag` syntax supported; since content is end-to-end encrypted, text search and alphabetical sort run client-side against decrypted results (see [ENCRYPTION.md](ENCRYPTION.md)), while category/tag/status/favorite filtering and default sort order still run server-side
+- **Infinite scroll** — the link list loads in pages of 40 as you scroll; structural filtering and sorting run server-side so browsing stays fast no matter how large your library gets
 - **Trash** — soft-delete with 2-second undo toast; restore or permanently delete from the trash view
 - **Swipe-to-delete** — left swipe gesture on mobile
 - **Bulk actions** — long-press a card (or tap "Select" in the header) to enter selection mode; select multiple links then archive, delete, re-categorize, or add tags in one shot; "Select all" selects every link matching your current filter (not just what's loaded), up to 2,000 at a time; delete requires modal confirmation; all mutations are optimistic with rollback on failure
 - **Import / Export** — fully functional at `/dashboard/config/import-export`; export all links as JSON or CSV; import from pasted URLs (one per line), pasted JSON, or file upload (.json / .csv); CSV supports a `category` column and pipe-separated `tags`; duplicate URLs are detected per-user and skipped automatically
 - **Change password** — requires current password verification before updating
 - **Dark mode** — theme toggle with no flash on load
+
+## Encryption
+
+Link Vault is end-to-end encrypted: links, tags, categories, and domain mappings are encrypted client-side with a key derived from your password before anything is sent to the server — not even the database or app operator can read them. See [ENCRYPTION.md](ENCRYPTION.md) for how the key hierarchy, vault unlock flow, and encrypted search work.
 
 ## Tech stack
 
@@ -39,7 +43,7 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3000](http://localhost:3000) — always use `localhost`, not `127.0.0.1`. Next.js 16 dev mode blocks cross-origin requests to dev-only resources (HMR, client bundles) from any other origin by default, which silently breaks client-side hydration: pages still render, but forms and interactive elements stop working (e.g. login submits but never redirects, since the redirect depends on client-side JS running after the server responds).
 
 Copy `.env.local.example` to `.env.local` and fill in your Supabase project URL and anon key. Optionally add a `YOUTUBE_API_KEY` (YouTube Data API v3) to enable video duration fetching.
 

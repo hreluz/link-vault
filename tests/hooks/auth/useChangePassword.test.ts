@@ -6,12 +6,17 @@ import { useChangePassword } from '@/lib/hooks/auth/useChangePassword'
 
 const mockChangePassword = vi.hoisted(() => vi.fn())
 const mockCreateClient = vi.hoisted(() => vi.fn(() => ({})))
+const mockRewrapVaultKey = vi.hoisted(() => vi.fn())
 
 vi.mock('@/lib/services/password', () => ({ changePassword: mockChangePassword }))
 vi.mock('@/lib/supabase/client', () => ({ createClient: mockCreateClient }))
+vi.mock('@/lib/context/VaultContext', () => ({
+  useVault: () => ({ dek: {}, isUnlocked: true, unlock: vi.fn(), changePassword: mockRewrapVaultKey, lock: vi.fn() }),
+}))
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mockRewrapVaultKey.mockResolvedValue(true)
 })
 
 describe('useChangePassword', () => {
@@ -58,6 +63,28 @@ describe('useChangePassword', () => {
     expect(result.current.isPending).toBe(false)
     expect(result.current.isSuccess).toBe(false)
     expect(result.current.error).toBe('wrong_password')
+  })
+
+  it('sets an error and does not report success when the vault key re-wrap fails, even though the auth password already changed', async () => {
+    mockChangePassword.mockResolvedValue({ success: true })
+    mockRewrapVaultKey.mockResolvedValue(false)
+
+    const { result } = renderHook(() => useChangePassword())
+
+    await act(async () => { await result.current.mutate('old', 'new') })
+
+    expect(result.current.isSuccess).toBe(false)
+    expect(result.current.error).toBeTruthy()
+  })
+
+  it('re-wraps the vault key under the new password after the auth password change succeeds', async () => {
+    mockChangePassword.mockResolvedValue({ success: true })
+
+    const { result } = renderHook(() => useChangePassword())
+
+    await act(async () => { await result.current.mutate('old', 'new-password') })
+
+    expect(mockRewrapVaultKey).toHaveBeenCalledWith('new-password')
   })
 
   it('clears error before each new call', async () => {

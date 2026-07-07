@@ -39,19 +39,20 @@ vi.mock('@/components/ToastProvider', () => ({
 vi.mock('@/lib/services/links', () => ({
   getLinksPage: vi.fn(),
   getMatchingLinkIds: vi.fn(),
+  getLinksByIds: vi.fn(),
   SELECT_ALL_MATCHING_CAP: 2000,
   deleteLink: vi.fn().mockResolvedValue(true),
   toggleLinkFavorite: vi.fn().mockResolvedValue(true),
   bulkUpdateStatus: vi.fn().mockResolvedValue(true),
   bulkSoftDelete: vi.fn().mockResolvedValue(true),
   bulkUpdateCategory: vi.fn().mockResolvedValue(true),
-  bulkAddTags: vi.fn().mockResolvedValue(true),
+  bulkAddTags: vi.fn().mockResolvedValue([]),
 }))
 
 vi.mock('@/lib/services/tags', () => ({
-  getPrivateTagNames: vi.fn(),
-  isTagVisible: (isPrivate: boolean, name: string, unlockedTagNames: Set<string>) =>
-    !isPrivate || unlockedTagNames.has(name),
+  getPrivateTagIds: vi.fn(),
+  isTagVisible: (isPrivate: boolean, id: string, unlockedTagIds: Set<string>) =>
+    !isPrivate || unlockedTagIds.has(id),
 }))
 
 const mockUseUnlockedTags = vi.fn()
@@ -63,10 +64,14 @@ vi.mock('@/lib/context/TagsContext', () => ({
   useTagsContext: () => ({ tags: [], loading: false, refetchTags: vi.fn() }),
 }))
 
+vi.mock('@/lib/context/VaultContext', () => ({
+  useVault: () => ({ dek: {} as CryptoKey, isUnlocked: true, unlock: vi.fn(), changePassword: vi.fn(), lock: vi.fn() }),
+}))
+
 import { getLinksPage } from '@/lib/services/links'
-import { getPrivateTagNames } from '@/lib/services/tags'
+import { getPrivateTagIds } from '@/lib/services/tags'
 const mockGetLinksPage = vi.mocked(getLinksPage)
-const mockGetPrivateTagNames = vi.mocked(getPrivateTagNames)
+const mockGetPrivateTagIds = vi.mocked(getPrivateTagIds)
 
 function fakeSearchLinks(params: LinkFilterParams) {
   let filtered = [LINK_A, LINK_B, LINK_C]
@@ -78,8 +83,8 @@ function fakeSearchLinks(params: LinkFilterParams) {
 beforeEach(() => {
   vi.clearAllMocks()
   mockGetLinksPage.mockImplementation(async params => fakeSearchLinks(params))
-  mockGetPrivateTagNames.mockResolvedValue([])
-  mockUseUnlockedTags.mockReturnValue({ unlockedTagNames: new Set(), unlockTag: vi.fn(), lockTag: vi.fn(), lockAll: vi.fn() })
+  mockGetPrivateTagIds.mockResolvedValue([])
+  mockUseUnlockedTags.mockReturnValue({ unlockedTagIds: new Set(), unlockTag: vi.fn(), lockTag: vi.fn(), lockAll: vi.fn() })
 })
 
 async function renderLoaded() {

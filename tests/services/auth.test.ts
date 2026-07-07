@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { signIn, signUp, signOut } from '@/lib/services/auth'
+import { signIn, signUp, signOut, confirmSignup } from '@/lib/services/auth'
 
 const {
   mockSignInWithPassword,
   mockSignUp,
   mockSignOut,
-  mockSeedDefaultCategories,
+  mockVerifyOtp,
   mockIsAdminEmail,
   mockUpdateEq,
   mockUpdate,
@@ -18,7 +18,7 @@ const {
     mockSignInWithPassword: vi.fn(),
     mockSignUp: vi.fn(),
     mockSignOut: vi.fn(),
-    mockSeedDefaultCategories: vi.fn(),
+    mockVerifyOtp: vi.fn(),
     mockIsAdminEmail: vi.fn().mockReturnValue(false),
     mockUpdateEq,
     mockUpdate,
@@ -32,13 +32,10 @@ vi.mock('@/lib/supabase/server', () => ({
       signInWithPassword: mockSignInWithPassword,
       signUp: mockSignUp,
       signOut: mockSignOut,
+      verifyOtp: mockVerifyOtp,
     },
     from: mockFrom,
   }),
-}))
-
-vi.mock('@/lib/services/categories', () => ({
-  seedDefaultCategories: mockSeedDefaultCategories,
 }))
 
 vi.mock('@/lib/auth/admin', () => ({
@@ -50,9 +47,8 @@ beforeEach(() => {
 })
 
 describe('signIn', () => {
-  it('returns success and seeds default categories when credentials are valid', async () => {
+  it('returns success when credentials are valid', async () => {
     mockSignInWithPassword.mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null })
-    mockSeedDefaultCategories.mockResolvedValue(undefined)
 
     const result = await signIn('user@example.com', 'password123')
 
@@ -61,7 +57,6 @@ describe('signIn', () => {
       email: 'user@example.com',
       password: 'password123',
     })
-    expect(mockSeedDefaultCategories).toHaveBeenCalledWith(expect.anything(), 'user-123')
   })
 
   it('returns the error message when credentials are invalid', async () => {
@@ -73,7 +68,6 @@ describe('signIn', () => {
     const result = await signIn('user@example.com', 'wrong')
 
     expect(result).toEqual({ success: false, error: 'Invalid login credentials' })
-    expect(mockSeedDefaultCategories).not.toHaveBeenCalled()
   })
 })
 
@@ -140,5 +134,27 @@ describe('signOut', () => {
     await signOut()
 
     expect(mockSignOut).toHaveBeenCalledOnce()
+  })
+})
+
+describe('confirmSignup', () => {
+  it('returns success when the token is valid', async () => {
+    mockVerifyOtp.mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null })
+
+    const result = await confirmSignup('token-abc', 'signup')
+
+    expect(result).toEqual({ success: true })
+    expect(mockVerifyOtp).toHaveBeenCalledWith({ type: 'signup', token_hash: 'token-abc' })
+  })
+
+  it('returns the error message when the token is invalid or expired', async () => {
+    mockVerifyOtp.mockResolvedValue({
+      data: { user: null },
+      error: { message: 'Token has expired or is invalid' },
+    })
+
+    const result = await confirmSignup('bad-token', 'signup')
+
+    expect(result).toEqual({ success: false, error: 'Token has expired or is invalid' })
   })
 })

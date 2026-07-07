@@ -14,18 +14,20 @@ const SORT_OPTIONS: { value: SortBy; label: string }[] = [
   { value: 'status',       label: 'By status' },
 ]
 
+export type TagOption = { id: string; name: string }
+
 interface Props {
   isOpen: boolean
   sortBy: SortBy
   category: Filter
   categories: Category[]
-  selectedTags: string[]
+  selectedTagIds: string[]
   tagMode: TagMode
-  allTags: string[]
+  allTags: TagOption[]
   resultCount: number
   onSortChange: (s: SortBy) => void
   onCategoryChange: (c: Filter) => void
-  onTagsChange: (tags: string[]) => void
+  onTagsChange: (tagIds: string[]) => void
   onTagModeChange: (mode: TagMode) => void
   onReset: () => void
   onClose: () => void
@@ -33,11 +35,11 @@ interface Props {
 
 type SectionKey = 'sort' | 'category' | 'tags'
 
-function initOpen(props: Pick<Props, 'sortBy' | 'category' | 'selectedTags'>): Set<SectionKey> {
+function initOpen(props: Pick<Props, 'sortBy' | 'category' | 'selectedTagIds'>): Set<SectionKey> {
   const open = new Set<SectionKey>()
   if (props.sortBy !== 'newest') open.add('sort')
   if (props.category !== 'all') open.add('category')
-  if (props.selectedTags.length > 0) open.add('tags')
+  if (props.selectedTagIds.length > 0) open.add('tags')
   return open
 }
 
@@ -76,11 +78,11 @@ function AccordionSection({
 }
 
 export default function FilterSheet({
-  isOpen, sortBy, category, categories, selectedTags, tagMode, allTags, resultCount,
+  isOpen, sortBy, category, categories, selectedTagIds, tagMode, allTags, resultCount,
   onSortChange, onCategoryChange, onTagsChange, onTagModeChange, onReset, onClose,
 }: Props) {
   const [openSections, setOpenSections] = useState<Set<SectionKey>>(
-    () => initOpen({ sortBy, category, selectedTags })
+    () => initOpen({ sortBy, category, selectedTagIds })
   )
 
   if (!isOpen) return null
@@ -93,15 +95,15 @@ export default function FilterSheet({
     })
   }
 
-  function toggleTag(tag: string) {
+  function toggleTag(tagId: string) {
     onTagsChange(
-      selectedTags.includes(tag)
-        ? selectedTags.filter(t => t !== tag)
-        : [...selectedTags, tag]
+      selectedTagIds.includes(tagId)
+        ? selectedTagIds.filter(id => id !== tagId)
+        : [...selectedTagIds, tagId]
     )
   }
 
-  const hasFilters = sortBy !== 'newest' || category !== 'all' || selectedTags.length > 0
+  const hasFilters = sortBy !== 'newest' || category !== 'all' || selectedTagIds.length > 0
 
   const sortLabel = SORT_OPTIONS.find(o => o.value === sortBy)?.label
   const activeCategory = categories.find(c => c.id === category)
@@ -172,10 +174,10 @@ export default function FilterSheet({
             open={openSections.has('tags')}
             onToggle={() => toggle('tags')}
             badge={
-              selectedTags.length > 0
+              selectedTagIds.length > 0
                 ? (
                   <div className="flex items-center gap-1.5">
-                    <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">{selectedTags.length}</span>
+                    <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">{selectedTagIds.length}</span>
                     <div className="flex rounded-md border border-slate-200 p-0.5 dark:border-slate-700">
                       {(['any', 'all'] as TagMode[]).map(mode => (
                         <button
@@ -199,15 +201,15 @@ export default function FilterSheet({
             <div className="flex flex-wrap gap-2">
               {allTags.map(tag => (
                 <button
-                  key={tag}
-                  onClick={() => toggleTag(tag)}
+                  key={tag.id}
+                  onClick={() => toggleTag(tag.id)}
                   className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
-                    selectedTags.includes(tag)
+                    selectedTagIds.includes(tag.id)
                       ? 'bg-indigo-600 text-white shadow-sm'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700'
                   }`}
                 >
-                  {tag}
+                  {tag.name}
                 </button>
               ))}
             </div>

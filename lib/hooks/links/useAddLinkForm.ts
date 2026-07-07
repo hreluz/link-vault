@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createLink, type LinkWithTags } from '@/lib/services/links'
 import { fetchLinkMeta } from '@/app/dashboard/link/actions'
+import { useVault } from '@/lib/context/VaultContext'
 import { DEFAULT_FIELDS, useLinkForm } from './useLinkForm'
 
 function isValidUrl(url: string): boolean {
@@ -10,6 +11,7 @@ function isValidUrl(url: string): boolean {
 }
 
 export function useAddLinkForm() {
+  const { dek } = useVault()
   const form = useLinkForm(DEFAULT_FIELDS)
   const [autoFetch, setAutoFetch] = useState(true)
   const titleTouchedRef = useRef(false)
@@ -59,6 +61,7 @@ export function useAddLinkForm() {
   }
 
   async function handleSubmit(): Promise<LinkWithTags | null> {
+    if (!dek) return null
     const result = await form.wrapSubmit(
       () => createLink({
         url: form.url,
@@ -70,7 +73,7 @@ export function useAddLinkForm() {
         status: form.status,
         notes: form.notes || null,
         tags: form.parsedTags,
-      }),
+      }, dek),
       'Failed to save link. Please try again.',
     )
     if (result) {

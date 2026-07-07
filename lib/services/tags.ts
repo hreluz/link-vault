@@ -1,10 +1,32 @@
 import { createClient } from '@/lib/supabase/client'
-import type { Tables } from '@/lib/types/database'
+import { toEncryptedColumns, fromEncryptedColumns } from '@/lib/crypto/encryptedRow'
 
-export type Tag = Tables<'tags'>
+export type Tag = {
+  id: string
+  user_id: string
+  name: string
+  color: string | null
+  is_private: boolean
+  created_at: string
+}
 export type TagWithCount = Tag & { link_count: number }
 
-type RawTag = Tag & { link_tags: { id: string }[] }
+type TagPayload = { name: string; color: string | null }
+
+type TagRow = {
+  id: string
+  user_id: string
+  enc_payload: string
+  enc_iv: string
+  is_private: boolean
+  created_at: string
+}
+
+type RawTagRow = TagRow & { link_tags: { id: string }[] }
+
+function decryptRow(row: TagRow, dek: CryptoKey): Promise<Tag> {
+  return fromEncryptedColumns<TagPayload, TagRow>(row, dek)
+}
 
 async function hashPassword(password: string): Promise<string> {
   const encoded = new TextEncoder().encode(password)
@@ -22,25 +44,21 @@ export function toKebabCase(str: string): string {
     .replace(/^-+|-+$/g, '')
 }
 
-export async function getTags(): Promise<TagWithCount[]> {
+export async function getTags(dek: CryptoKey): Promise<TagWithCount[]> {
   const supabase = createClient()
 
   const { data, error } = await supabase
     .from('tags')
     .select('*, link_tags(id)')
-    .order('name', { ascending: true })
 
   if (error || !data) return []
 
-  return (data as RawTag[]).map(tag => ({
-    id: tag.id,
-    user_id: tag.user_id,
-    name: tag.name,
-    color: tag.color,
-    is_private: tag.is_private,
-    created_at: tag.created_at,
-    link_count: tag.link_tags.length,
-  }))
+  const tags = await Promise.all((data as unknown as RawTagRow[]).map(async ({ link_tags, ...row }) => ({
+    ...await decryptRow(row, dek),
+    link_count: link_tags.length,
+  })))
+
+  return tags.sort((a, b) => a.name.localeCompare(b.name))
 }
 
 export type CreateTagInput = {
@@ -53,7 +71,7 @@ export type CreateTagResult =
   | { data: Tag; error: null }
   | { data: null; error: 'name_taken' | 'unauthenticated' | 'db_error' }
 
-export async function createTag(input: CreateTagInput): Promise<CreateTagResult> {
+export async function createTag(input: CreateTagInput, dek: CryptoKey): Promise<CreateTagResult> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { data: null, error: 'unauthenticated' }
@@ -61,25 +79,22 @@ export async function createTag(input: CreateTagInput): Promise<CreateTagResult>
   const name = toKebabCase(input.name)
   if (!name) return { data: null, error: 'db_error' }
 
-  const { data: existing } = await supabase
-    .from('tags')
-    .select('id')
-    .eq('user_id', user.id)
-    .ilike('name', name)
-    .maybeSingle()
-
-  if (existing) return { data: null, error: 'name_taken' }
+  const existing = await getTags(dek)
+  if (existing.some(t => t.name.toLowerCase() === name.toLowerCase())) {
+    return { data: null, error: 'name_taken' }
+  }
 
   const is_private = input.is_private ?? false
+  const encoded = await toEncryptedColumns<TagPayload>({ name, color: input.color ?? null }, dek)
 
   const { data, error } = await supabase
     .from('tags')
-    .insert({ user_id: user.id, name, color: input.color ?? null, is_private })
+    .insert({ user_id: user.id, ...encoded, is_private })
     .select()
     .single()
 
   if (error || !data) return { data: null, error: 'db_error' }
-  return { data, error: null }
+  return { data: await decryptRow(data, dek), error: null }
 }
 
 export type UpdateTagInput = {
@@ -93,7 +108,7 @@ export type UpdateTagResult =
   | { data: Tag; error: null }
   | { data: null; error: 'name_taken' | 'unauthenticated' | 'db_error' }
 
-export async function updateTag(input: UpdateTagInput): Promise<UpdateTagResult> {
+export async function updateTag(input: UpdateTagInput, dek: CryptoKey): Promise<UpdateTagResult> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { data: null, error: 'unauthenticated' }
@@ -101,27 +116,23 @@ export async function updateTag(input: UpdateTagInput): Promise<UpdateTagResult>
   const name = toKebabCase(input.name)
   if (!name) return { data: null, error: 'db_error' }
 
-  const { data: existing } = await supabase
-    .from('tags')
-    .select('id')
-    .eq('user_id', user.id)
-    .ilike('name', name)
-    .neq('id', input.id)
-    .maybeSingle()
-
-  if (existing) return { data: null, error: 'name_taken' }
+  const existing = await getTags(dek)
+  if (existing.some(t => t.id !== input.id && t.name.toLowerCase() === name.toLowerCase())) {
+    return { data: null, error: 'name_taken' }
+  }
 
   const is_private = input.is_private ?? false
+  const encoded = await toEncryptedColumns<TagPayload>({ name, color: input.color ?? null }, dek)
 
   const { data, error } = await supabase
     .from('tags')
-    .update({ name, color: input.color ?? null, is_private })
+    .update({ ...encoded, is_private })
     .eq('id', input.id)
     .select()
     .single()
 
   if (error || !data) return { data: null, error: 'db_error' }
-  return { data, error: null }
+  return { data: await decryptRow(data, dek), error: null }
 }
 
 export async function getTagLinksCount(id: string): Promise<number> {
@@ -133,17 +144,17 @@ export async function getTagLinksCount(id: string): Promise<number> {
   return count ?? 0
 }
 
-export function isTagVisible(isPrivate: boolean, name: string, unlockedTagNames: Set<string>): boolean {
-  return !isPrivate || unlockedTagNames.has(name)
+export function isTagVisible(isPrivate: boolean, id: string, unlockedTagIds: Set<string>): boolean {
+  return !isPrivate || unlockedTagIds.has(id)
 }
 
-export async function getPrivateTagNames(): Promise<string[]> {
+export async function getPrivateTagIds(): Promise<string[]> {
   const supabase = createClient()
   const { data } = await supabase
     .from('tags')
-    .select('name')
+    .select('id')
     .eq('is_private', true)
-  return data?.map(t => t.name) ?? []
+  return data?.map(t => t.id) ?? []
 }
 
 export async function deleteTag(id: string): Promise<boolean> {
@@ -259,4 +270,34 @@ export async function getPrivateTagSettings(): Promise<{ hint: string | null; ha
     hint: data?.hint ?? null,
     hasPassword: !!data?.password_hash,
   }
+}
+
+/** Gets or creates tags by name, returning their ids. Used when saving/editing a link's tags. */
+export async function syncTagsByName(names: string[], dek: CryptoKey): Promise<string[]> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const kebabNames = (names.length > 0 ? names : ['no-tag']).map(toKebabCase).filter(Boolean)
+  const existing = await getTags(dek)
+
+  const ids: string[] = []
+  for (const name of kebabNames) {
+    const match = existing.find(t => t.name.toLowerCase() === name.toLowerCase())
+    if (match) {
+      ids.push(match.id)
+      continue
+    }
+    const encoded = await toEncryptedColumns<TagPayload>({ name, color: null }, dek)
+    const { data } = await supabase
+      .from('tags')
+      .insert({ user_id: user.id, ...encoded, is_private: false })
+      .select('id')
+      .single()
+    if (data) {
+      existing.push({ id: data.id, user_id: user.id, name, color: null, is_private: false, created_at: new Date().toISOString(), link_count: 0 })
+      ids.push(data.id)
+    }
+  }
+  return ids
 }

@@ -1,5 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest'
 import { getTrashedLinks, restoreLink, deleteLinkPermanently, emptyTrash } from '@/lib/services/trash'
+import { generateDek, encryptJson } from '@/lib/crypto/vault'
+import type { LinkContent } from '@/lib/services/links'
 
 // ── shared mocks ──────────────────────────────────────────────────────────────
 
@@ -49,13 +51,25 @@ vi.mock('@/lib/supabase/client', () => ({
   })),
 }))
 
-const RAW_LINK = {
-  id: '1', url: 'https://example.com', title: 'Example',
-  description: 'A description', site_name: 'example.com',
-  status: 'unread', is_favorite: false,
-  notes: null, user_id: 'user-1', category_id: null,
-  created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
-  deleted_at: '2026-06-01T00:00:00Z',
+let dek: CryptoKey
+
+beforeAll(async () => {
+  dek = await generateDek()
+})
+
+const CONTENT: LinkContent = {
+  url: 'https://example.com', title: 'Example', description: 'A description',
+  site_name: 'example.com', image_url: null, duration: null, notes: null,
+}
+
+async function encryptTrashedRow() {
+  const { ciphertext, iv } = await encryptJson(CONTENT, dek)
+  return {
+    id: '1', user_id: 'user-1', category_id: null, status: 'unread', is_favorite: false,
+    created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+    deleted_at: '2026-06-01T00:00:00Z',
+    enc_payload: ciphertext, enc_iv: iv,
+  }
 }
 
 beforeEach(() => {
@@ -68,64 +82,57 @@ beforeEach(() => {
 // ── getTrashedLinks ───────────────────────────────────────────────────────────
 
 describe('getTrashedLinks', () => {
-  it('returns trashed links with tags flattened', async () => {
+  it('decrypts trashed links with tag ids', async () => {
+    const row = await encryptTrashedRow()
     mockOrder.mockResolvedValue({
-      data: [{ ...RAW_LINK, link_tags: [{ tags: { name: 'react' } }, { tags: { name: 'css' } }] }],
+      data: [{ ...row, link_tags: [{ tag_id: 't1' }, { tag_id: 't2' }] }],
       error: null,
     })
 
-    const result = await getTrashedLinks()
+    const result = await getTrashedLinks(dek)
 
     expect(result).toHaveLength(1)
-    expect(result[0].tags).toEqual(['react', 'css'])
+    expect(result[0].tags).toEqual(['t1', 't2'])
+    expect(result[0].title).toBe('Example')
   })
 
   it('omits link_tags from the returned objects', async () => {
+    const row = await encryptTrashedRow()
     mockOrder.mockResolvedValue({
-      data: [{ ...RAW_LINK, link_tags: [{ tags: { name: 'react' } }] }],
+      data: [{ ...row, link_tags: [{ tag_id: 't1' }] }],
       error: null,
     })
 
-    const result = await getTrashedLinks()
+    const result = await getTrashedLinks(dek)
 
     expect(result[0]).not.toHaveProperty('link_tags')
   })
 
   it('returns an empty tags array when link has no tags', async () => {
-    mockOrder.mockResolvedValue({ data: [{ ...RAW_LINK, link_tags: [] }], error: null })
+    const row = await encryptTrashedRow()
+    mockOrder.mockResolvedValue({ data: [{ ...row, link_tags: [] }], error: null })
 
-    const result = await getTrashedLinks()
+    const result = await getTrashedLinks(dek)
 
     expect(result[0].tags).toEqual([])
-  })
-
-  it('skips null tag entries', async () => {
-    mockOrder.mockResolvedValue({
-      data: [{ ...RAW_LINK, link_tags: [{ tags: null }, { tags: { name: 'react' } }] }],
-      error: null,
-    })
-
-    const result = await getTrashedLinks()
-
-    expect(result[0].tags).toEqual(['react'])
   })
 
   it('returns [] on error', async () => {
     mockOrder.mockResolvedValue({ data: null, error: { message: 'DB error' } })
 
-    expect(await getTrashedLinks()).toEqual([])
+    expect(await getTrashedLinks(dek)).toEqual([])
   })
 
   it('returns [] when data is null', async () => {
     mockOrder.mockResolvedValue({ data: null, error: null })
 
-    expect(await getTrashedLinks()).toEqual([])
+    expect(await getTrashedLinks(dek)).toEqual([])
   })
 
   it('queries with deleted_at IS NOT NULL', async () => {
     mockOrder.mockResolvedValue({ data: [], error: null })
 
-    await getTrashedLinks()
+    await getTrashedLinks(dek)
 
     expect(mockSelectNot).toHaveBeenCalledWith('deleted_at', 'is', null)
   })
@@ -133,17 +140,17 @@ describe('getTrashedLinks', () => {
   it('orders by deleted_at descending', async () => {
     mockOrder.mockResolvedValue({ data: [], error: null })
 
-    await getTrashedLinks()
+    await getTrashedLinks(dek)
 
     expect(mockOrder).toHaveBeenCalledWith('deleted_at', { ascending: false })
   })
 
-  it('selects link_tags with nested tags', async () => {
+  it('selects link_tags with tag ids, not names', async () => {
     mockOrder.mockResolvedValue({ data: [], error: null })
 
-    await getTrashedLinks()
+    await getTrashedLinks(dek)
 
-    expect(mockSelect).toHaveBeenCalledWith('*, link_tags(tags(name))')
+    expect(mockSelect).toHaveBeenCalledWith('*, link_tags(tag_id)')
   })
 })
 

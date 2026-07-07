@@ -1,24 +1,66 @@
 import { createClient } from '@/lib/supabase/client'
-import type { LinkStatus, Tables } from '@/lib/types/database'
+import { hmacFingerprint } from '@/lib/crypto/vault'
+import { toEncryptedColumns, fromEncryptedColumns } from '@/lib/crypto/encryptedRow'
+import { syncTagsByName } from '@/lib/services/tags'
+import type { LinkStatus } from '@/lib/types/database'
 import type { SortBy } from '@/app/dashboard/link/FilterSheet'
 
-export type LinkWithTags = Tables<'links'> & { tags: string[] }
+export type LinkContent = {
+  url: string
+  title: string | null
+  description: string | null
+  site_name: string | null
+  image_url: string | null
+  duration: string | null
+  notes: string | null
+}
+
+export type LinkWithTags = LinkContent & {
+  id: string
+  user_id: string
+  category_id: string | null
+  status: LinkStatus
+  is_favorite: boolean
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+  tags: string[] // tag ids
+}
 
 export type LinkFilterParams = {
-  search: string
+  textSearch: string
   categoryId: string | null
   statuses: LinkStatus[]
-  tagNames: string[]
+  tagIds: string[]
   tagMode: 'any' | 'all'
   favoritesOnly: boolean
   sortBy: SortBy
-  unlockedTagNames: string[]
+  unlockedTagIds: string[]
 }
 
 export const SELECT_ALL_MATCHING_CAP = 2000
+const FETCH_CHUNK_SIZE = 200
 
-type LinkQueryRow = Tables<'links'> & {
-  link_tags: Array<{ tags: { name: string } | null }>
+type LinkRow = {
+  id: string
+  user_id: string
+  category_id: string | null
+  status: LinkStatus
+  is_favorite: boolean
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+  enc_payload: string
+  enc_iv: string
+}
+
+type LinkQueryRow = LinkRow & {
+  link_tags: Array<{ tag_id: string }>
+}
+
+async function toLinkWithTags(row: LinkRow, tags: string[], dek: CryptoKey): Promise<LinkWithTags> {
+  const link = await fromEncryptedColumns<LinkContent, LinkRow>(row, dek)
+  return { ...link, tags }
 }
 
 export type CreateLinkInput = {
@@ -42,65 +84,54 @@ function isValidUrl(url: string): boolean {
   }
 }
 
-type SupabaseClient = ReturnType<typeof createClient>
-
-async function syncTags(supabase: SupabaseClient, userId: string, linkId: string, tags: string[]): Promise<string[]> {
-  const names = tags.length > 0 ? tags : ['no-tag']
-
-  await supabase
-    .from('tags')
-    .upsert(
-      names.map(name => ({ user_id: userId, name })),
-      { onConflict: 'user_id,name', ignoreDuplicates: true },
-    )
-
-  const { data: tagRows } = await supabase
-    .from('tags')
-    .select('id, name')
-    .eq('user_id', userId)
-    .in('name', names)
-
-  if (!tagRows?.length) return []
-
-  await supabase
-    .from('link_tags')
-    .insert(tagRows.map(tag => ({ link_id: linkId, tag_id: tag.id })))
-
-  return tagRows.map(t => t.name)
+async function insertLinkTags(linkId: string, tagIds: string[]): Promise<void> {
+  if (tagIds.length === 0) return
+  const supabase = createClient()
+  await supabase.from('link_tags').insert(tagIds.map(tag_id => ({ link_id: linkId, tag_id })))
 }
 
-export async function createLink(input: CreateLinkInput): Promise<LinkWithTags | null> {
+export async function createLink(input: CreateLinkInput, dek: CryptoKey): Promise<LinkWithTags | null> {
   if (!input.url.trim() || !isValidUrl(input.url)) return null
   if (!input.category_id) return null
 
   const supabase = createClient()
-
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
-  const site_name = new URL(input.url).hostname
+  const url = input.url.trim()
+  const content: LinkContent = {
+    url,
+    title: input.title ?? null,
+    description: input.description ?? null,
+    site_name: new URL(url).hostname,
+    image_url: input.image_url ?? null,
+    duration: input.duration ?? null,
+    notes: input.notes ?? null,
+  }
+
+  const encoded = await toEncryptedColumns<LinkContent>(content, dek)
+  const url_fingerprint = await hmacFingerprint(url, dek)
 
   const { data: link, error } = await supabase
     .from('links')
     .insert({
       user_id: user.id,
-      url: input.url,
-      title: input.title ?? null,
-      description: input.description ?? null,
-      image_url: input.image_url ?? null,
-      duration: input.duration ?? null,
-      site_name,
-      category_id: input.category_id ?? null,
+      ...encoded,
+      url_fingerprint,
+      category_id: input.category_id,
       status: input.status,
-      notes: input.notes ?? null,
     })
     .select()
     .single()
 
   if (error || !link) return null
 
-  const tags = await syncTags(supabase, user.id, link.id, input.tags.filter(Boolean))
-  return { ...link, tags }
+  const tagIds = await syncTagsByName(input.tags.filter(Boolean), dek)
+  await insertLinkTags(link.id, tagIds)
+
+  return { ...content, id: link.id, user_id: link.user_id, category_id: link.category_id, status: link.status,
+    is_favorite: link.is_favorite, created_at: link.created_at, updated_at: link.updated_at,
+    deleted_at: link.deleted_at, tags: tagIds }
 }
 
 export type UpdateLinkInput = {
@@ -125,26 +156,35 @@ export async function toggleLinkFavorite(id: string, isFavorite: boolean): Promi
   return !error
 }
 
-export async function updateLink(input: UpdateLinkInput): Promise<LinkWithTags | null> {
+export async function updateLink(input: UpdateLinkInput, dek: CryptoKey): Promise<LinkWithTags | null> {
   if (!input.url.trim() || !isValidUrl(input.url)) return null
   if (!input.category_id) return null
 
   const supabase = createClient()
-
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
+
+  const url = input.url.trim()
+  const content: LinkContent = {
+    url,
+    title: input.title ?? null,
+    description: input.description ?? null,
+    site_name: new URL(url).hostname,
+    image_url: input.image_url ?? null,
+    duration: input.duration ?? null,
+    notes: input.notes ?? null,
+  }
+
+  const encoded = await toEncryptedColumns<LinkContent>(content, dek)
+  const url_fingerprint = await hmacFingerprint(url, dek)
 
   const { data: link, error } = await supabase
     .from('links')
     .update({
-      url: input.url,
-      title: input.title ?? null,
-      description: input.description ?? null,
-      image_url: input.image_url ?? null,
-      duration: input.duration ?? null,
-      category_id: input.category_id ?? null,
+      ...encoded,
+      url_fingerprint,
+      category_id: input.category_id,
       status: input.status,
-      notes: input.notes ?? null,
     })
     .eq('id', input.id)
     .select()
@@ -154,69 +194,94 @@ export async function updateLink(input: UpdateLinkInput): Promise<LinkWithTags |
 
   await supabase.from('link_tags').delete().eq('link_id', input.id)
 
-  const tags = await syncTags(supabase, user.id, link.id, input.tags.filter(Boolean))
-  return { ...link, tags }
+  const tagIds = await syncTagsByName(input.tags.filter(Boolean), dek)
+  await insertLinkTags(link.id, tagIds)
+
+  return { ...content, id: link.id, user_id: link.user_id, category_id: link.category_id, status: link.status,
+    is_favorite: link.is_favorite, created_at: link.created_at, updated_at: link.updated_at,
+    deleted_at: link.deleted_at, tags: tagIds }
 }
 
-export async function getLinks(): Promise<LinkWithTags[]> {
+/** Unpaginated -- used only by Import/Export, never the main list. */
+export async function getLinks(dek: CryptoKey): Promise<LinkWithTags[]> {
   const supabase = createClient()
 
   const { data, error } = await supabase
     .from('links')
-    .select('*, link_tags(tags(name))')
+    .select('*, link_tags(tag_id)')
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
     .returns<LinkQueryRow[]>()
 
   if (error || !data) return []
 
-  return data.map(({ link_tags, ...link }) => ({
-    ...link,
-    tags: link_tags.flatMap(lt => lt.tags?.name ? [lt.tags.name] : []),
-  }))
+  return Promise.all(data.map(({ link_tags, ...row }) =>
+    toLinkWithTags(row, link_tags.map(lt => lt.tag_id), dek)
+  ))
+}
+
+/** Fetches specific links by id (chunked) and decrypts them. Used by client-side search/sort. */
+export async function getLinksByIds(ids: string[], dek: CryptoKey): Promise<LinkWithTags[]> {
+  if (ids.length === 0) return []
+  const supabase = createClient()
+
+  const rows: LinkQueryRow[] = []
+  for (let i = 0; i < ids.length; i += FETCH_CHUNK_SIZE) {
+    const chunk = ids.slice(i, i + FETCH_CHUNK_SIZE)
+    const { data } = await supabase
+      .from('links')
+      .select('*, link_tags(tag_id)')
+      .in('id', chunk)
+      .returns<LinkQueryRow[]>()
+    if (data) rows.push(...data)
+  }
+
+  return Promise.all(rows.map(({ link_tags, ...row }) =>
+    toLinkWithTags(row, link_tags.map(lt => lt.tag_id), dek)
+  ))
 }
 
 function toRpcFilterArgs(params: LinkFilterParams) {
   return {
-    p_search: params.search || null,
     p_category_id: params.categoryId,
     p_statuses: params.statuses.length ? params.statuses : null,
-    p_tag_names: params.tagNames.length ? params.tagNames : null,
+    p_tag_ids: params.tagIds.length ? params.tagIds : null,
     p_tag_mode: params.tagMode,
     p_favorites_only: params.favoritesOnly,
-    p_unlocked_tag_names: params.unlockedTagNames.length ? params.unlockedTagNames : null,
+    p_unlocked_tag_ids: params.unlockedTagIds.length ? params.unlockedTagIds : null,
   }
 }
 
 export type LinksPage = { links: LinkWithTags[]; totalCount: number }
 
+/** Structural-only pagination -- no free-text search, no alphabetical sort (impossible against ciphertext). */
 export async function getLinksPage(
   params: LinkFilterParams,
   limit: number,
   offset: number,
+  dek: CryptoKey,
 ): Promise<LinksPage> {
   const supabase = createClient()
 
   const { data, error } = await supabase
     .rpc('search_links', {
       ...toRpcFilterArgs(params),
-      p_sort_by: params.sortBy,
+      p_sort_by: params.sortBy === 'alphabetical' ? 'newest' : params.sortBy,
       p_limit: limit,
       p_offset: offset,
     })
-    .returns<(LinkWithTags & { total_count: number })[]>()
+    .returns<Array<LinkRow & { tags: string[]; total_count: number }>>()
 
   if (error || !data) return { links: [], totalCount: 0 }
 
-  return {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- destructured only to omit it from `link`
-    links: data.map(({ total_count, ...link }) => link),
-    totalCount: data[0]?.total_count ?? 0,
-  }
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- destructured only to omit it from `row`
+  const links = await Promise.all(data.map(({ tags, total_count, ...row }) => toLinkWithTags(row, tags, dek)))
+  return { links, totalCount: data[0]?.total_count ?? 0 }
 }
 
 export type MatchingLinkIds = { ids: string[]; totalCount: number }
 
+/** Ids-only, matching only structural filters -- used for "select all matching" and client-side search/sort. */
 export async function getMatchingLinkIds(params: LinkFilterParams): Promise<MatchingLinkIds> {
   const supabase = createClient()
 
@@ -268,36 +333,20 @@ export async function bulkUpdateCategory(ids: string[], categoryId: string | nul
   return !error
 }
 
-export async function bulkAddTags(ids: string[], tagNames: string[]): Promise<boolean> {
-  if (!ids.length || !tagNames.length) return true
+/** Returns the resolved tag ids on success (so callers can patch already-loaded links), or null on failure. */
+export async function bulkAddTags(ids: string[], tagNames: string[], dek: CryptoKey): Promise<string[] | null> {
+  if (!ids.length || !tagNames.length) return []
   const supabase = createClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return false
+  const tagIds = await syncTagsByName(tagNames.filter(Boolean), dek)
+  if (!tagIds.length) return null
 
-  const names = tagNames.filter(Boolean)
-
-  await supabase
-    .from('tags')
-    .upsert(
-      names.map(name => ({ user_id: user.id, name })),
-      { onConflict: 'user_id,name', ignoreDuplicates: true },
-    )
-
-  const { data: tagRows } = await supabase
-    .from('tags')
-    .select('id')
-    .eq('user_id', user.id)
-    .in('name', names)
-
-  if (!tagRows?.length) return false
-
-  const pairs = ids.flatMap(link_id => tagRows.map(tag => ({ link_id, tag_id: tag.id })))
+  const pairs = ids.flatMap(link_id => tagIds.map(tag_id => ({ link_id, tag_id })))
   const { error } = await supabase
     .from('link_tags')
     .upsert(pairs, { onConflict: 'link_id,tag_id', ignoreDuplicates: true })
 
-  return !error
+  return error ? null : tagIds
 }
 
 export type ImportLinkInput = {
@@ -313,6 +362,7 @@ export type ImportResult = { imported: number; skipped: number; duplicates: numb
 export async function importLinks(
   inputs: ImportLinkInput[],
   defaultCategoryId: string | null,
+  dek: CryptoKey,
 ): Promise<ImportResult> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -329,12 +379,13 @@ export async function importLinks(
     }
 
     const trimmedUrl = input.url.trim()
+    const url_fingerprint = await hmacFingerprint(trimmedUrl, dek)
 
     const { data: existingRows } = await supabase
       .from('links')
       .select('id')
       .eq('user_id', user.id)
-      .eq('url', trimmedUrl)
+      .eq('url_fingerprint', url_fingerprint)
       .is('deleted_at', null)
       .limit(1)
 
@@ -343,19 +394,26 @@ export async function importLinks(
       continue
     }
 
-    const site_name = new URL(trimmedUrl).hostname
     const category_id = input.category_id ?? defaultCategoryId
+    const content: LinkContent = {
+      url: trimmedUrl,
+      title: input.title ?? null,
+      description: null,
+      site_name: new URL(trimmedUrl).hostname,
+      image_url: null,
+      duration: null,
+      notes: input.notes ?? null,
+    }
+    const encoded = await toEncryptedColumns<LinkContent>(content, dek)
 
     const { data: link, error } = await supabase
       .from('links')
       .insert({
         user_id: user.id,
-        url: trimmedUrl,
-        title: input.title ?? null,
-        site_name,
+        ...encoded,
+        url_fingerprint,
         category_id,
         status: 'unread',
-        notes: input.notes ?? null,
       })
       .select()
       .single()
@@ -365,7 +423,8 @@ export async function importLinks(
       continue
     }
 
-    await syncTags(supabase, user.id, link.id, input.tags?.filter(Boolean) ?? [])
+    const tagIds = await syncTagsByName(input.tags?.filter(Boolean) ?? [], dek)
+    await insertLinkTags(link.id, tagIds)
     imported++
   }
 

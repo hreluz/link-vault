@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest'
 import { bulkUpdateStatus, bulkSoftDelete, bulkUpdateCategory, bulkAddTags } from '@/lib/services/links'
+import { generateDek, encryptJson } from '@/lib/crypto/vault'
 
 // ── shared mocks ──────────────────────────────────────────────────────────────
 
@@ -7,10 +8,9 @@ const {
   mockGetUser,
   mockLinksUpdateIn,
   mockLinksUpdate,
-  mockTagsUpsert,
-  mockTagsSelectIn,
-  mockTagsSelectEq,
-  mockTagsSelect,
+  mockTagsGetAll,
+  mockTagsInsert,
+  mockTagsInsertSingle,
   mockLinkTagsUpsert,
 } = vi.hoisted(() => {
   const mockLinksUpdateIn = vi.fn()
@@ -18,17 +18,17 @@ const {
 
   const mockGetUser = vi.fn()
 
-  const mockTagsUpsert = vi.fn()
-  const mockTagsSelectIn = vi.fn()
-  const mockTagsSelectEq = vi.fn(() => ({ in: mockTagsSelectIn }))
-  const mockTagsSelect = vi.fn(() => ({ eq: mockTagsSelectEq }))
+  const mockTagsGetAll = vi.fn()
+  const mockTagsInsertSingle = vi.fn()
+  const mockTagsInsertSelect = vi.fn(() => ({ single: mockTagsInsertSingle }))
+  const mockTagsInsert = vi.fn(() => ({ select: mockTagsInsertSelect }))
 
   const mockLinkTagsUpsert = vi.fn()
 
   return {
     mockGetUser,
     mockLinksUpdateIn, mockLinksUpdate,
-    mockTagsUpsert, mockTagsSelectIn, mockTagsSelectEq, mockTagsSelect,
+    mockTagsGetAll, mockTagsInsertSingle, mockTagsInsert,
     mockLinkTagsUpsert,
   }
 })
@@ -38,19 +38,28 @@ vi.mock('@/lib/supabase/client', () => ({
     auth: { getUser: mockGetUser },
     from: vi.fn((table: string) => {
       if (table === 'links') return { update: mockLinksUpdate }
-      if (table === 'tags') return { upsert: mockTagsUpsert, select: mockTagsSelect }
+      if (table === 'tags') return { select: vi.fn(() => mockTagsGetAll()), insert: mockTagsInsert }
       if (table === 'link_tags') return { upsert: mockLinkTagsUpsert }
       return {}
     }),
   })),
 }))
 
+let dek: CryptoKey
+
+beforeAll(async () => {
+  dek = await generateDek()
+})
+
+async function encryptTagRow(id: string, name: string) {
+  const { ciphertext, iv } = await encryptJson({ name, color: null }, dek)
+  return { id, user_id: 'user-1', enc_payload: ciphertext, enc_iv: iv, is_private: false, created_at: '', link_tags: [] }
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1' } } })
   mockLinksUpdateIn.mockResolvedValue({ error: null })
-  mockTagsUpsert.mockResolvedValue({ error: null })
-  mockTagsSelectIn.mockResolvedValue({ data: [{ id: 't1' }, { id: 't2' }] })
   mockLinkTagsUpsert.mockResolvedValue({ error: null })
 })
 
@@ -106,11 +115,6 @@ describe('bulkSoftDelete', () => {
     )
   })
 
-  it('uses update (soft delete) not hard delete', async () => {
-    await bulkSoftDelete(['1'])
-    expect(mockLinksUpdate).toHaveBeenCalledWith(expect.objectContaining({ deleted_at: expect.any(String) }))
-  })
-
   it('calls .in() with the correct ids', async () => {
     await bulkSoftDelete(['1', '2', '3'])
     expect(mockLinksUpdateIn).toHaveBeenCalledWith('id', ['1', '2', '3'])
@@ -153,43 +157,50 @@ describe('bulkUpdateCategory', () => {
 // ── bulkAddTags ───────────────────────────────────────────────────────────────
 
 describe('bulkAddTags', () => {
-  it('returns true on success', async () => {
-    expect(await bulkAddTags(['1', '2'], ['react', 'ts'])).toBe(true)
+  beforeEach(() => {
+    mockTagsGetAll.mockResolvedValue({ data: [], error: null })
   })
 
-  it('returns false when the user is not authenticated', async () => {
+  it('returns the resolved tag ids on success', async () => {
+    const react = await encryptTagRow('tag-a', 'react')
+    const ts = await encryptTagRow('tag-b', 'ts')
+    mockTagsGetAll.mockResolvedValue({ data: [react, ts], error: null })
+
+    const result = await bulkAddTags(['1', '2'], ['react', 'ts'], dek)
+
+    expect(result).toEqual(['tag-a', 'tag-b'])
+  })
+
+  it('returns null when the user is not authenticated', async () => {
     mockGetUser.mockResolvedValue({ data: { user: null } })
-    expect(await bulkAddTags(['1'], ['react'])).toBe(false)
+    expect(await bulkAddTags(['1'], ['react'], dek)).toBeNull()
   })
 
-  it('returns true immediately when ids is empty', async () => {
-    expect(await bulkAddTags([], ['react'])).toBe(true)
-    expect(mockTagsUpsert).not.toHaveBeenCalled()
+  it('returns [] immediately when ids is empty', async () => {
+    expect(await bulkAddTags([], ['react'], dek)).toEqual([])
+    expect(mockLinkTagsUpsert).not.toHaveBeenCalled()
   })
 
-  it('returns true immediately when tagNames is empty', async () => {
-    expect(await bulkAddTags(['1'], [])).toBe(true)
-    expect(mockTagsUpsert).not.toHaveBeenCalled()
+  it('returns [] immediately when tagNames is empty', async () => {
+    expect(await bulkAddTags(['1'], [], dek)).toEqual([])
+    expect(mockLinkTagsUpsert).not.toHaveBeenCalled()
   })
 
-  it('upserts all tag names for the current user', async () => {
-    await bulkAddTags(['1'], ['react', 'ts'])
-    expect(mockTagsUpsert).toHaveBeenCalledWith(
-      [{ user_id: 'user-1', name: 'react' }, { user_id: 'user-1', name: 'ts' }],
-      expect.objectContaining({ onConflict: 'user_id,name', ignoreDuplicates: true }),
-    )
-  })
+  it('resolves existing tags by name without creating duplicates', async () => {
+    const react = await encryptTagRow('tag-a', 'react')
+    mockTagsGetAll.mockResolvedValue({ data: [react], error: null })
 
-  it('fetches tag ids for the current user filtered by name', async () => {
-    await bulkAddTags(['1'], ['react'])
-    expect(mockTagsSelectEq).toHaveBeenCalledWith('user_id', 'user-1')
-    expect(mockTagsSelectIn).toHaveBeenCalledWith('name', ['react'])
+    await bulkAddTags(['1'], ['react'], dek)
+
+    expect(mockTagsInsertSingle).not.toHaveBeenCalled()
   })
 
   it('upserts link_tag pairs for every (link, tag) combination', async () => {
-    mockTagsSelectIn.mockResolvedValue({ data: [{ id: 'tag-a' }, { id: 'tag-b' }] })
+    const react = await encryptTagRow('tag-a', 'react')
+    const ts = await encryptTagRow('tag-b', 'ts')
+    mockTagsGetAll.mockResolvedValue({ data: [react, ts], error: null })
 
-    await bulkAddTags(['link-1', 'link-2'], ['react', 'ts'])
+    await bulkAddTags(['link-1', 'link-2'], ['react', 'ts'], dek)
 
     expect(mockLinkTagsUpsert).toHaveBeenCalledWith(
       expect.arrayContaining([
@@ -202,18 +213,11 @@ describe('bulkAddTags', () => {
     )
   })
 
-  it('returns false when no tag rows are found after upsert', async () => {
-    mockTagsSelectIn.mockResolvedValue({ data: [] })
-    expect(await bulkAddTags(['1'], ['unknown-tag'])).toBe(false)
-  })
-
-  it('returns false when tag select returns null', async () => {
-    mockTagsSelectIn.mockResolvedValue({ data: null })
-    expect(await bulkAddTags(['1'], ['react'])).toBe(false)
-  })
-
-  it('returns false when link_tags upsert fails', async () => {
+  it('returns null when link_tags upsert fails', async () => {
+    const react = await encryptTagRow('tag-a', 'react')
+    mockTagsGetAll.mockResolvedValue({ data: [react], error: null })
     mockLinkTagsUpsert.mockResolvedValue({ error: { message: 'upsert failed' } })
-    expect(await bulkAddTags(['1'], ['react'])).toBe(false)
+
+    expect(await bulkAddTags(['1'], ['react'], dek)).toBeNull()
   })
 })

@@ -2,18 +2,23 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { getTrashedLinks, restoreLink, deleteLinkPermanently, emptyTrash, type TrashedLink } from '@/lib/services/trash'
+import { useVault } from '@/lib/context/VaultContext'
+import { useTagsContext } from '@/lib/context/TagsContext'
 
 export function useTrash() {
+  const { dek } = useVault()
+  const { tags: allTags } = useTagsContext()
   const [links, setLinks] = useState<TrashedLink[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
-    getTrashedLinks().then(data => {
+    if (!dek) return
+    getTrashedLinks(dek).then(data => {
       setLinks(data)
       setLoading(false)
     })
-  }, [])
+  }, [dek])
 
   const filteredLinks = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
@@ -22,9 +27,9 @@ export function useTrash() {
       link.title?.toLowerCase().includes(q) ||
       link.description?.toLowerCase().includes(q) ||
       link.site_name?.toLowerCase().includes(q) ||
-      link.tags.some(t => t.toLowerCase().includes(q))
+      link.tags.some(id => (allTags.find(t => t.id === id)?.name ?? '').toLowerCase().includes(q))
     )
-  }, [links, searchQuery])
+  }, [links, searchQuery, allTags])
 
   async function handleRestore(id: string) {
     const ok = await restoreLink(id)

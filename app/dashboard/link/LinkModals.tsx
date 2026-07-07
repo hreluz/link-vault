@@ -1,7 +1,7 @@
 'use client'
 
 import { useCategoryList } from '@/lib/hooks/categories/useCategoryList'
-import { useAvailableTags } from '@/lib/hooks/tags/useAvailableTags'
+import { useAvailableTagsWithIds } from '@/lib/hooks/tags/useAvailableTags'
 import { useLinkListContext } from './LinkListContext'
 import AddLinkModal from './AddLinkModal'
 import EditLinkModal from './EditLinkModal'
@@ -10,7 +10,7 @@ import BottomSheet from './BottomSheet'
 
 export default function LinkModals() {
   const { categories } = useCategoryList()
-  const availableTags = useAvailableTags()
+  const availableTags = useAvailableTagsWithIds()
   const {
     modalOpen, setModalOpen,
     filterOpen, setFilterOpen,
@@ -18,7 +18,7 @@ export default function LinkModals() {
     activeLink, setActiveLink,
     sortBy, setSortBy,
     category, setCategory,
-    selectedTags, setSelectedTags,
+    selectedTagIds, setSelectedTagIds,
     tagMode, setTagMode,
     totalCount,
     handleCreate,
@@ -50,13 +50,13 @@ export default function LinkModals() {
         sortBy={sortBy}
         category={category}
         categories={categories}
-        selectedTags={selectedTags}
+        selectedTagIds={selectedTagIds}
         tagMode={tagMode}
         allTags={availableTags}
         resultCount={totalCount}
         onSortChange={setSortBy}
         onCategoryChange={setCategory}
-        onTagsChange={setSelectedTags}
+        onTagsChange={setSelectedTagIds}
         onTagModeChange={setTagMode}
         onReset={resetFilters}
         onClose={() => setFilterOpen(false)}
