@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
-import { seedDefaultCategories } from '@/lib/services/categories'
 import { isAdminEmail } from '@/lib/auth/admin'
+import type { EmailOtpType } from '@supabase/supabase-js'
 
 export type AuthResult =
   | { success: true }
@@ -8,11 +8,17 @@ export type AuthResult =
 
 export async function signIn(email: string, password: string): Promise<AuthResult> {
   const supabase = await createClient()
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+  const { error } = await supabase.auth.signInWithPassword({ email, password })
   if (error) return { success: false, error: error.message }
-  if (data.user) {
-    await seedDefaultCategories(supabase, data.user.id)
-  }
+  // seedDefaultCategories now runs client-side, inside VaultContext.unlock()
+  // (categories/domains are encrypted, so seeding needs the DEK).
+  return { success: true }
+}
+
+export async function confirmSignup(tokenHash: string, type: EmailOtpType): Promise<AuthResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.auth.verifyOtp({ type, token_hash: tokenHash })
+  if (error) return { success: false, error: error.message }
   return { success: true }
 }
 

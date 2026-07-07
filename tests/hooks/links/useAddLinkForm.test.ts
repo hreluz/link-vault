@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { renderHook, act, waitFor } from '@testing-library/react'
+import { renderHook, act } from '@testing-library/react'
 import { useAddLinkForm } from '@/lib/hooks/links/useAddLinkForm'
 import type { LinkWithTags } from '@/lib/services/links'
 
 const SAVED_LINK: LinkWithTags = {
   id: '1', url: 'https://example.com', title: 'Example',
-  status: 'unread', is_favorite: false, image_url: null, deleted_at: null,
+  status: 'unread', is_favorite: false, image_url: null, deleted_at: null, duration: null,
   tags: ['react'], description: '', notes: null,
   site_name: 'example.com', user_id: 'user-1', category_id: 'cat-1',
   created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
@@ -19,6 +19,11 @@ vi.mock('@/app/dashboard/link/actions', () => ({
 
 vi.mock('@/lib/services/links', () => ({
   createLink: vi.fn(),
+}))
+
+const { FAKE_DEK } = vi.hoisted(() => ({ FAKE_DEK: {} as CryptoKey }))
+vi.mock('@/lib/context/VaultContext', () => ({
+  useVault: () => ({ dek: FAKE_DEK, isUnlocked: true, unlock: vi.fn(), changePassword: vi.fn(), lock: vi.fn() }),
 }))
 
 import { createLink } from '@/lib/services/links'
@@ -193,7 +198,7 @@ describe('useAddLinkForm', () => {
 
       expect(mockCreateLink).toHaveBeenCalledWith(expect.objectContaining({
         title: 'example.com/some/very/long/pat',
-      }))
+      }), FAKE_DEK)
     })
 
     it('uses the provided title when set', async () => {
@@ -202,7 +207,7 @@ describe('useAddLinkForm', () => {
       act(() => { result.current.setUrl('https://example.com'); result.current.setTitle('My Title'); result.current.setCategoryId('cat-1') })
       await act(async () => { await result.current.handleSubmit() })
 
-      expect(mockCreateLink).toHaveBeenCalledWith(expect.objectContaining({ title: 'My Title' }))
+      expect(mockCreateLink).toHaveBeenCalledWith(expect.objectContaining({ title: 'My Title' }), FAKE_DEK)
     })
 
     it('passes parsed tags as an array to createLink', async () => {
@@ -213,7 +218,7 @@ describe('useAddLinkForm', () => {
 
       expect(mockCreateLink).toHaveBeenCalledWith(expect.objectContaining({
         tags: ['react', 'css'],
-      }))
+      }), FAKE_DEK)
     })
   })
 })

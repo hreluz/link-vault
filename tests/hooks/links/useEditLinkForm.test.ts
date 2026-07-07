@@ -7,7 +7,7 @@ import type { LinkWithTags } from '@/lib/services/links'
 
 const LINK: LinkWithTags = {
   id: '1', url: 'https://example.com', title: 'Example', description: 'A description',
-  category_id: 'cat-1', status: 'unread', is_favorite: false, image_url: null, deleted_at: null,
+  category_id: 'cat-1', status: 'unread', is_favorite: false, image_url: null, deleted_at: null, duration: null,
   tags: ['react', 'css'], notes: 'my notes',
   site_name: 'example.com', user_id: 'user-1',
   created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
@@ -17,6 +17,22 @@ const UPDATED_LINK: LinkWithTags = { ...LINK, title: 'Updated', tags: ['react'] 
 
 vi.mock('@/lib/services/links', () => ({
   updateLink: vi.fn(),
+}))
+
+const { FAKE_DEK } = vi.hoisted(() => ({ FAKE_DEK: {} as CryptoKey }))
+vi.mock('@/lib/context/VaultContext', () => ({
+  useVault: () => ({ dek: FAKE_DEK, isUnlocked: true, unlock: vi.fn(), changePassword: vi.fn(), lock: vi.fn() }),
+}))
+
+vi.mock('@/lib/context/TagsContext', () => ({
+  useTagsContext: () => ({
+    tags: [
+      { id: 'react', name: 'react', color: null, is_private: false, created_at: '', link_count: 0 },
+      { id: 'css', name: 'css', color: null, is_private: false, created_at: '', link_count: 0 },
+    ],
+    loading: false,
+    refetchTags: vi.fn(),
+  }),
 }))
 
 import { updateLink } from '@/lib/services/links'
@@ -149,7 +165,7 @@ describe('useEditLinkForm', () => {
 
       await act(async () => { await result.current.handleSubmit() })
 
-      expect(mockUpdateLink).toHaveBeenCalledWith(expect.objectContaining({ id: '1' }))
+      expect(mockUpdateLink).toHaveBeenCalledWith(expect.objectContaining({ id: '1' }), FAKE_DEK)
     })
 
     it('uses the first 30 chars of the url without protocol as title when title is empty', async () => {
@@ -160,7 +176,7 @@ describe('useEditLinkForm', () => {
 
       expect(mockUpdateLink).toHaveBeenCalledWith(expect.objectContaining({
         title: 'example.com/some/very/long/pat',
-      }))
+      }), FAKE_DEK)
     })
 
     it('uses the provided title when set', async () => {
@@ -169,7 +185,7 @@ describe('useEditLinkForm', () => {
       act(() => result.current.setTitle('My Title'))
       await act(async () => { await result.current.handleSubmit() })
 
-      expect(mockUpdateLink).toHaveBeenCalledWith(expect.objectContaining({ title: 'My Title' }))
+      expect(mockUpdateLink).toHaveBeenCalledWith(expect.objectContaining({ title: 'My Title' }), FAKE_DEK)
     })
 
     it('passes parsed tags as an array', async () => {
@@ -178,7 +194,7 @@ describe('useEditLinkForm', () => {
       act(() => result.current.setTags(' react , vue , '))
       await act(async () => { await result.current.handleSubmit() })
 
-      expect(mockUpdateLink).toHaveBeenCalledWith(expect.objectContaining({ tags: ['react', 'vue'] }))
+      expect(mockUpdateLink).toHaveBeenCalledWith(expect.objectContaining({ tags: ['react', 'vue'] }), FAKE_DEK)
     })
 
     it('sets error and returns null when updateLink fails', async () => {
@@ -217,7 +233,7 @@ describe('useEditLinkForm', () => {
       act(() => result.current.setNotes(''))
       await act(async () => { await result.current.handleSubmit() })
 
-      expect(mockUpdateLink).toHaveBeenCalledWith(expect.objectContaining({ notes: null }))
+      expect(mockUpdateLink).toHaveBeenCalledWith(expect.objectContaining({ notes: null }), FAKE_DEK)
     })
   })
 })

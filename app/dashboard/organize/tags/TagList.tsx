@@ -7,20 +7,20 @@ import { TagRow } from './TagRow'
 import { PrivateTagPasswordSection } from './PrivateTagPasswordSection'
 import UnlockTagModal from '@/components/UnlockTagModal'
 import { useUnlockedTags } from '@/lib/context/UnlockedTagsContext'
-import { getPrivateTagNames, isTagVisible } from '@/lib/services/tags'
+import { getPrivateTagIds, isTagVisible } from '@/lib/services/tags'
 
 function TagListContent() {
   const { tags, adding, openAdd } = useTagContext()
-  const { unlockedTagNames, unlockTag, lockAll } = useUnlockedTags()
+  const { unlockedTagIds, unlockTag, lockAll } = useUnlockedTags()
   const [unlocking, setUnlocking] = useState(false)
 
   const hasPrivate = tags.some(t => t.is_private)
-  const hasUnlocked = tags.some(t => t.is_private && unlockedTagNames.has(t.name))
-  const visibleTags = tags.filter(t => isTagVisible(t.is_private, t.name, unlockedTagNames))
+  const hasUnlocked = tags.some(t => t.is_private && unlockedTagIds.has(t.id))
+  const visibleTags = tags.filter(t => isTagVisible(t.is_private, t.id, unlockedTagIds))
 
   async function handleUnlock() {
-    const names = await getPrivateTagNames()
-    names.forEach(name => unlockTag(name))
+    const ids = await getPrivateTagIds()
+    ids.forEach(id => unlockTag(id))
   }
 
   return (

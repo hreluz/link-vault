@@ -6,7 +6,7 @@ import { useLinkModals } from '@/lib/hooks/links/useLinkModals'
 
 const LINK = {
   id: '1', title: 'Test', site_name: 'test.com',
-  status: 'unread' as const, is_favorite: false, image_url: null, deleted_at: null,
+  status: 'unread' as const, is_favorite: false, image_url: null, deleted_at: null, duration: null,
   tags: [], created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
   url: 'https://test.com', description: '', notes: null, user_id: 'user-1', category_id: null,
 }

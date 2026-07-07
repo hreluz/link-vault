@@ -2,7 +2,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
-import { useAvailableTags } from '@/lib/hooks/tags/useAvailableTags'
+import { useAvailableTags, useAvailableTagsWithIds } from '@/lib/hooks/tags/useAvailableTags'
 import type { TagWithCount } from '@/lib/services/tags'
 
 const mockUseTagsContext = vi.fn()
@@ -24,7 +24,7 @@ function tag(overrides: Partial<TagWithCount>): TagWithCount {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  mockUseUnlockedTags.mockReturnValue({ unlockedTagNames: new Set() })
+  mockUseUnlockedTags.mockReturnValue({ unlockedTagIds: new Set() })
 })
 
 describe('useAvailableTags', () => {
@@ -55,7 +55,7 @@ describe('useAvailableTags', () => {
       tags: [tag({ name: 'react' }), tag({ id: '2', name: 'secret', is_private: true })],
       loading: false,
     })
-    mockUseUnlockedTags.mockReturnValue({ unlockedTagNames: new Set(['secret']) })
+    mockUseUnlockedTags.mockReturnValue({ unlockedTagIds: new Set(['2']) })
 
     const { result } = renderHook(() => useAvailableTags())
 
@@ -68,5 +68,30 @@ describe('useAvailableTags', () => {
     const { result } = renderHook(() => useAvailableTags())
 
     expect(result.current).toEqual([])
+  })
+})
+
+describe('useAvailableTagsWithIds', () => {
+  it('returns visible tags as id+name pairs, for selection UIs that filter by id', () => {
+    mockUseTagsContext.mockReturnValue({
+      tags: [tag({ id: '1', name: 'react' }), tag({ id: '2', name: 'secret', is_private: true })],
+      loading: false,
+    })
+
+    const { result } = renderHook(() => useAvailableTagsWithIds())
+
+    expect(result.current).toEqual([{ id: '1', name: 'react' }])
+  })
+
+  it('includes a private tag once unlocked, keyed by id', () => {
+    mockUseTagsContext.mockReturnValue({
+      tags: [tag({ id: '2', name: 'secret', is_private: true })],
+      loading: false,
+    })
+    mockUseUnlockedTags.mockReturnValue({ unlockedTagIds: new Set(['2']) })
+
+    const { result } = renderHook(() => useAvailableTagsWithIds())
+
+    expect(result.current).toEqual([{ id: '2', name: 'secret' }])
   })
 })

@@ -19,22 +19,30 @@ When a change needs visual/end-to-end confirmation (not just unit tests), drive 
 ### Before launching
 1. `lsof -i :<port>` — confirm the port is actually free first.
 2. Confirm local Supabase is up: `curl -sf http://127.0.0.1:54321/rest/v1/`.
+3. Email confirmation is required to sign in (`enable_confirmations = true`). `supabase db reset` wipes `auth.users`, so after any reset the `test@linkvault.dev` account needs re-creating via the signup flow and re-confirming — either open the confirmation link from Inbucket (`http://localhost:54324`, enabled by default locally) or, faster for repeated resets, confirm it directly in Supabase Studio (`http://127.0.0.1:54323` → Authentication → Users → edit the user → set "Email Confirmed").
 
 ### Launch
-3. `npm run dev -- -p <port>` in the background, redirected to a log file; capture the wrapper PID, but after the server reports ready, re-resolve the *actual* bound PID via `lsof -i :<port>` (the npm/`next dev` PID is a parent — `pkill -f "next dev"` will NOT match the running `next-server` process, so killing by name later fails silently).
-4. Poll with `curl` in a loop (no `timeout` command on macOS) until it responds — don't fixed-`sleep` and hope.
-5. Check the dev server's log for `Another next dev server is already running` — if present, kill that stale PID first and relaunch before proceeding.
+4. `npm run dev -- -p <port>` in the background, redirected to a log file; capture the wrapper PID, but after the server reports ready, re-resolve the *actual* bound PID via `lsof -i :<port>` (the npm/`next dev` PID is a parent — `pkill -f "next dev"` will NOT match the running `next-server` process, so killing by name later fails silently).
+5. Poll with `curl` in a loop (no `timeout` command on macOS) until it responds — don't fixed-`sleep` and hope.
+6. Check the dev server's log for `Another next dev server is already running` — if present, kill that stale PID first and relaunch before proceeding.
 
 ### Drive it
-6. Never write a driver script into the repo. Pipe it to `node --input-type=module <<'EOF' ... EOF` run from the project root, so Node's ESM resolver finds `node_modules/playwright` without leaving a file behind.
-7. Standard flow: `goto` → `waitForSelector` → fill login (`test@linkvault.dev` / `password123`) → submit → `waitForURL('**/dashboard**')` → screenshot → interact (scroll/click/etc.) → screenshot again.
-8. Always capture: console errors (`page.on('console'/'pageerror')`) and any relevant network calls (e.g. `search_links`/`search_link_ids` RPCs) to confirm behavior, not just appearance.
+7. Never write a driver script into the repo. Pipe it to `node --input-type=module <<'EOF' ... EOF` run from the project root, so Node's ESM resolver finds `node_modules/playwright` without leaving a file behind.
+8. Standard flow: `goto` → `waitForSelector` → fill login (`test@linkvault.dev` / `password123`) → submit → `waitForURL('**/dashboard**')` → screenshot → interact (scroll/click/etc.) → screenshot again.
+9. Always capture: console errors (`page.on('console'/'pageerror')`) and any relevant network calls (e.g. `search_links`/`search_link_ids` RPCs) to confirm behavior, not just appearance.
+
+### Known gotchas (hit these once already — avoid repeating)
+- **Always use `http://localhost:<port>`, never `http://127.0.0.1:<port>`.** Next 16 dev mode blocks cross-origin requests to dev-only resources (HMR socket, client bundles) from any origin other than `localhost` by default. Hitting the app via `127.0.0.1` breaks client-side hydration *silently* — the page still renders, but no React event handlers/effects run, so forms fall back to native (non-JS) submission. This is especially dangerous for any flow whose redirect/next-step depends on a client-side `useEffect` firing after a server action resolves (e.g. login, which bootstraps the vault key client-side before navigating) — it'll look like the action "did nothing" and the page will just sit there with reset fields. If a login/form-submit flow ever seems to silently no-op in a Playwright run, check the dev server log for a `⚠ Blocked cross-origin request` warning before assuming it's an app bug.
+- **The Add Link modal hides most fields behind "More options".** Only the URL field is visible by default; click the "More options" toggle to reveal Title/Category/Tags/Duration/Notes before trying to fill them.
+- **The search box is `input[type="search"]`, not `type="text"`.**
+- **Use real in-app link/button clicks — not `page.goto()` — when navigating between already-authenticated dashboard pages if the thing you're testing depends on client-only in-memory state** (e.g. the unlocked vault key held in `VaultContext`). `page.goto()` always performs a full browser navigation/reload, which remounts the entire React tree from scratch and wipes any in-memory-only state, same as a real hard refresh. That's often *correct* app behavior to trigger deliberately (e.g. confirming the vault re-locks on refresh) but will masquerade as a broken flow if you didn't mean to trigger it — e.g. navigating to the change-password page via `goto` will show the vault-locked screen instead of the form, not because change-password is broken but because `goto` itself re-locked the vault.
+- **Some nav links exist twice in the DOM** (a desktop top nav + a mobile bottom nav, both matching the same link text/href) **and only one is visible at the current viewport.** A plain `page.click('text=Config')` can resolve to the hidden one and hang waiting for visibility. When clicking a nav item by text, iterate all matches and click whichever one `isVisible()` returns true for, rather than assuming `.first()`.
 
 ### Screenshots
-9. Save to `.verification-screenshots/<branch-name>_<date>/` (dot-prefixed and gitignored, matching this repo's convention for tool-generated dirs like `.next/`). Each image filename carries its own capture time, e.g. `01_initial_load_11-33-07.png`. Write a `README.md` in that folder describing what each image shows and confirms.
+10. Save to `.verification-screenshots/<branch-name>_<date>/` (dot-prefixed and gitignored, matching this repo's convention for tool-generated dirs like `.next/`). Each image filename carries its own capture time, e.g. `01_initial_load_11-33-07.png`. Write a `README.md` in that folder describing what each image shows and confirms.
 
 ### Cleanup
-10. Kill the dev server by the exact PID(s) captured in step 3, confirm the port is free again (`lsof -i :<port>`), and report back before considering the task done.
+11. Kill the dev server by the exact PID(s) captured in step 4, confirm the port is free again (`lsof -i :<port>`), and report back before considering the task done.
 
 ## Stack
 
@@ -63,7 +71,6 @@ The central entity. Every saved link has:
 | `site_name` | string \| null | auto-extracted from URL (e.g. `youtube.com`) |
 | `image_url` | string \| null | og:image URL; stored as-is (not uploaded); shown as full-bleed thumbnail on `LinkCard` |
 | `duration` | string \| null | video duration (e.g. `4:33`); auto-fetched for YouTube via Data API v3; editable for any platform |
-| `content_type` | `ContentType` | see below |
 | `notes` | string \| null | free-form personal notes |
 | `category_id` | string \| null | FK → categories |
 | `status` | `LinkStatus` | see below |

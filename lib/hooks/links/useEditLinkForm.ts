@@ -1,9 +1,11 @@
 'use client'
 
 import { updateLink, type LinkWithTags } from '@/lib/services/links'
+import { useVault } from '@/lib/context/VaultContext'
+import { useTagNameLookup } from '@/lib/hooks/tags/useTagNameLookup'
 import { DEFAULT_FIELDS, useLinkForm } from './useLinkForm'
 
-function toFormState(link: LinkWithTags) {
+function toFormState(link: LinkWithTags, tagNameById: Map<string, string>) {
   return {
     url: link.url,
     title: link.title ?? '',
@@ -12,16 +14,18 @@ function toFormState(link: LinkWithTags) {
     duration: link.duration ?? '',
     categoryId: link.category_id,
     status: link.status,
-    tags: link.tags.join(', '),
+    tags: link.tags.map(id => tagNameById.get(id)).filter((name): name is string => !!name).join(', '),
     notes: link.notes ?? '',
   }
 }
 
 export function useEditLinkForm(link: LinkWithTags | null) {
-  const form = useLinkForm(link ? toFormState(link) : DEFAULT_FIELDS)
+  const { dek } = useVault()
+  const tagNameById = useTagNameLookup()
+  const form = useLinkForm(link ? toFormState(link, tagNameById) : DEFAULT_FIELDS)
 
   async function handleSubmit(): Promise<LinkWithTags | null> {
-    if (!link) return null
+    if (!link || !dek) return null
     return form.wrapSubmit(
       () => updateLink({
         id: link.id,
@@ -34,7 +38,7 @@ export function useEditLinkForm(link: LinkWithTags | null) {
         status: form.status,
         notes: form.notes || null,
         tags: form.parsedTags,
-      }),
+      }, dek),
       'Failed to save changes. Please try again.',
     )
   }

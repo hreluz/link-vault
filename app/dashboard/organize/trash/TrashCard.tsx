@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import SwipeableCard from '@/components/SwipeableCard'
 import type { TrashedLink } from '@/lib/services/trash'
+import { useTagNameLookup } from '@/lib/hooks/tags/useTagNameLookup'
 
 interface Props {
   link: TrashedLink
@@ -12,6 +13,7 @@ interface Props {
 
 export default function TrashCard({ link, onRestore, onDeletePermanently }: Props) {
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const tagNameById = useTagNameLookup()
 
   const deletedDate = link.deleted_at
     ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(link.deleted_at))
@@ -89,9 +91,9 @@ export default function TrashCard({ link, onRestore, onDeletePermanently }: Prop
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5">
-          {link.tags.map(tag => (
-            <span key={tag} className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-400 dark:bg-slate-800 dark:text-slate-500">
-              {tag}
+          {link.tags.map(tagId => (
+            <span key={tagId} className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-400 dark:bg-slate-800 dark:text-slate-500">
+              {tagNameById.get(tagId) ?? tagId}
             </span>
           ))}
           {deletedDate && (

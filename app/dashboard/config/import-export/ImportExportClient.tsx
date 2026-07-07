@@ -8,6 +8,8 @@ import { getLinks } from '@/lib/services/links'
 import { importLinks, type ImportLinkInput } from '@/lib/services/links'
 import { getCategories, getOrCreateCategoryByName } from '@/lib/services/categories'
 import { useTagsContext } from '@/lib/context/TagsContext'
+import { useTagNameLookup } from '@/lib/hooks/tags/useTagNameLookup'
+import { useVault } from '@/lib/context/VaultContext'
 
 type ImportTab = 'urls' | 'json' | 'file'
 type ParsedRow = ImportLinkInput & { categoryName?: string }
@@ -25,6 +27,7 @@ function triggerDownload(content: string, filename: string, mimeType: string) {
 function linksToCSV(
   links: Awaited<ReturnType<typeof getLinks>>,
   categoryMap: Map<string, string>,
+  tagNameById: Map<string, string>,
 ): string {
   const header = 'url,title,site_name,category,status,is_favorite,notes,tags,created_at'
   const escape = (val: string | null | undefined) => {
@@ -43,7 +46,7 @@ function linksToCSV(
       escape(l.status),
       l.is_favorite ? 'true' : 'false',
       escape(l.notes),
-      escape(l.tags.join('|')),
+      escape(l.tags.map(id => tagNameById.get(id) ?? id).join('|')),
       escape(l.created_at),
     ].join(','),
   )
@@ -98,7 +101,9 @@ function parseCSV(text: string): ParsedRow[] {
 }
 
 export default function ImportExportClient() {
+  const { dek } = useVault()
   const { refetchTags } = useTagsContext()
+  const tagNameById = useTagNameLookup()
   const [importTab, setImportTab] = useState<ImportTab>('urls')
   const [isDragging, setIsDragging] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -141,17 +146,22 @@ export default function ImportExportClient() {
     : !!selectedFile
 
   async function handleExport(format: 'json' | 'csv') {
+    if (!dek) return
     setExporting(format)
     try {
-      const links = await getLinks()
+      const links = await getLinks(dek)
       const now = new Date().toISOString().slice(0, 10)
       if (format === 'json') {
-        const data = links.map(({ user_id, deleted_at, ...rest }) => rest)
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars -- destructured only to omit them from the export
+        const data = links.map(({ user_id, deleted_at, tags, ...rest }) => ({
+          ...rest,
+          tags: tags.map(id => tagNameById.get(id) ?? id),
+        }))
         triggerDownload(JSON.stringify(data, null, 2), `link-vault-${now}.json`, 'application/json')
       } else {
-        const categories = await getCategories()
+        const categories = await getCategories(dek)
         const categoryMap = new Map(categories.map(c => [c.id, c.name]))
-        triggerDownload(linksToCSV(links, categoryMap), `link-vault-${now}.csv`, 'text/csv')
+        triggerDownload(linksToCSV(links, categoryMap, tagNameById), `link-vault-${now}.csv`, 'text/csv')
       }
       toast.success(`Exported ${links.length} links as ${format.toUpperCase()}`)
     } catch {
@@ -162,6 +172,7 @@ export default function ImportExportClient() {
   }
 
   async function handleImport() {
+    if (!dek) return
     setImporting(true)
     setLastResult(null)
     const catId = defaultCategoryId || null
@@ -194,7 +205,7 @@ export default function ImportExportClient() {
           )]
           const nameToId = new Map<string, string>()
           for (const name of uniqueNames) {
-            const id = await getOrCreateCategoryByName(name)
+            const id = await getOrCreateCategoryByName(name, dek)
             if (id) nameToId.set(name, id)
           }
           inputs = parsed.map(({ categoryName, ...row }) => ({
@@ -211,7 +222,7 @@ export default function ImportExportClient() {
 
       if (inputs.length === 0) { toast.error('No valid links found'); return }
 
-      const result = await importLinks(inputs, catId)
+      const result = await importLinks(inputs, catId, dek)
       setLastResult(result)
       if (result.imported > 0) {
         setUrlsText('')

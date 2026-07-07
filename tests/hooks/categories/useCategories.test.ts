@@ -14,6 +14,11 @@ vi.mock('@/lib/services/categories', () => ({
   PROTECTED_CATEGORY_NAME: 'Not defined',
 }))
 
+const FAKE_DEK = {} as CryptoKey
+vi.mock('@/lib/context/VaultContext', () => ({
+  useVault: () => ({ dek: FAKE_DEK, isUnlocked: true, unlock: vi.fn(), changePassword: vi.fn(), lock: vi.fn() }),
+}))
+
 import { getCategories, createCategory, updateCategory, deleteCategory, getCategoryLinksCount } from '@/lib/services/categories'
 const mockGetCategories = vi.mocked(getCategories)
 const mockCreateCategory = vi.mocked(createCategory)
@@ -126,7 +131,7 @@ describe('useCategories', () => {
       })
       await act(() => result.current.handleAdd())
 
-      expect(mockCreateCategory).toHaveBeenCalledWith({ name: 'New Cat', emoticon: '🎯', color: 'emerald' })
+      expect(mockCreateCategory).toHaveBeenCalledWith({ name: 'New Cat', emoticon: '🎯', color: 'emerald' }, FAKE_DEK)
       expect(result.current.categories).toContainEqual(created)
       expect(result.current.adding).toBe(false)
       expect(result.current.addError).toBeNull()
@@ -176,7 +181,7 @@ describe('useCategories', () => {
       await act(() => result.current.handleAdd())
 
       expect(mockCreateCategory).toHaveBeenCalledWith(
-        expect.objectContaining({ emoticon: '🔗' }),
+        expect.objectContaining({ emoticon: '🔗' }), FAKE_DEK,
       )
     })
 
@@ -188,7 +193,7 @@ describe('useCategories', () => {
       await act(() => result.current.handleAdd())
 
       expect(mockCreateCategory).toHaveBeenCalledWith(
-        expect.objectContaining({ color: 'rose' }),
+        expect.objectContaining({ color: 'rose' }), FAKE_DEK,
       )
     })
 
@@ -200,7 +205,7 @@ describe('useCategories', () => {
       await act(() => result.current.handleAdd())
 
       expect(mockCreateCategory).toHaveBeenCalledWith(
-        expect.objectContaining({ color: 'indigo' }),
+        expect.objectContaining({ color: 'indigo' }), FAKE_DEK,
       )
     })
 
@@ -266,7 +271,7 @@ describe('useCategories', () => {
       await act(() => result.current.handleSaveEdit())
 
       expect(mockUpdateCategory).toHaveBeenCalledWith(
-        expect.objectContaining({ id: CAT_A.id, name: 'Renamed', emoticon: '🆕', color: 'sky' }),
+        expect.objectContaining({ id: CAT_A.id, name: 'Renamed', emoticon: '🆕', color: 'sky' }), FAKE_DEK,
       )
       expect(result.current.categories.find(c => c.id === CAT_A.id)).toEqual(updated)
       expect(result.current.editingId).toBeNull()
@@ -281,7 +286,7 @@ describe('useCategories', () => {
       await act(() => result.current.handleSaveEdit())
 
       expect(mockUpdateCategory).toHaveBeenCalledWith(
-        expect.objectContaining({ color: 'purple' }),
+        expect.objectContaining({ color: 'purple' }), FAKE_DEK,
       )
     })
 
@@ -308,7 +313,7 @@ describe('useCategories', () => {
       await act(() => result.current.handleSaveEdit())
 
       expect(mockUpdateCategory).toHaveBeenCalledWith(
-        expect.objectContaining({ emoticon: '🔗' }),
+        expect.objectContaining({ emoticon: '🔗' }), FAKE_DEK,
       )
     })
 
