@@ -5,6 +5,7 @@ A personal "save for later" app for bookmarking links across content types — v
 ## Features
 
 - **Save links** — paste a URL; domain and site name are extracted automatically; `og:title`, `og:description`, and `og:image` are fetched server-side after a short debounce; an ON/OFF toggle lets you disable auto-fetch and clear prefilled data; YouTube video duration is fetched via YouTube Data API v3 (requires `YOUTUBE_API_KEY`) and shown as a badge on the thumbnail; duration is editable for any platform
+- **Quick Capture** — a bookmarklet (`/dashboard/config/quick-capture`) that saves whatever page you're on from any site in one click, opening the Add Link form pre-filled with its URL and title; works even through a locked vault or a fully logged-out session — the capture is carried through both the unlock screen and the login redirect, then resumed automatically
 - **Categorize** — user-defined categories with emoji icons and color labels; 9 defaults seeded on first login; domains can be mapped to categories for auto-assignment
 - **Tag** — flexible tag system; comma-separated input and `#tag` syntax in search; autocomplete suggests existing tags as you type (substring match, keyboard-navigable with ↑/↓, Tab/Enter to select)
 - **Private tags** — single global password (SHA-256 + optional hint) protects all private tags at once; session-scoped unlock via modal; lock/unlock icon buttons in the tags header; changing the password requires the current password; 5 failed attempts triggers a scoped nuke (only private-tag-linked links and private tags are deleted) and allows a fresh password after re-login
@@ -56,6 +57,8 @@ npm test
 ## Project structure
 
 ```
+proxy.ts              # auth gate for the whole app (Next.js 16's renamed middleware.ts);
+                       # also preserves a Quick Capture deep link through the /login redirect
 app/
   (auth)/           # login, signup
   dashboard/
@@ -67,6 +70,7 @@ app/
     config/
       change-password/
       import-export/
+      quick-capture/  # bookmarklet install page
 components/         # shared UI (ColorPicker, SearchBar, SwipeableCard, …)
 lib/
   services/         # Supabase business logic (no Next.js deps)
@@ -74,6 +78,7 @@ lib/
   context/          # React context (TagsContext, UnlockedTagsContext)
   types/            # TypeScript types (Database, Link, Tag, …)
   supabase/         # server + browser Supabase clients
+  bookmarklet.ts    # builds the Quick Capture bookmarklet + its post-login resume URL
 supabase/
   migrations/       # SQL migrations
 tests/              # Vitest unit tests

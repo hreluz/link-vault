@@ -31,7 +31,15 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   if (!user && pathname.startsWith('/dashboard')) {
-    return NextResponse.redirect(new URL('/login', request.url))
+    const loginUrl = new URL('/login', request.url)
+    // Preserve a bookmarklet quick-capture deep link (?add=1&url=&title=)
+    // through the login detour. Deliberately narrow: only these two values,
+    // only when add=1 is explicitly present -- never a general redirectTo.
+    if (request.nextUrl.searchParams.get('add') === '1') {
+      loginUrl.searchParams.set('capturedUrl', request.nextUrl.searchParams.get('url') ?? '')
+      loginUrl.searchParams.set('capturedTitle', request.nextUrl.searchParams.get('title') ?? '')
+    }
+    return NextResponse.redirect(loginUrl)
   }
 
   if (user && (pathname === '/login' || pathname === '/signup')) {
