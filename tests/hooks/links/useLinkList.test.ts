@@ -36,6 +36,11 @@ vi.mock('@/components/ToastProvider', () => ({
   useToast: () => ({ addToast: mockAddToast, dismissToast: vi.fn() }),
 }))
 
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ replace: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+}))
+
 vi.mock('@/lib/services/links', () => ({
   getLinksPage: vi.fn(),
   getMatchingLinkIds: vi.fn(),
