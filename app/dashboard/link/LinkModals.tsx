@@ -28,14 +28,18 @@ export default function LinkModals() {
     handleFavoriteToggle,
     resetFilters,
     addToast,
+    pendingCapture, setPendingCapture,
   } = useLinkListContext()
 
   return (
     <>
       <AddLinkModal
+        key={pendingCapture?.url ?? 'add-link'}
         isOpen={modalOpen}
-        onSuccess={link => { handleCreate(link); addToast('Link saved'); setModalOpen(false) }}
-        onClose={() => setModalOpen(false)}
+        initialUrl={pendingCapture?.url}
+        initialTitle={pendingCapture?.title}
+        onSuccess={link => { handleCreate(link); addToast('Link saved'); setModalOpen(false); setPendingCapture(null) }}
+        onClose={() => { setModalOpen(false); setPendingCapture(null) }}
       />
 
       <EditLinkModal

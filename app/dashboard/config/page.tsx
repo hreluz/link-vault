@@ -7,6 +7,12 @@ export const metadata: Metadata = { title: 'Config — Link Vault' }
 
 const SETTINGS = [
   {
+    href: '/dashboard/config/quick-capture',
+    icon: '🔖',
+    title: 'Quick Capture',
+    description: 'Save links from anywhere with a bookmarklet',
+  },
+  {
     href: '/dashboard/config/import-export',
     icon: '📦',
     title: 'Import & Export',

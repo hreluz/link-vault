@@ -10,9 +10,9 @@ function isValidUrl(url: string): boolean {
   try { new URL(url); return true } catch { return false }
 }
 
-export function useAddLinkForm() {
+export function useAddLinkForm(initialUrl?: string, initialTitle?: string) {
   const { dek } = useVault()
-  const form = useLinkForm(DEFAULT_FIELDS)
+  const form = useLinkForm({ ...DEFAULT_FIELDS, url: initialUrl ?? '', title: initialTitle ?? '' })
   const [autoFetch, setAutoFetch] = useState(true)
   const titleTouchedRef = useRef(false)
   const lastFetchedUrlRef = useRef('')

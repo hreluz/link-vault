@@ -1,8 +1,23 @@
 // @vitest-environment jsdom
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useLinkModals } from '@/lib/hooks/links/useLinkModals'
+
+const { mockReplace, mockParams } = vi.hoisted(() => ({
+  mockReplace: vi.fn(),
+  mockParams: new URLSearchParams(),
+}))
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ replace: mockReplace }),
+  useSearchParams: () => mockParams,
+}))
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  for (const key of Array.from(mockParams.keys())) mockParams.delete(key)
+})
 
 const LINK = {
   id: '1', title: 'Test', site_name: 'test.com',
@@ -59,5 +74,25 @@ describe('useLinkModals', () => {
 
     act(() => result.current.setEditingLink(null))
     expect(result.current.editingLink).toBeNull()
+  })
+
+  it('opens the add-link modal prefilled when add=1 is in the URL, then strips it', () => {
+    mockParams.set('add', '1')
+    mockParams.set('url', 'https://example.com')
+    mockParams.set('title', 'Example')
+
+    const { result } = renderHook(() => useLinkModals())
+
+    expect(result.current.modalOpen).toBe(true)
+    expect(result.current.pendingCapture).toEqual({ url: 'https://example.com', title: 'Example' })
+    expect(mockReplace).toHaveBeenCalledWith('/dashboard', { scroll: false })
+  })
+
+  it('does not open the add-link modal when add is absent', () => {
+    const { result } = renderHook(() => useLinkModals())
+
+    expect(result.current.modalOpen).toBe(false)
+    expect(result.current.pendingCapture).toBeNull()
+    expect(mockReplace).not.toHaveBeenCalled()
   })
 })
