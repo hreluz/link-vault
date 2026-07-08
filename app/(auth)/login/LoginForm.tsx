@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { loginAction } from './actions'
 import { useVault } from '@/lib/context/VaultContext'
+import { buildCaptureResumeUrl } from '@/lib/bookmarklet'
 
 export default function LoginForm() {
   const router = useRouter()
@@ -15,6 +16,8 @@ export default function LoginForm() {
   const [vaultError, setVaultError] = useState<string | null>(null)
   const [unlocking, setUnlocking] = useState(false)
   const confirmError = searchParams.get('confirmError')
+  const capturedUrl = searchParams.get('capturedUrl')
+  const capturedTitle = searchParams.get('capturedTitle')
 
   useEffect(() => {
     if (!state?.success) return
@@ -33,7 +36,7 @@ export default function LoginForm() {
         return
       }
 
-      router.push('/dashboard')
+      router.push(buildCaptureResumeUrl(capturedUrl, capturedTitle))
     }
 
     bootstrapVault()

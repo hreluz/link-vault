@@ -180,8 +180,9 @@ Planned types to eventually recognize:
 
 | Context | Client to use | Import |
 |---|---|---|
-| Server actions, middleware | Server client | `@/lib/supabase/server` |
+| Server actions, Server Components | Server client | `@/lib/supabase/server` |
 | Client hooks, browser services | Browser client | `@/lib/supabase/client` |
+| `proxy.ts` (this Next.js version renamed `middleware.ts` to `proxy.ts`) | Inline `createServerClient`, own `NextRequest`/`NextResponse` cookie adapter | see `proxy.ts` |
 
 Never import `@/lib/supabase/server` in a file that is (or can be) included in the client bundle — it uses `cookies()` from `next/headers` which is server-only and will break the build.
 
