@@ -134,19 +134,6 @@ Maps URL domains to categories for auto-assignment when creating a link.
 
 Unique constraint: `(user_id, domain)`.
 
-### Content types
-
-> **Not yet implemented.** There is no `content_type` column in the `links` DB table (`lib/types/database.ts`). Visual differentiation by content type is a planned feature. The category system (user-defined with emoji) is the current mechanism for type organization. Do not reference or filter on `content_type` — the field does not exist on `LinkWithTags`.
-
-Planned types to eventually recognize:
-- YouTube / video
-- Instagram / Reels / TikTok
-- Articles / blog posts
-- Courses / documentation
-- Tweets / X posts
-- GitHub repositories
-- Generic / other
-
 ## Key features
 
 1. **Save a link** — paste URL, auto-extract `site_name` from hostname; `fetchLinkMeta` server action (`app/dashboard/link/actions.ts`) fetches `og:title`, `og:description`, and `og:image` after a 600 ms debounce; title pre-fills only if the user hasn't typed one; description and image always populate; `image_url` stored in the `links` table and shown as a full-bleed thumbnail at the top of `LinkCard`; an ON/OFF toggle in `UrlField` disables auto-fetch and clears prefilled data; YouTube video duration is fetched via YouTube Data API v3 (`YOUTUBE_API_KEY` env var, optional, free tier 10k units/day) and stored in `duration`; duration is editable in the form for any platform and shown as a badge over the thumbnail (or inline next to `site_name` when no thumbnail)
