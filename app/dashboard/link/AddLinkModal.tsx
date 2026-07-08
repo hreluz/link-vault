@@ -10,12 +10,14 @@ import LinkForm from './LinkForm'
 
 interface Props {
   isOpen: boolean
+  initialUrl?: string
+  initialTitle?: string
   onSuccess?: (link: LinkWithTags) => void
   onClose: () => void
 }
 
-export default function AddLinkModal({ isOpen, onSuccess, onClose }: Props) {
-  const form = useAddLinkForm()
+export default function AddLinkModal({ isOpen, initialUrl, initialTitle, onSuccess, onClose }: Props) {
+  const form = useAddLinkForm(initialUrl, initialTitle)
   const { categories } = useCategoryList()
   useAutoAssignCategory(form, categories, isOpen)
 
