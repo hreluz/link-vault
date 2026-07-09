@@ -16,6 +16,9 @@ export async function signupAction(
 
   const email = formData.get('email') as string
   const password = formData.get('password') as string
+  const confirmPassword = formData.get('confirmPassword') as string
+
+  if (password !== confirmPassword) return { error: 'Passwords do not match.' }
 
   const result = await signUp(email, password)
   if (!result.success) return { error: result.error }

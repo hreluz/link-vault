@@ -1,11 +1,14 @@
 'use client'
 
-import { useActionState } from 'react'
+import { useActionState, useState } from 'react'
 import Link from 'next/link'
 import { signupAction } from './actions'
 
 export default function SignupForm() {
   const [state, action, pending] = useActionState(signupAction, null)
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const passwordsMatch = confirmPassword.length === 0 || confirmPassword === password
 
   if (state?.success) {
     return (
@@ -53,8 +56,34 @@ export default function SignupForm() {
           required
           autoComplete="new-password"
           placeholder="••••••••"
+          value={password}
+          onChange={e => setPassword(e.target.value)}
           className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500"
         />
+      </div>
+
+      <div className="space-y-1">
+        <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+          Confirm password
+        </label>
+        <input
+          id="confirmPassword"
+          name="confirmPassword"
+          type="password"
+          required
+          autoComplete="new-password"
+          placeholder="••••••••"
+          value={confirmPassword}
+          onChange={e => setConfirmPassword(e.target.value)}
+          className={`w-full rounded-xl border px-4 py-3 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:ring-2 dark:text-slate-100 dark:placeholder-slate-500 ${
+            !passwordsMatch
+              ? 'border-red-400 bg-red-50 focus:border-red-500 focus:ring-red-500/20 dark:border-red-700 dark:bg-red-900/20'
+              : 'border-slate-200 bg-white focus:border-indigo-500 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800'
+          }`}
+        />
+        {!passwordsMatch && (
+          <p className="mt-1.5 text-xs text-red-600 dark:text-red-400">Passwords do not match</p>
+        )}
       </div>
 
       {state?.error && (
@@ -65,7 +94,7 @@ export default function SignupForm() {
 
       <button
         type="submit"
-        disabled={pending}
+        disabled={pending || (confirmPassword.length > 0 && !passwordsMatch)}
         className="w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {pending ? 'Creating account…' : 'Create account'}

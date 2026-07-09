@@ -14,7 +14,11 @@
    npx supabase migration list
    ```
    The Local and Remote columns should match on every version.
-4. In the dashboard, go to **Auth → URL Configuration** and add your Vercel domain to Site URL / Redirect URLs (you can do this after step 2 once you know the domain).
+4. In the dashboard, go to **Auth → URL Configuration** and set:
+   - **Site URL** → your production Vercel URL (e.g. `https://your-app.vercel.app`)
+   - **Redirect URLs** → add that same URL (plus any preview/custom domains)
+
+   You can do this after step 2 once you know the domain. Supabase defaults **Site URL** to `http://localhost:3000` for every new project — if you skip this, confirmation/magic-link emails sent from prod will keep linking back to `localhost:3000` instead of your deployed app. This has to be updated per environment (local vs. prod both need their own Site URL), and only takes effect for emails sent *after* the change — anyone with an already-sent localhost link needs a fresh email.
 
 ## 2. Vercel
 
@@ -27,7 +31,7 @@
    | `NEXT_PUBLIC_SUPABASE_URL` | from step 1.1 |
    | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | from step 1.1 |
    | `YOUTUBE_API_KEY` | optional — enables YouTube duration auto-fetch |
-   | `ADMIN_EMAIL` | account email to grant the `admin` role at signup |
+   | `ADMIN_EMAIL` | account email to grant the `admin` role on email confirmation |
 
 4. Deploy.
 
