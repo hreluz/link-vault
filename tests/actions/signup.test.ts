@@ -17,10 +17,11 @@ beforeEach(() => {
   mockIsRegistrationEnabled.mockResolvedValue(true)
 })
 
-function makeFormData(email: string, password: string) {
+function makeFormData(email: string, password: string, confirmPassword: string = password) {
   const fd = new FormData()
   fd.append('email', email)
   fd.append('password', password)
+  fd.append('confirmPassword', confirmPassword)
   return fd
 }
 
@@ -48,6 +49,13 @@ describe('signupAction', () => {
     const result = await signupAction(null, makeFormData('new@example.com', 'password123'))
 
     expect(result).toEqual({ error: 'New account registration is currently disabled.' })
+    expect(mockSignUp).not.toHaveBeenCalled()
+  })
+
+  it('returns error and skips signUp when passwords do not match', async () => {
+    const result = await signupAction(null, makeFormData('new@example.com', 'password123', 'different'))
+
+    expect(result).toEqual({ error: 'Passwords do not match.' })
     expect(mockSignUp).not.toHaveBeenCalled()
   })
 })
