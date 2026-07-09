@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { signIn, signUp, signOut, confirmSignup } from '@/lib/services/auth'
+import { signIn, signUp, signOut, confirmSignup, requestAccountRestart } from '@/lib/services/auth'
 
 const {
   mockSignInWithPassword,
   mockSignUp,
   mockSignOut,
   mockVerifyOtp,
+  mockResetPasswordForEmail,
   mockIsAdminEmail,
   mockUpdateEq,
   mockUpdate,
@@ -19,6 +20,7 @@ const {
     mockSignUp: vi.fn(),
     mockSignOut: vi.fn(),
     mockVerifyOtp: vi.fn(),
+    mockResetPasswordForEmail: vi.fn(),
     mockIsAdminEmail: vi.fn().mockReturnValue(false),
     mockUpdateEq,
     mockUpdate,
@@ -33,6 +35,7 @@ vi.mock('@/lib/supabase/server', () => ({
       signUp: mockSignUp,
       signOut: mockSignOut,
       verifyOtp: mockVerifyOtp,
+      resetPasswordForEmail: mockResetPasswordForEmail,
     },
     from: mockFrom,
   }),
@@ -162,5 +165,27 @@ describe('confirmSignup', () => {
 
     expect(result).toEqual({ success: true })
     expect(mockUpdate).not.toHaveBeenCalled()
+  })
+})
+
+describe('requestAccountRestart', () => {
+  it('returns success when the reset email is sent', async () => {
+    mockResetPasswordForEmail.mockResolvedValue({ data: {}, error: null })
+
+    const result = await requestAccountRestart('user@example.com')
+
+    expect(result).toEqual({ success: true })
+    expect(mockResetPasswordForEmail).toHaveBeenCalledWith('user@example.com')
+  })
+
+  it('returns the error message when the request fails', async () => {
+    mockResetPasswordForEmail.mockResolvedValue({
+      data: null,
+      error: { message: 'Email rate limit exceeded' },
+    })
+
+    const result = await requestAccountRestart('user@example.com')
+
+    expect(result).toEqual({ success: false, error: 'Email rate limit exceeded' })
   })
 })

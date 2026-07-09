@@ -39,3 +39,10 @@ export async function signOut(): Promise<void> {
   const supabase = await createClient()
   await supabase.auth.signOut()
 }
+
+export async function requestAccountRestart(email: string): Promise<AuthResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.auth.resetPasswordForEmail(email)
+  if (error) return { success: false, error: error.message }
+  return { success: true }
+}
