@@ -98,6 +98,12 @@ export default function LoginForm() {
           Create one
         </Link>
       </p>
+
+      <p className="text-center text-sm text-slate-500 dark:text-slate-400">
+        <Link href="/restart-account" className="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300">
+          Restart account
+        </Link>
+      </p>
     </form>
   )
 }

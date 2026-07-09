@@ -44,4 +44,18 @@ describe('GET /auth/confirm', () => {
 
     expect(mockConfirmSignup).not.toHaveBeenCalled()
   })
+
+  it('redirects to /restart-account/confirm when a recovery token verifies successfully', async () => {
+    mockConfirmSignup.mockResolvedValue({ success: true })
+
+    await expect(GET(makeRequest('?token_hash=abc&type=recovery'))).rejects.toThrow('REDIRECT:/restart-account/confirm')
+
+    expect(mockConfirmSignup).toHaveBeenCalledWith('abc', 'recovery')
+  })
+
+  it('redirects to /restart-account?confirmError=1 when a recovery token is invalid or expired', async () => {
+    mockConfirmSignup.mockResolvedValue({ success: false, error: 'Token has expired or is invalid' })
+
+    await expect(GET(makeRequest('?token_hash=bad&type=recovery'))).rejects.toThrow('REDIRECT:/restart-account?confirmError=1')
+  })
 })
