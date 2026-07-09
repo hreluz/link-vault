@@ -73,4 +73,11 @@ describe('LoginForm', () => {
     await screen.findByText('Could not unlock your vault. Please try again.')
     expect(mockPush).not.toHaveBeenCalled()
   })
+
+  it('links to /restart-account for a forgotten password', () => {
+    render(<LoginForm />)
+
+    const link = screen.getByRole('link', { name: /restart account/i })
+    expect(link.getAttribute('href')).toBe('/restart-account')
+  })
 })
