@@ -19,6 +19,8 @@ A personal "save for later" app for bookmarking links across content types — v
 - **Bulk actions** — long-press a card (or tap "Select" in the header) to enter selection mode; select multiple links then archive, delete, re-categorize, or add tags in one shot; "Select all" selects every link matching your current filter (not just what's loaded), up to 2,000 at a time; delete requires modal confirmation; all mutations are optimistic with rollback on failure
 - **Import / Export** — fully functional at `/dashboard/config/import-export`; export all links as JSON or CSV; import from pasted URLs (one per line), pasted JSON, or file upload (.json / .csv); CSV supports a `category` column and pipe-separated `tags`; duplicate URLs are detected per-user and skipped automatically
 - **Change password** — requires current password verification before updating
+- **Account restart** — forgotten-password recovery at `/restart-account`; sets a new password and permanently wipes the account's existing links, tags, and categories to bootstrap a fresh vault (requires typing `DELETE` to confirm)
+- **Admin settings** — admin-only page at `/dashboard/config/admin-settings` with two toggles: enable/disable new user registration, and enable/disable the account-restart flow
 - **Dark mode** — theme toggle with no flash on load
 
 ## Encryption
@@ -60,7 +62,7 @@ npm test
 proxy.ts              # auth gate for the whole app (Next.js 16's renamed middleware.ts);
                        # also preserves a Quick Capture deep link through the /login redirect
 app/
-  (auth)/           # login, signup
+  (auth)/           # login, signup, restart-account (forgotten password)
   dashboard/
     link/           # main links view + forms (includes the All Links / Favorites toggle)
     organize/
@@ -69,6 +71,7 @@ app/
       trash/        # deleted links — restore or purge
     config/
       change-password/
+      admin-settings/  # admin-only: toggle registration + account-restart
       import-export/
       quick-capture/  # bookmarklet install page
 components/         # shared UI (ColorPicker, SearchBar, SwipeableCard, …)
