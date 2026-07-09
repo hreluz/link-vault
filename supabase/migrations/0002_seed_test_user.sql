@@ -5,6 +5,10 @@
 -- id:       00000000-0000-0000-0000-000000000001
 -- ============================================================
 
+-- pgcrypto ships pre-enabled in the local Supabase Docker image but not on
+-- hosted projects by default, so enable it explicitly before using crypt()/gen_salt().
+create extension if not exists pgcrypto with schema extensions;
+
 insert into auth.users (
   id,
   instance_id,
@@ -28,7 +32,7 @@ insert into auth.users (
   'authenticated',
   'authenticated',
   'test@linkvault.dev',
-  crypt('password123', gen_salt('bf')),
+  extensions.crypt('password123', extensions.gen_salt('bf')),
   now(),
   '{"provider": "email", "providers": ["email"]}',
   '{"sub": "00000000-0000-0000-0000-000000000001", "email": "test@linkvault.dev", "email_verified": true, "phone_verified": false}',
