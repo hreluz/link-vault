@@ -10,7 +10,8 @@ export async function GET(request: NextRequest) {
 
   if (tokenHash && type) {
     const result = await confirmSignup(tokenHash, type)
-    if (result.success) redirect('/dashboard')
+    if (result.success) redirect(type === 'recovery' ? '/restart-account/confirm' : '/dashboard')
+    if (type === 'recovery') redirect('/restart-account?confirmError=1')
   }
 
   redirect('/login?confirmError=1')

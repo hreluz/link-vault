@@ -220,17 +220,20 @@ export interface Database {
         Row: {
           id: string
           registrations_enabled: boolean
+          restart_account_enabled: boolean
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
           registrations_enabled?: boolean
+          restart_account_enabled?: boolean
           created_at?: string
           updated_at?: string
         }
         Update: {
           registrations_enabled?: boolean
+          restart_account_enabled?: boolean
           updated_at?: string
         }
         Relationships: []
