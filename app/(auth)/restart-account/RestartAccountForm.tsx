@@ -41,6 +41,12 @@ export default function RestartAccountForm() {
         </p>
       )}
 
+      {state?.error && (
+        <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
+          {state.error}
+        </p>
+      )}
+
       <div className="space-y-1">
         <label htmlFor="email" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
           Email

@@ -1,14 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { restartAccountAction } from '@/app/(auth)/restart-account/actions'
 
-const { mockRequestAccountRestart } = vi.hoisted(() => ({
+const { mockRequestAccountRestart, mockIsRestartAccountEnabled, mockCreateClient } = vi.hoisted(() => ({
   mockRequestAccountRestart: vi.fn(),
+  mockIsRestartAccountEnabled: vi.fn(),
+  mockCreateClient: vi.fn().mockResolvedValue({}),
 }))
 
 vi.mock('@/lib/services/auth', () => ({ requestAccountRestart: mockRequestAccountRestart }))
+vi.mock('@/lib/services/appSettings', () => ({ isRestartAccountEnabled: mockIsRestartAccountEnabled }))
+vi.mock('@/lib/supabase/server', () => ({ createClient: mockCreateClient }))
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mockCreateClient.mockResolvedValue({})
+  mockIsRestartAccountEnabled.mockResolvedValue(true)
 })
 
 function makeFormData(email: string) {
@@ -40,5 +46,14 @@ describe('restartAccountAction', () => {
     const result = await restartAccountAction(null, makeFormData('nobody@example.com'))
 
     expect(result).toEqual({ success: true })
+  })
+
+  it('returns error and skips requestAccountRestart when restart-account is disabled', async () => {
+    mockIsRestartAccountEnabled.mockResolvedValue(false)
+
+    const result = await restartAccountAction(null, makeFormData('user@example.com'))
+
+    expect(result).toEqual({ error: 'Account restart is currently disabled.' })
+    expect(mockRequestAccountRestart).not.toHaveBeenCalled()
   })
 })

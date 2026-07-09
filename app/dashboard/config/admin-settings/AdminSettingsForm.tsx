@@ -1,26 +1,29 @@
 'use client'
 
-import { useState, useTransition } from 'react'
 import Link from 'next/link'
-import { toggleRegistrationAction } from './actions'
+import { toggleRegistrationAction, toggleRestartAccountAction } from './actions'
+import { useAsyncToggle } from '@/lib/hooks/useAsyncToggle'
 
-export default function AdminSettingsForm({ initialEnabled }: { initialEnabled: boolean }) {
-  const [enabled, setEnabled] = useState(initialEnabled)
-  const [error, setError] = useState<string | null>(null)
-  const [isPending, startTransition] = useTransition()
+export default function AdminSettingsForm({
+  initialRegistrationEnabled,
+  initialRestartAccountEnabled,
+}: {
+  initialRegistrationEnabled: boolean
+  initialRestartAccountEnabled: boolean
+}) {
+  const {
+    enabled,
+    error,
+    isPending,
+    toggle: handleToggle,
+  } = useAsyncToggle(initialRegistrationEnabled, toggleRegistrationAction)
 
-  function handleToggle() {
-    const next = !enabled
-    setError(null)
-    startTransition(async () => {
-      const result = await toggleRegistrationAction(next)
-      if (!result.success) {
-        setError(result.error)
-        return
-      }
-      setEnabled(next)
-    })
-  }
+  const {
+    enabled: restartAccountEnabled,
+    error: restartAccountError,
+    isPending: isRestartAccountPending,
+    toggle: handleRestartAccountToggle,
+  } = useAsyncToggle(initialRestartAccountEnabled, toggleRestartAccountAction)
 
   return (
     <main className="mx-auto max-w-md px-4 py-8">
@@ -60,6 +63,41 @@ export default function AdminSettingsForm({ initialEnabled }: { initialEnabled: 
             <span
               className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition ${
                 enabled ? 'left-6' : 'left-1'
+              }`}
+            />
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-6 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-700">
+        {restartAccountError && (
+          <p className="mb-5 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
+            {restartAccountError}
+          </p>
+        )}
+
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="font-medium text-slate-900 dark:text-slate-50">Account restart</p>
+            <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
+              {restartAccountEnabled
+                ? 'Account restart is currently enabled.'
+                : 'Account restart is currently disabled.'}
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={restartAccountEnabled}
+            disabled={isRestartAccountPending}
+            onClick={handleRestartAccountToggle}
+            className={`relative h-7 w-12 shrink-0 rounded-full transition disabled:opacity-50 ${
+              restartAccountEnabled ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'
+            }`}
+          >
+            <span
+              className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition ${
+                restartAccountEnabled ? 'left-6' : 'left-1'
               }`}
             />
           </button>
