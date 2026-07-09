@@ -94,37 +94,6 @@ describe('signUp', () => {
 
     expect(result).toEqual({ success: false, error: 'User already registered' })
   })
-
-  it('assigns admin role when email matches ADMIN_EMAIL', async () => {
-    mockSignUp.mockResolvedValue({ data: { user: { id: 'admin-uid' } }, error: null })
-    mockIsAdminEmail.mockReturnValue(true)
-    mockUpdateEq.mockResolvedValue({ error: null })
-
-    const result = await signUp('admin@example.com', 'password123')
-
-    expect(result).toEqual({ success: true })
-    expect(mockUpdate).toHaveBeenCalledWith({ role: 'admin' })
-    expect(mockUpdateEq).toHaveBeenCalledWith('id', 'admin-uid')
-  })
-
-  it('does not assign admin role when email does not match ADMIN_EMAIL', async () => {
-    mockSignUp.mockResolvedValue({ data: { user: { id: 'user-uid' } }, error: null })
-    mockIsAdminEmail.mockReturnValue(false)
-
-    await signUp('other@example.com', 'password123')
-
-    expect(mockUpdate).not.toHaveBeenCalled()
-  })
-
-  it('does not assign admin role when signUp returns no user', async () => {
-    mockSignUp.mockResolvedValue({ data: { user: null }, error: null })
-    mockIsAdminEmail.mockReturnValue(true)
-
-    const result = await signUp('admin@example.com', 'password123')
-
-    expect(result).toEqual({ success: true })
-    expect(mockUpdate).not.toHaveBeenCalled()
-  })
 })
 
 describe('signOut', () => {
@@ -156,5 +125,42 @@ describe('confirmSignup', () => {
     const result = await confirmSignup('bad-token', 'signup')
 
     expect(result).toEqual({ success: false, error: 'Token has expired or is invalid' })
+  })
+
+  it('assigns admin role when the verified email matches ADMIN_EMAIL', async () => {
+    mockVerifyOtp.mockResolvedValue({
+      data: { user: { id: 'admin-uid', email: 'admin@example.com' } },
+      error: null,
+    })
+    mockIsAdminEmail.mockReturnValue(true)
+    mockUpdateEq.mockResolvedValue({ error: null })
+
+    const result = await confirmSignup('token-abc', 'signup')
+
+    expect(result).toEqual({ success: true })
+    expect(mockUpdate).toHaveBeenCalledWith({ role: 'admin' })
+    expect(mockUpdateEq).toHaveBeenCalledWith('id', 'admin-uid')
+  })
+
+  it('does not assign admin role when the verified email does not match ADMIN_EMAIL', async () => {
+    mockVerifyOtp.mockResolvedValue({
+      data: { user: { id: 'user-uid', email: 'other@example.com' } },
+      error: null,
+    })
+    mockIsAdminEmail.mockReturnValue(false)
+
+    await confirmSignup('token-abc', 'signup')
+
+    expect(mockUpdate).not.toHaveBeenCalled()
+  })
+
+  it('does not assign admin role when verifyOtp returns no user', async () => {
+    mockVerifyOtp.mockResolvedValue({ data: { user: null }, error: null })
+    mockIsAdminEmail.mockReturnValue(true)
+
+    const result = await confirmSignup('token-abc', 'signup')
+
+    expect(result).toEqual({ success: true })
+    expect(mockUpdate).not.toHaveBeenCalled()
   })
 })
