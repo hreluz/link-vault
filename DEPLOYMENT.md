@@ -20,6 +20,10 @@
 
    You can do this after step 2 once you know the domain. Supabase defaults **Site URL** to `http://localhost:3000` for every new project — if you skip this, confirmation/magic-link emails sent from prod will keep linking back to `localhost:3000` instead of your deployed app. This has to be updated per environment (local vs. prod both need their own Site URL), and only takes effect for emails sent *after* the change — anyone with an already-sent localhost link needs a fresh email.
 
+5. In the dashboard, go to **Auth → Email Templates** and replace the default **"Confirm signup"** and **"Reset password"** templates with the contents of `supabase/templates/confirmation.html` and `supabase/templates/recovery.html`.
+
+   `supabase/config.toml`'s `[auth.email.template.*]` entries only apply to the **local** CLI stack (`supabase start`) — they are not synced to a hosted project automatically. If this step is skipped, hosted Supabase falls back to its default template, whose link points straight at `<project-ref>.supabase.co/auth/v1/verify` instead of `{{ .SiteURL }}/auth/confirm?token_hash=...`. That bypasses the app's `/auth/confirm` route entirely, so `confirmSignup()` never runs — breaking both the `ADMIN_EMAIL` → `role: 'admin'` grant on signup confirmation and the recovery-flow redirect to `/restart-account/confirm`.
+
 ## 2. Vercel
 
 1. Go to [vercel.com/new](https://vercel.com/new) and import the repo from GitHub.
