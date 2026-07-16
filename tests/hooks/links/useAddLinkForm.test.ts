@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
+import { renderHook, act, waitFor } from '@testing-library/react'
 import { useAddLinkForm } from '@/lib/hooks/links/useAddLinkForm'
 import type { LinkWithTags } from '@/lib/services/links'
 
@@ -100,6 +100,73 @@ describe('useAddLinkForm', () => {
       expect(result.current.tags).toBe('')
       expect(result.current.notes).toBe('')
       expect(result.current.error).toBeNull()
+    })
+  })
+
+  describe('reopening (isOpen transition)', () => {
+    it('clears fields left over from an abandoned session when isOpen flips from false to true', () => {
+      const { result, rerender } = renderHook(
+        ({ isOpen }) => useAddLinkForm(undefined, undefined, isOpen),
+        { initialProps: { isOpen: true } },
+      )
+
+      act(() => {
+        result.current.setUrl('https://example.com')
+        result.current.setTitle('Abandoned title')
+        result.current.setNotes('Abandoned notes')
+      })
+
+      rerender({ isOpen: false })
+      rerender({ isOpen: true })
+
+      expect(result.current.url).toBe('')
+      expect(result.current.title).toBe('')
+      expect(result.current.notes).toBe('')
+    })
+
+    it('does not clear fields while isOpen stays true', () => {
+      const { result, rerender } = renderHook(
+        ({ isOpen }) => useAddLinkForm(undefined, undefined, isOpen),
+        { initialProps: { isOpen: true } },
+      )
+
+      act(() => result.current.setTitle('Still typing'))
+      rerender({ isOpen: true })
+
+      expect(result.current.title).toBe('Still typing')
+    })
+
+    it('re-applies initialUrl/initialTitle on reopen', () => {
+      const { result, rerender } = renderHook(
+        ({ isOpen }) => useAddLinkForm('https://initial.com', 'Initial title', isOpen),
+        { initialProps: { isOpen: true } },
+      )
+
+      act(() => {
+        result.current.setUrl('https://typed-over.com')
+        result.current.setTitle('Typed over')
+      })
+
+      rerender({ isOpen: false })
+      rerender({ isOpen: true })
+
+      expect(result.current.url).toBe('https://initial.com')
+      expect(result.current.title).toBe('Initial title')
+    })
+
+    it('resets autoFetch back to enabled on reopen', async () => {
+      const { result, rerender } = renderHook(
+        ({ isOpen }) => useAddLinkForm(undefined, undefined, isOpen),
+        { initialProps: { isOpen: true } },
+      )
+
+      act(() => result.current.toggleAutoFetch())
+      expect(result.current.autoFetch).toBe(false)
+
+      rerender({ isOpen: false })
+      rerender({ isOpen: true })
+
+      await waitFor(() => expect(result.current.autoFetch).toBe(true))
     })
   })
 

@@ -10,12 +10,26 @@ function isValidUrl(url: string): boolean {
   try { new URL(url); return true } catch { return false }
 }
 
-export function useAddLinkForm(initialUrl?: string, initialTitle?: string) {
+export function useAddLinkForm(initialUrl?: string, initialTitle?: string, isOpen?: boolean) {
   const { dek } = useVault()
   const form = useLinkForm({ ...DEFAULT_FIELDS, url: initialUrl ?? '', title: initialTitle ?? '' })
   const [autoFetch, setAutoFetch] = useState(true)
   const titleTouchedRef = useRef(false)
   const lastFetchedUrlRef = useRef('')
+  const wasOpenRef = useRef(isOpen)
+
+  useEffect(() => {
+    if (isOpen && !wasOpenRef.current) {
+      form.reset()
+      if (initialUrl) form.setUrl(initialUrl)
+      if (initialTitle) form.setTitle(initialTitle)
+      setAutoFetch(true)
+      titleTouchedRef.current = false
+      lastFetchedUrlRef.current = ''
+    }
+    wasOpenRef.current = isOpen
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen])
 
   useEffect(() => {
     if (!autoFetch) return
