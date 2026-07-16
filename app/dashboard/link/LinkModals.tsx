@@ -29,6 +29,7 @@ export default function LinkModals() {
     resetFilters,
     addToast,
     pendingCapture, setPendingCapture,
+    autoFetchDefault,
   } = useLinkListContext()
 
   return (
@@ -38,6 +39,7 @@ export default function LinkModals() {
         isOpen={modalOpen}
         initialUrl={pendingCapture?.url}
         initialTitle={pendingCapture?.title}
+        autoFetchDefault={autoFetchDefault}
         onSuccess={link => { handleCreate(link); addToast('Link saved'); setModalOpen(false); setPendingCapture(null) }}
         onClose={() => { setModalOpen(false); setPendingCapture(null) }}
       />

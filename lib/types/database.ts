@@ -11,6 +11,7 @@ export interface Database {
           full_name: string | null
           avatar_url: string | null
           role: UserRole
+          auto_fetch_enabled: boolean
           created_at: string
           updated_at: string
         }
@@ -20,6 +21,7 @@ export interface Database {
           full_name?: string | null
           avatar_url?: string | null
           role?: UserRole
+          auto_fetch_enabled?: boolean
           created_at?: string
           updated_at?: string
         }
@@ -28,6 +30,7 @@ export interface Database {
           full_name?: string | null
           avatar_url?: string | null
           role?: UserRole
+          auto_fetch_enabled?: boolean
           updated_at?: string
         }
         Relationships: []
