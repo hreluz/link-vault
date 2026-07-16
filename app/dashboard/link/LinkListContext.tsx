@@ -7,8 +7,14 @@ type LinkListContextValue = ReturnType<typeof useLinkList>
 
 const LinkListContext = createContext<LinkListContextValue | null>(null)
 
-export function LinkListProvider({ children }: { children: React.ReactNode }) {
-  const value = useLinkList()
+export function LinkListProvider({
+  autoFetchDefault,
+  children,
+}: {
+  autoFetchDefault?: boolean
+  children: React.ReactNode
+}) {
+  const value = useLinkList(autoFetchDefault)
   return <LinkListContext.Provider value={value}>{children}</LinkListContext.Provider>
 }
 

@@ -10,10 +10,10 @@ function isValidUrl(url: string): boolean {
   try { new URL(url); return true } catch { return false }
 }
 
-export function useAddLinkForm(initialUrl?: string, initialTitle?: string, isOpen?: boolean) {
+export function useAddLinkForm(initialUrl?: string, initialTitle?: string, isOpen?: boolean, autoFetchDefault = true) {
   const { dek } = useVault()
   const form = useLinkForm({ ...DEFAULT_FIELDS, url: initialUrl ?? '', title: initialTitle ?? '' })
-  const [autoFetch, setAutoFetch] = useState(true)
+  const [autoFetch, setAutoFetch] = useState(autoFetchDefault)
   const titleTouchedRef = useRef(false)
   const lastFetchedUrlRef = useRef('')
   const wasOpenRef = useRef(isOpen)
@@ -23,7 +23,7 @@ export function useAddLinkForm(initialUrl?: string, initialTitle?: string, isOpe
       form.reset()
       if (initialUrl) form.setUrl(initialUrl)
       if (initialTitle) form.setTitle(initialTitle)
-      setAutoFetch(true)
+      setAutoFetch(autoFetchDefault)
       titleTouchedRef.current = false
       lastFetchedUrlRef.current = ''
     }

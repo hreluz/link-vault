@@ -47,6 +47,16 @@ describe('useAddLinkForm', () => {
       expect(result.current.submitting).toBe(false)
       expect(result.current.error).toBeNull()
     })
+
+    it('defaults autoFetch to true when no preference is passed', () => {
+      const { result } = renderHook(() => useAddLinkForm())
+      expect(result.current.autoFetch).toBe(true)
+    })
+
+    it('honors a saved autoFetchDefault of false', () => {
+      const { result } = renderHook(() => useAddLinkForm(undefined, undefined, undefined, false))
+      expect(result.current.autoFetch).toBe(false)
+    })
   })
 
   describe('field setters', () => {
@@ -167,6 +177,23 @@ describe('useAddLinkForm', () => {
       rerender({ isOpen: true })
 
       await waitFor(() => expect(result.current.autoFetch).toBe(true))
+    })
+
+    it('resets autoFetch to the saved preference (not hardcoded true) on reopen', async () => {
+      const { result, rerender } = renderHook(
+        ({ isOpen }) => useAddLinkForm(undefined, undefined, isOpen, false),
+        { initialProps: { isOpen: true } },
+      )
+
+      expect(result.current.autoFetch).toBe(false)
+
+      act(() => result.current.toggleAutoFetch())
+      expect(result.current.autoFetch).toBe(true)
+
+      rerender({ isOpen: false })
+      rerender({ isOpen: true })
+
+      await waitFor(() => expect(result.current.autoFetch).toBe(false))
     })
   })
 

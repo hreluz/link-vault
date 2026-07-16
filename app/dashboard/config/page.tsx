@@ -24,6 +24,12 @@ const SETTINGS = [
     title: 'Change Password',
     description: 'Update your account password',
   },
+  {
+    href: '/dashboard/config/link-preferences',
+    icon: '⚡',
+    title: 'Link Preferences',
+    description: 'Choose whether new links auto-fetch title, image & details',
+  },
 ]
 
 const ADMIN_SETTINGS = [
