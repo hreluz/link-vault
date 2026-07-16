@@ -17,7 +17,7 @@ interface Props {
 }
 
 export default function AddLinkModal({ isOpen, initialUrl, initialTitle, onSuccess, onClose }: Props) {
-  const form = useAddLinkForm(initialUrl, initialTitle)
+  const form = useAddLinkForm(initialUrl, initialTitle, isOpen)
   const { categories } = useCategoryList()
   useAutoAssignCategory(form, categories, isOpen)
 
