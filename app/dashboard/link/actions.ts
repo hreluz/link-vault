@@ -57,6 +57,20 @@ function extractYouTubeVideoId(url: string): string | null {
   }
 }
 
+async function fetchYouTubeOEmbed(url: string): Promise<{ title: string | null; image: string | null }> {
+  try {
+    const res = await fetch(
+      `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`,
+      { signal: AbortSignal.timeout(5000) },
+    )
+    if (!res.ok) return { title: null, image: null }
+    const data = await res.json()
+    return { title: data?.title ?? null, image: data?.thumbnail_url ?? null }
+  } catch {
+    return { title: null, image: null }
+  }
+}
+
 function parseIsoDuration(iso: string): string {
   const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/)
   if (!m) return ''
@@ -76,6 +90,7 @@ export async function fetchLinkMeta(url: string): Promise<LinkMeta> {
   }
 
   const meta: LinkMeta = { ...NULL_META }
+  const videoId = extractYouTubeVideoId(url)
 
   try {
     const res = await fetch(url, {
@@ -93,7 +108,16 @@ export async function fetchLinkMeta(url: string): Promise<LinkMeta> {
     // og fetch failed — continue to YouTube API below
   }
 
-  const videoId = extractYouTubeVideoId(url)
+  if (videoId) {
+    // youtube.com's raw page is frequently served a bot/consent placeholder when
+    // fetched from datacenter IPs (e.g. Vercel), stripping the og:title/og:image
+    // tags above. oEmbed is an official, key-free endpoint meant for exactly this
+    // and isn't subject to that treatment, so it takes priority when available.
+    const oembed = await fetchYouTubeOEmbed(url)
+    if (oembed.title) meta.title = oembed.title
+    if (oembed.image) meta.image = oembed.image
+  }
+
   const apiKey = process.env.YOUTUBE_API_KEY
   if (videoId && apiKey) {
     try {
