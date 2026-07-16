@@ -4,12 +4,19 @@ import Link from 'next/link'
 import { toggleRegistrationAction, toggleRestartAccountAction } from './actions'
 import { useAsyncToggle } from '@/lib/hooks/useAsyncToggle'
 
+type YoutubeKeyDebug = {
+  hasYouTubeKey: boolean
+  keyLength: number | undefined
+}
+
 export default function AdminSettingsForm({
   initialRegistrationEnabled,
   initialRestartAccountEnabled,
+  youtubeKeyDebug,
 }: {
   initialRegistrationEnabled: boolean
   initialRestartAccountEnabled: boolean
+  youtubeKeyDebug: YoutubeKeyDebug
 }) {
   const {
     enabled,
@@ -102,6 +109,20 @@ export default function AdminSettingsForm({
             />
           </button>
         </div>
+      </div>
+
+      <div className="mt-6 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-700">
+        <p className="mb-4 font-medium text-slate-900 dark:text-slate-50">YouTube API key</p>
+        <dl className="space-y-2 text-sm">
+          <div className="flex items-center justify-between gap-4">
+            <dt className="text-slate-500 dark:text-slate-400">Has key</dt>
+            <dd className="text-slate-900 dark:text-slate-50">{youtubeKeyDebug.hasYouTubeKey ? 'Yes' : 'No'}</dd>
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <dt className="text-slate-500 dark:text-slate-400">Key length</dt>
+            <dd className="text-slate-900 dark:text-slate-50">{youtubeKeyDebug.keyLength ?? '—'}</dd>
+          </div>
+        </dl>
       </div>
     </main>
   )
