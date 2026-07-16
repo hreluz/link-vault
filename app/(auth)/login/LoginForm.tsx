@@ -21,6 +21,7 @@ export default function LoginForm() {
 
   useEffect(() => {
     if (!state?.success) return
+    if (state.envFlags) console.log(state.envFlags)
 
     let cancelled = false
     // eslint-disable-next-line react-hooks/set-state-in-effect
