@@ -17,10 +17,17 @@ export default async function AdminSettingsPage() {
     isRestartAccountEnabled(supabase),
   ])
 
+  const youtubeKey = process.env.YOUTUBE_API_KEY
+  const youtubeKeyDebug = {
+    hasYouTubeKey: Boolean(youtubeKey),
+    keyLength: youtubeKey?.length,
+  }
+
   return (
     <AdminSettingsForm
       initialRegistrationEnabled={registrationEnabled}
       initialRestartAccountEnabled={restartAccountEnabled}
+      youtubeKeyDebug={youtubeKeyDebug}
     />
   )
 }
