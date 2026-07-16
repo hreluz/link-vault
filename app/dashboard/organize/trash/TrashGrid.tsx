@@ -1,10 +1,12 @@
 'use client'
 
 import { useTrashContext } from './TrashContext'
+import { useCategoryList } from '@/lib/hooks/categories/useCategoryList'
 import TrashCard from './TrashCard'
 
 export default function TrashGrid() {
   const { links, handleRestore, handleDeletePermanently } = useTrashContext()
+  const { categories } = useCategoryList()
 
   if (links.length === 0) {
     return (
@@ -21,6 +23,7 @@ export default function TrashGrid() {
         <TrashCard
           key={link.id}
           link={link}
+          category={categories.find(c => c.id === link.category_id) ?? null}
           onRestore={() => handleRestore(link.id)}
           onDeletePermanently={() => handleDeletePermanently(link.id)}
         />
