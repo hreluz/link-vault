@@ -29,9 +29,20 @@ export type AddCategoryDomainResult =
   | { data: null; error: 'domain_taken' | 'invalid_domain' | 'unauthenticated' | 'db_error' }
 
 function normalizeDomain(raw: string): string | null {
-  const trimmed = raw.trim().toLowerCase().replace(/^www\./, '')
-  if (!trimmed || trimmed.includes(' ') || !trimmed.includes('.')) return null
-  return trimmed
+  const trimmed = raw.trim().toLowerCase()
+  if (!trimmed || trimmed.includes(' ')) return null
+
+  let hostname: string
+  try {
+    const withScheme = /^[a-z][a-z0-9+.-]*:\/\//.test(trimmed) ? trimmed : `https://${trimmed}`
+    hostname = new URL(withScheme).hostname
+  } catch {
+    return null
+  }
+
+  hostname = hostname.replace(/^www\./, '')
+  if (!hostname || !hostname.includes('.')) return null
+  return hostname
 }
 
 export async function getCategoryDomains(categoryId: string, dek: CryptoKey): Promise<CategoryDomain[]> {
@@ -69,7 +80,7 @@ export async function addCategoryDomain(
 
   if (existingRows) {
     const existing = await Promise.all(existingRows.map(row => decryptRow(row, dek)))
-    if (existing.some(d => d.domain === domain)) return { data: null, error: 'domain_taken' }
+    if (existing.some(d => normalizeDomain(d.domain) === domain)) return { data: null, error: 'domain_taken' }
   }
 
   const encoded = await toEncryptedColumns<DomainPayload>({ domain }, dek)
@@ -108,7 +119,7 @@ export async function getCategoryIdByDomain(hostname: string, dek: CryptoKey): P
 
   for (const row of data) {
     const decrypted = await decryptRow(row, dek)
-    if (decrypted.domain === domain) return decrypted.category_id
+    if (normalizeDomain(decrypted.domain) === domain) return decrypted.category_id
   }
   return null
 }
