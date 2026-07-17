@@ -9,7 +9,7 @@ import { useLinksSelection } from './useLinksSelection'
 import { getMatchingLinkIds, SELECT_ALL_MATCHING_CAP, type LinkWithTags } from '@/lib/services/links'
 import type { LinkStatus } from '@/lib/types/database'
 
-export function useLinkList() {
+export function useLinkList(autoFetchDefault = true) {
   const modals = useLinkModals()
   const filters = useLinkFilters()
   const {
@@ -97,6 +97,7 @@ export function useLinkList() {
     ...modals,
     ...filters,
     ...selection,
+    autoFetchDefault,
     links,
     totalCount,
     hasMore,

@@ -12,12 +12,13 @@ interface Props {
   isOpen: boolean
   initialUrl?: string
   initialTitle?: string
+  autoFetchDefault?: boolean
   onSuccess?: (link: LinkWithTags) => void
   onClose: () => void
 }
 
-export default function AddLinkModal({ isOpen, initialUrl, initialTitle, onSuccess, onClose }: Props) {
-  const form = useAddLinkForm(initialUrl, initialTitle, isOpen)
+export default function AddLinkModal({ isOpen, initialUrl, initialTitle, autoFetchDefault, onSuccess, onClose }: Props) {
+  const form = useAddLinkForm(initialUrl, initialTitle, isOpen, autoFetchDefault)
   const { categories } = useCategoryList()
   useAutoAssignCategory(form, categories, isOpen)
 
