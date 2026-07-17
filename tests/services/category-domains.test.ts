@@ -125,6 +125,33 @@ describe('addCategoryDomain', () => {
     expect(result.data?.domain).toBe('github.com')
   })
 
+  it('strips a full URL with scheme down to the bare hostname', async () => {
+    const row = await encryptDomainRow('d1', 'cat-1', 'claude.ai')
+    mockSingle.mockResolvedValue({ data: row, error: null })
+
+    const result = await addCategoryDomain('cat-1', 'https://claude.ai', dek)
+
+    expect(result.data?.domain).toBe('claude.ai')
+  })
+
+  it('strips scheme, www., path, and query from a pasted full URL', async () => {
+    const row = await encryptDomainRow('d1', 'cat-1', 'claude.ai')
+    mockSingle.mockResolvedValue({ data: row, error: null })
+
+    const result = await addCategoryDomain('cat-1', 'https://www.claude.ai/design/p/x?file=y', dek)
+
+    expect(result.data?.domain).toBe('claude.ai')
+  })
+
+  it('strips a port from the domain', async () => {
+    const row = await encryptDomainRow('d1', 'cat-1', 'claude.ai')
+    mockSingle.mockResolvedValue({ data: row, error: null })
+
+    const result = await addCategoryDomain('cat-1', 'claude.ai:8080', dek)
+
+    expect(result.data?.domain).toBe('claude.ai')
+  })
+
   it('returns invalid_domain for empty input', async () => {
     const result = await addCategoryDomain('cat-1', '   ', dek)
 
@@ -225,6 +252,15 @@ describe('getCategoryIdByDomain', () => {
     mockEq.mockResolvedValue({ data: [row], error: null })
 
     expect(await getCategoryIdByDomain('unknown.com', dek)).toBeNull()
+  })
+
+  it('matches a legacy row whose stored domain still has a scheme prefix', async () => {
+    const row = await encryptDomainRow('d1', 'cat-claude', 'https://claude.ai')
+    mockEq.mockResolvedValue({ data: [row], error: null })
+
+    const result = await getCategoryIdByDomain('claude.ai', dek)
+
+    expect(result).toBe('cat-claude')
   })
 
   it('returns null for an invalid hostname', async () => {

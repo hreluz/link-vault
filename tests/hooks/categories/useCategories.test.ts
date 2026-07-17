@@ -118,6 +118,36 @@ describe('useCategories', () => {
       expect(result.current.addError).toBeNull()
     })
 
+    it('addDomainsAfterCreate defaults to true', async () => {
+      const { result } = await renderLoaded()
+      expect(result.current.addDomainsAfterCreate).toBe(true)
+    })
+
+    it('setAddDomainsAfterCreate toggles the flag', async () => {
+      const { result } = await renderLoaded()
+
+      act(() => { result.current.setAddDomainsAfterCreate(false) })
+
+      expect(result.current.addDomainsAfterCreate).toBe(false)
+    })
+
+    it('closeAdd resets addDomainsAfterCreate to true', async () => {
+      const { result } = await renderLoaded()
+
+      act(() => {
+        result.current.openAdd()
+        result.current.setAddDomainsAfterCreate(false)
+      })
+      act(() => { result.current.closeAdd() })
+
+      expect(result.current.addDomainsAfterCreate).toBe(true)
+    })
+
+    it('createdCategory is null initially', async () => {
+      const { result } = await renderLoaded()
+      expect(result.current.createdCategory).toBeNull()
+    })
+
     it('handleAdd calls createCategory and appends the result', async () => {
       const created: Category = { ...CAT_A, id: '99', name: 'New Cat', emoticon: '🎯' }
       mockCreateCategory.mockResolvedValue({ data: created, error: null })
@@ -221,6 +251,62 @@ describe('useCategories', () => {
 
       expect(result.current.categories).toHaveLength(2)
       expect(result.current.adding).toBe(false)
+    })
+
+    it('handleAdd sets createdCategory on success when addDomainsAfterCreate is true', async () => {
+      const created: Category = { ...CAT_A, id: '99', name: 'New Cat', emoticon: '🎯' }
+      mockCreateCategory.mockResolvedValue({ data: created, error: null })
+      const { result } = await renderLoaded()
+
+      act(() => {
+        result.current.openAdd()
+        result.current.setNewName('New Cat')
+      })
+      await act(() => result.current.handleAdd())
+
+      expect(result.current.createdCategory).toEqual(created)
+    })
+
+    it('handleAdd does not set createdCategory when addDomainsAfterCreate is false', async () => {
+      const created: Category = { ...CAT_A, id: '99', name: 'New Cat', emoticon: '🎯' }
+      mockCreateCategory.mockResolvedValue({ data: created, error: null })
+      const { result } = await renderLoaded()
+
+      act(() => {
+        result.current.openAdd()
+        result.current.setNewName('New Cat')
+        result.current.setAddDomainsAfterCreate(false)
+      })
+      await act(() => result.current.handleAdd())
+
+      expect(result.current.createdCategory).toBeNull()
+    })
+
+    it('handleAdd does not set createdCategory when creation fails', async () => {
+      mockCreateCategory.mockResolvedValue({ data: null, error: 'name_taken' })
+      const { result } = await renderLoaded()
+
+      act(() => {
+        result.current.openAdd()
+        result.current.setNewName('Article')
+      })
+      await act(() => result.current.handleAdd())
+
+      expect(result.current.createdCategory).toBeNull()
+    })
+
+    it('setCreatedCategory can clear createdCategory back to null', async () => {
+      const created: Category = { ...CAT_A, id: '99', name: 'New Cat', emoticon: '🎯' }
+      mockCreateCategory.mockResolvedValue({ data: created, error: null })
+      const { result } = await renderLoaded()
+
+      act(() => { result.current.openAdd(); result.current.setNewName('New Cat') })
+      await act(() => result.current.handleAdd())
+      expect(result.current.createdCategory).toEqual(created)
+
+      act(() => { result.current.setCreatedCategory(null) })
+
+      expect(result.current.createdCategory).toBeNull()
     })
   })
 

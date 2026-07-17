@@ -3,9 +3,10 @@
 import { CategoriesProvider, useCategoriesContext } from './CategoriesContext'
 import CategoryForm from './CategoryForm'
 import CategoryRow from './CategoryRow'
+import CategoryDomainsModal from './CategoryDomainsModal'
 
 function CategoryListInner() {
-  const { categories, adding, editingId, openAdd } = useCategoriesContext()
+  const { categories, adding, editingId, openAdd, createdCategory, setCreatedCategory } = useCategoriesContext()
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
@@ -41,6 +42,13 @@ function CategoryListInner() {
           <div className="mb-4 text-4xl" aria-hidden="true">📂</div>
           <p className="text-slate-500 dark:text-slate-400">No categories yet. Create your first one.</p>
         </div>
+      )}
+
+      {createdCategory && (
+        <CategoryDomainsModal
+          category={createdCategory}
+          onClose={() => setCreatedCategory(null)}
+        />
       )}
     </main>
   )
