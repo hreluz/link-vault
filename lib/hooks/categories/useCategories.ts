@@ -25,6 +25,8 @@ export function useCategories() {
   const [newIcon, setNewIcon] = useState('')
   const [newName, setNewName] = useState('')
   const [newColor, setNewColor] = useState('indigo')
+  const [addDomainsAfterCreate, setAddDomainsAfterCreate] = useState(true)
+  const [createdCategory, setCreatedCategory] = useState<Category | null>(null)
   const [editIcon, setEditIcon] = useState('')
   const [editName, setEditName] = useState('')
   const [editColor, setEditColor] = useState('indigo')
@@ -38,7 +40,7 @@ export function useCategories() {
   }, [dek])
 
   function openAdd() { setAdding(true); setAddError(null); setEditingId(null); setDeletingId(null) }
-  function closeAdd() { setAdding(false); setAddError(null); setNewIcon(''); setNewName(''); setNewColor('indigo') }
+  function closeAdd() { setAdding(false); setAddError(null); setNewIcon(''); setNewName(''); setNewColor('indigo'); setAddDomainsAfterCreate(true) }
 
   async function handleAdd() {
     if (!newName.trim() || !dek) return
@@ -47,7 +49,10 @@ export function useCategories() {
       setAddError('A category with that name already exists.')
       return
     }
-    if (result.data) setCategories(prev => [...prev, result.data])
+    if (result.data) {
+      setCategories(prev => [...prev, result.data])
+      if (addDomainsAfterCreate) setCreatedCategory(result.data)
+    }
     closeAdd()
   }
 
@@ -111,6 +116,10 @@ export function useCategories() {
     setNewName,
     newColor,
     setNewColor,
+    addDomainsAfterCreate,
+    setAddDomainsAfterCreate,
+    createdCategory,
+    setCreatedCategory,
     editIcon,
     setEditIcon,
     editName,
