@@ -18,6 +18,7 @@ export default function CategoryForm({ mode }: Props) {
     categories,
     editingId,
     newIcon, setNewIcon, newName, setNewName, newColor, setNewColor, handleAdd, closeAdd, addError,
+    addDomainsAfterCreate, setAddDomainsAfterCreate,
     editIcon, setEditIcon, editName, setEditName, editColor, setEditColor, handleSaveEdit, setEditingId, editError,
   } = useCategoriesContext()
 
@@ -92,6 +93,29 @@ export default function CategoryForm({ mode }: Props) {
       <div className="mt-3">
         <ColorPicker selected={color} onChange={onColorChange} />
       </div>
+      {isAdd && (
+        <button
+          type="button"
+          onClick={() => setAddDomainsAfterCreate(v => !v)}
+          className="mt-3 flex items-center gap-1.5 text-xs text-slate-500 transition hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+          aria-label={addDomainsAfterCreate ? 'Disable adding domains after creating' : 'Enable adding domains after creating'}
+        >
+          <span className={addDomainsAfterCreate ? 'text-slate-600 dark:text-slate-300' : 'text-slate-400 dark:text-slate-500'}>
+            Add domains after creating
+          </span>
+          <span
+            className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors ${
+              addDomainsAfterCreate ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-600'
+            }`}
+          >
+            <span
+              className={`inline-block h-3 w-3 rounded-full bg-white shadow-sm transition-transform ${
+                addDomainsAfterCreate ? 'translate-x-3.5' : 'translate-x-0.5'
+              }`}
+            />
+          </span>
+        </button>
+      )}
       {error && (
         <p className="mt-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">{error}</p>
       )}
