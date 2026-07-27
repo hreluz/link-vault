@@ -4,7 +4,7 @@ import { useLinkFormContext } from '../LinkFormContext'
 import { INPUT, LABEL } from './styles'
 
 export default function UrlField() {
-  const { url, setUrl, fetchingMeta, autoFetch, toggleAutoFetch } = useLinkFormContext()
+  const { url, setUrl, fetchingMeta, autoFetch, toggleAutoFetch, duplicateLinkId } = useLinkFormContext()
   const showToggle = toggleAutoFetch !== undefined
 
   return (
@@ -57,6 +57,12 @@ export default function UrlField() {
           </svg>
         )}
       </div>
+
+      {duplicateLinkId && (
+        <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+          You already saved this link.
+        </p>
+      )}
     </div>
   )
 }

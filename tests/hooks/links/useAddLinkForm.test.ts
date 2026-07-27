@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { useAddLinkForm } from '@/lib/hooks/links/useAddLinkForm'
 import type { LinkWithTags } from '@/lib/services/links'
@@ -14,11 +14,12 @@ const SAVED_LINK: LinkWithTags = {
 }
 
 vi.mock('@/app/dashboard/link/actions', () => ({
-  fetchLinkMeta: vi.fn().mockResolvedValue({ title: null, description: null, image: null }),
+  fetchLinkMeta: vi.fn(),
 }))
 
 vi.mock('@/lib/services/links', () => ({
   createLink: vi.fn(),
+  findLinkIdByUrl: vi.fn(),
 }))
 
 const { FAKE_DEK } = vi.hoisted(() => ({ FAKE_DEK: {} as CryptoKey }))
@@ -26,12 +27,17 @@ vi.mock('@/lib/context/VaultContext', () => ({
   useVault: () => ({ dek: FAKE_DEK, isUnlocked: true, unlock: vi.fn(), changePassword: vi.fn(), lock: vi.fn() }),
 }))
 
-import { createLink } from '@/lib/services/links'
+import { createLink, findLinkIdByUrl } from '@/lib/services/links'
+import { fetchLinkMeta } from '@/app/dashboard/link/actions'
 const mockCreateLink = vi.mocked(createLink)
+const mockFindLinkIdByUrl = vi.mocked(findLinkIdByUrl)
+const mockFetchLinkMeta = vi.mocked(fetchLinkMeta)
 
 beforeEach(() => {
   vi.clearAllMocks()
   mockCreateLink.mockResolvedValue(SAVED_LINK)
+  mockFindLinkIdByUrl.mockResolvedValue(null)
+  mockFetchLinkMeta.mockResolvedValue({ title: null, description: null, image: null, duration: null })
 })
 
 describe('useAddLinkForm', () => {
@@ -313,6 +319,140 @@ describe('useAddLinkForm', () => {
       expect(mockCreateLink).toHaveBeenCalledWith(expect.objectContaining({
         tags: ['react', 'css'],
       }), FAKE_DEK)
+    })
+
+    describe('duplicate URL', () => {
+      it('sets a duplicate-specific error and returns null without calling createLink', async () => {
+        mockFindLinkIdByUrl.mockResolvedValue('existing-id')
+        const { result } = renderHook(() => useAddLinkForm())
+
+        act(() => { result.current.setUrl('https://example.com'); result.current.setCategoryId('cat-1') })
+        let returned: LinkWithTags | null = SAVED_LINK
+        await act(async () => { returned = await result.current.handleSubmit() })
+
+        expect(returned).toBeNull()
+        expect(result.current.error).toBe('A link with this URL already exists.')
+        expect(mockCreateLink).not.toHaveBeenCalled()
+      })
+
+      it('is not submitting after a duplicate is found', async () => {
+        mockFindLinkIdByUrl.mockResolvedValue('existing-id')
+        const { result } = renderHook(() => useAddLinkForm())
+
+        act(() => { result.current.setUrl('https://example.com'); result.current.setCategoryId('cat-1') })
+        await act(async () => { await result.current.handleSubmit() })
+
+        expect(result.current.submitting).toBe(false)
+      })
+
+      it('proceeds to createLink when no duplicate is found', async () => {
+        mockFindLinkIdByUrl.mockResolvedValue(null)
+        const { result } = renderHook(() => useAddLinkForm())
+
+        act(() => { result.current.setUrl('https://example.com'); result.current.setCategoryId('cat-1') })
+        await act(async () => { await result.current.handleSubmit() })
+
+        expect(mockFindLinkIdByUrl).toHaveBeenCalledWith('https://example.com', FAKE_DEK)
+        expect(mockCreateLink).toHaveBeenCalled()
+      })
+    })
+  })
+
+  describe('live duplicate check', () => {
+    beforeEach(() => vi.useFakeTimers())
+    afterEach(() => vi.useRealTimers())
+
+    it('stays null and does not check while the url is empty or invalid', async () => {
+      const { result } = renderHook(() => useAddLinkForm())
+      expect(result.current.duplicateLinkId).toBeNull()
+
+      act(() => result.current.setUrl('not-a-url'))
+      await act(async () => { await vi.advanceTimersByTimeAsync(600) })
+
+      expect(result.current.duplicateLinkId).toBeNull()
+      expect(mockFindLinkIdByUrl).not.toHaveBeenCalled()
+    })
+
+    it('clears the url and sets duplicateLinkId once the debounce elapses on a duplicate', async () => {
+      mockFindLinkIdByUrl.mockResolvedValue('existing-id')
+      const { result } = renderHook(() => useAddLinkForm())
+
+      act(() => result.current.setUrl('https://example.com'))
+      await act(async () => { await vi.advanceTimersByTimeAsync(500) })
+      expect(result.current.url).toBe('https://example.com')
+      expect(result.current.duplicateLinkId).toBeNull()
+
+      await act(async () => { await vi.advanceTimersByTimeAsync(100) })
+      expect(result.current.url).toBe('')
+      expect(result.current.duplicateLinkId).toBe('existing-id')
+    })
+
+    it('keeps duplicateLinkId set after clearing the url, instead of it being wiped by the url change', async () => {
+      // Regression check: clearing the url ourselves re-runs this same effect (its
+      // dependency changed), which must NOT reset duplicateLinkId back to null just
+      // because the url is now empty -- only a genuinely new url being typed should.
+      mockFindLinkIdByUrl.mockResolvedValue('existing-id')
+      const { result } = renderHook(() => useAddLinkForm())
+
+      act(() => result.current.setUrl('https://example.com'))
+      await act(async () => { await vi.advanceTimersByTimeAsync(600) })
+
+      expect(result.current.url).toBe('')
+      expect(result.current.duplicateLinkId).toBe('existing-id')
+
+      // give it plenty more time to make sure nothing later clears it either
+      await act(async () => { await vi.advanceTimersByTimeAsync(1000) })
+      expect(result.current.duplicateLinkId).toBe('existing-id')
+    })
+
+    it('leaves the url untouched and duplicateLinkId null when it does not match an existing link', async () => {
+      mockFindLinkIdByUrl.mockResolvedValue(null)
+      const { result } = renderHook(() => useAddLinkForm())
+
+      act(() => result.current.setUrl('https://example.com'))
+      await act(async () => { await vi.advanceTimersByTimeAsync(600) })
+
+      expect(result.current.url).toBe('https://example.com')
+      expect(result.current.duplicateLinkId).toBeNull()
+    })
+
+    it('cancels a pending check and only checks the final url when it changes again', async () => {
+      mockFindLinkIdByUrl.mockResolvedValue('existing-id')
+      const { result } = renderHook(() => useAddLinkForm())
+
+      act(() => result.current.setUrl('https://example.com'))
+      await act(async () => { await vi.advanceTimersByTimeAsync(300) })
+
+      act(() => result.current.setUrl('https://example.com/2'))
+      expect(result.current.duplicateLinkId).toBeNull() // stale result cleared immediately
+
+      await act(async () => { await vi.advanceTimersByTimeAsync(300) })
+      expect(mockFindLinkIdByUrl).not.toHaveBeenCalled() // first (cancelled) timer never fired
+
+      await act(async () => { await vi.advanceTimersByTimeAsync(300) })
+      expect(mockFindLinkIdByUrl).toHaveBeenCalledTimes(1)
+      expect(mockFindLinkIdByUrl).toHaveBeenCalledWith('https://example.com/2', FAKE_DEK)
+      expect(result.current.duplicateLinkId).toBe('existing-id')
+    })
+
+    it('skips the og:meta fetch entirely when a duplicate is found', async () => {
+      mockFindLinkIdByUrl.mockResolvedValue('existing-id')
+      const { result } = renderHook(() => useAddLinkForm())
+
+      act(() => result.current.setUrl('https://example.com'))
+      await act(async () => { await vi.advanceTimersByTimeAsync(600) })
+
+      expect(mockFetchLinkMeta).not.toHaveBeenCalled()
+    })
+
+    it('still fetches og:meta when no duplicate is found and autoFetch is on', async () => {
+      mockFindLinkIdByUrl.mockResolvedValue(null)
+      const { result } = renderHook(() => useAddLinkForm())
+
+      act(() => result.current.setUrl('https://example.com'))
+      await act(async () => { await vi.advanceTimersByTimeAsync(600) })
+
+      expect(mockFetchLinkMeta).toHaveBeenCalledWith('https://example.com')
     })
   })
 })
