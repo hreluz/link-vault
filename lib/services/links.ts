@@ -349,6 +349,24 @@ export async function bulkAddTags(ids: string[], tagNames: string[], dek: Crypto
   return error ? null : tagIds
 }
 
+/** Returns the id of the user's existing non-deleted link with this URL, if any. */
+export async function findLinkIdByUrl(url: string, dek: CryptoKey): Promise<string | null> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
+  const url_fingerprint = await hmacFingerprint(url, dek)
+  const { data: existingRows } = await supabase
+    .from('links')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('url_fingerprint', url_fingerprint)
+    .is('deleted_at', null)
+    .limit(1)
+
+  return existingRows?.[0]?.id ?? null
+}
+
 export type ImportLinkInput = {
   url: string
   title?: string | null
@@ -381,15 +399,8 @@ export async function importLinks(
     const trimmedUrl = input.url.trim()
     const url_fingerprint = await hmacFingerprint(trimmedUrl, dek)
 
-    const { data: existingRows } = await supabase
-      .from('links')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('url_fingerprint', url_fingerprint)
-      .is('deleted_at', null)
-      .limit(1)
-
-    if (existingRows && existingRows.length > 0) {
+    const existingId = await findLinkIdByUrl(trimmedUrl, dek)
+    if (existingId) {
       duplicates++
       continue
     }

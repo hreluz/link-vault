@@ -19,6 +19,7 @@ export type LinkFormContextValue = {
   fetchingMeta: boolean
   autoFetch?: boolean
   toggleAutoFetch?: () => void
+  duplicateLinkId?: string | null
   categoryId: string | null
   setCategoryId: (v: string | null) => void
   status: LinkStatus
