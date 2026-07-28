@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { createLink, type LinkWithTags } from '@/lib/services/links'
+import { createLink, findLinkIdByUrl, type LinkWithTags } from '@/lib/services/links'
 import { fetchLinkMeta } from '@/app/dashboard/link/actions'
 import { useVault } from '@/lib/context/VaultContext'
 import { DEFAULT_FIELDS, useLinkForm } from './useLinkForm'
@@ -14,6 +14,7 @@ export function useAddLinkForm(initialUrl?: string, initialTitle?: string, isOpe
   const { dek } = useVault()
   const form = useLinkForm({ ...DEFAULT_FIELDS, url: initialUrl ?? '', title: initialTitle ?? '' })
   const [autoFetch, setAutoFetch] = useState(autoFetchDefault)
+  const [duplicateLinkId, setDuplicateLinkId] = useState<string | null>(null)
   const titleTouchedRef = useRef(false)
   const lastFetchedUrlRef = useRef('')
   const wasOpenRef = useRef(isOpen)
@@ -32,12 +33,24 @@ export function useAddLinkForm(initialUrl?: string, initialTitle?: string, isOpe
   }, [isOpen])
 
   useEffect(() => {
-    if (!autoFetch) return
-
     const url = form.url.trim()
-    if (!url || !isValidUrl(url) || url === lastFetchedUrlRef.current) return
+    // Only reset once a *new* url is actually about to be checked -- not on every url
+    // change, since clearing the url ourselves after finding a duplicate (below) would
+    // otherwise immediately null this out again and the note would never be visible.
+    if (!url || !isValidUrl(url)) return
+    setDuplicateLinkId(null)
 
     const timer = setTimeout(async () => {
+      if (dek) {
+        const existingId = await findLinkIdByUrl(url, dek)
+        if (existingId) {
+          setDuplicateLinkId(existingId)
+          form.setUrl('')
+          return // skip the og:meta fetch entirely for a link we already have
+        }
+      }
+
+      if (!autoFetch || url === lastFetchedUrlRef.current) return
       lastFetchedUrlRef.current = url
       form.setFetchingMeta(true)
       const meta = await fetchLinkMeta(url)
@@ -51,7 +64,7 @@ export function useAddLinkForm(initialUrl?: string, initialTitle?: string, isOpe
 
     return () => clearTimeout(timer)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.url, autoFetch])
+  }, [form.url, autoFetch, dek])
 
   function toggleAutoFetch() {
     const next = !autoFetch
@@ -76,6 +89,18 @@ export function useAddLinkForm(initialUrl?: string, initialTitle?: string, isOpe
 
   async function handleSubmit(): Promise<LinkWithTags | null> {
     if (!dek) return null
+
+    const trimmedUrl = form.url.trim()
+    if (isValidUrl(trimmedUrl)) {
+      form.setSubmitting(true)
+      const existingId = await findLinkIdByUrl(trimmedUrl, dek)
+      if (existingId) {
+        form.setSubmitting(false)
+        form.setError('A link with this URL already exists.')
+        return null
+      }
+    }
+
     const result = await form.wrapSubmit(
       () => createLink({
         url: form.url,
@@ -98,5 +123,5 @@ export function useAddLinkForm(initialUrl?: string, initialTitle?: string, isOpe
     return result
   }
 
-  return { ...form, handleSubmit, handleTitleChange, autoFetch, toggleAutoFetch }
+  return { ...form, handleSubmit, handleTitleChange, autoFetch, toggleAutoFetch, duplicateLinkId }
 }

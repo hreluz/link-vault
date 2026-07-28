@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest'
 import {
   getLinks, getLinksByIds, createLink, updateLink, toggleLinkFavorite, deleteLink, importLinks,
-  getLinksPage, getMatchingLinkIds, SELECT_ALL_MATCHING_CAP,
+  getLinksPage, getMatchingLinkIds, SELECT_ALL_MATCHING_CAP, findLinkIdByUrl,
   type LinkFilterParams, type LinkContent,
 } from '@/lib/services/links'
 import { generateDek, encryptJson, decryptJson } from '@/lib/crypto/vault'
@@ -480,6 +480,42 @@ describe('deleteLink', () => {
 })
 
 // ── importLinks ───────────────────────────────────────────────────────────────
+
+// ── findLinkIdByUrl ───────────────────────────────────────────────────────────
+
+describe('findLinkIdByUrl', () => {
+  it('returns null when user is not authenticated', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } })
+
+    const result = await findLinkIdByUrl('https://example.com', dek)
+
+    expect(result).toBeNull()
+  })
+
+  it('returns the id of the matching link', async () => {
+    mockDupCheck.mockResolvedValue({ data: [{ id: 'existing-id' }] })
+
+    const result = await findLinkIdByUrl('https://example.com', dek)
+
+    expect(result).toBe('existing-id')
+  })
+
+  it('returns null when no link matches', async () => {
+    mockDupCheck.mockResolvedValue({ data: [] })
+
+    const result = await findLinkIdByUrl('https://example.com', dek)
+
+    expect(result).toBeNull()
+  })
+
+  it('looks up by url_fingerprint, not the raw url', async () => {
+    mockDupCheck.mockResolvedValue({ data: [] })
+
+    await findLinkIdByUrl('https://example.com', dek)
+
+    expect(mockDupCheckEqFingerprint).toHaveBeenCalledWith('url_fingerprint', expect.any(String))
+  })
+})
 
 describe('importLinks', () => {
   beforeEach(() => {
