@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Blocks commits that introduce a machine-specific absolute home-directory
+# path (e.g. /Users/<name>/... or /home/<name>/...) into a tracked file.
+# (Written with <name> rather than a real-looking example on purpose --
+# otherwise this comment would match the hook's own pattern below.)
+# A personal path once leaked into .claude/settings.json this way; this hook
+# stops it from happening again, regardless of what actually runs the
+# commit (Claude Code, an IDE, or plain git).
+#
+# Personal/machine-specific paths belong in .claude/settings.local.json
+# (gitignored), not in any tracked file.
+
+pattern='/Users/[a-zA-Z0-9._-]+|/home/[a-zA-Z0-9._-]+'
+
+offending=$(git diff --cached -U0 | grep '^+' | grep -v '^+++' | grep -E "$pattern")
+
+if [ -n "$offending" ]; then
+  echo "pre-commit: blocked -- staged changes contain a machine-specific absolute path:"
+  echo "$offending" | sed 's/^/  /'
+  echo
+  echo "Move personal/machine-specific paths to .claude/settings.local.json (gitignored) instead."
+  exit 1
+fi
+
+exit 0
