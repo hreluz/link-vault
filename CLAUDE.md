@@ -8,6 +8,24 @@ A personal "save for later" app for bookmarking links across content types — v
 
 Always run `nvm use v24.13.0` before executing any shell commands (dev server, tests, installs, etc.).
 
+## Switching branches locally
+
+`next dev`'s build cache (`.next/cache`) persists on disk across restarts — it is not
+cleared just because you stopped and restarted the process. If you `git checkout`
+between branches that touch `globals.css`, Tailwind theme tokens, or other build
+config, a plain restart can still serve stale CSS/JS chunks built against the
+*previous* branch's source, while the HTML comes from the new branch's components.
+Symptom: layout/spacing utilities render fine but color utilities silently resolve
+to nothing (e.g. `bg-primary-600` renders as transparent) because the cached chunk
+never defined those classes.
+
+Fix: `rm -rf .next` before restarting `npm run dev` when switching to/from a branch
+with theme or config changes.
+
+This is a local dev-only issue — Vercel deployments build from a clean checkout each
+time and pair HTML with content-hashed chunks from the same build, so it doesn't
+reproduce in production.
+
 ## Manual browser verification (Playwright)
 
 When a change needs visual/end-to-end confirmation (not just unit tests), drive a real browser against a local dev server instead of guessing from code.
