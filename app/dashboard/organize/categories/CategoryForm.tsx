@@ -54,14 +54,14 @@ export default function CategoryForm({ mode }: Props) {
 
   return (
     <>
-    <div className="mb-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-700">
-      {title && <p className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-300">{title}</p>}
+    <div className="mb-4 rounded-2xl bg-surface-card p-5 shadow-sm ring-1 ring-surface-200 dark:bg-surface-900 dark:ring-surface-700">
+      {title && <p className="mb-3 text-sm font-semibold text-surface-700 dark:text-surface-300">{title}</p>}
       <div className="flex gap-3">
         <div className="relative" ref={pickerRef}>
           <button
             type="button"
             onClick={() => setOpen(v => !v)}
-            className="flex h-full w-20 items-center justify-center rounded-xl border border-slate-200 bg-white text-2xl outline-none transition hover:bg-slate-50 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700"
+            className="flex h-full w-20 items-center justify-center rounded-xl border border-surface-200 bg-surface-card text-2xl outline-none transition hover:bg-surface-50 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 dark:border-surface-700 dark:bg-surface-800 dark:hover:bg-surface-700"
           >
             {icon || "🔗"}
           </button>
@@ -87,7 +87,7 @@ export default function CategoryForm({ mode }: Props) {
           value={name}
           onChange={e => onNameChange(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') onSubmit(); if (e.key === 'Escape') onCancel() }}
-          className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500"
+          className="flex-1 rounded-xl border border-surface-200 bg-surface-card px-4 py-3 text-sm text-surface-900 placeholder-surface-400 outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-100 dark:placeholder-surface-500"
         />
       </div>
       <div className="mt-3">
@@ -97,15 +97,15 @@ export default function CategoryForm({ mode }: Props) {
         <button
           type="button"
           onClick={() => setAddDomainsAfterCreate(v => !v)}
-          className="mt-3 flex items-center gap-1.5 text-xs text-slate-500 transition hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+          className="mt-3 flex items-center gap-1.5 text-xs text-surface-500 transition hover:text-surface-700 dark:text-surface-400 dark:hover:text-surface-200"
           aria-label={addDomainsAfterCreate ? 'Disable adding domains after creating' : 'Enable adding domains after creating'}
         >
-          <span className={addDomainsAfterCreate ? 'text-slate-600 dark:text-slate-300' : 'text-slate-400 dark:text-slate-500'}>
+          <span className={addDomainsAfterCreate ? 'text-surface-600 dark:text-surface-300' : 'text-surface-400 dark:text-surface-500'}>
             Add domains after creating
           </span>
           <span
             className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors ${
-              addDomainsAfterCreate ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-600'
+              addDomainsAfterCreate ? 'bg-primary-600' : 'bg-surface-300 dark:bg-surface-600'
             }`}
           >
             <span
@@ -122,14 +122,14 @@ export default function CategoryForm({ mode }: Props) {
       <div className="mt-4 flex gap-2">
         <button
           onClick={onCancel}
-          className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
+          className="rounded-xl border border-surface-200 bg-surface-card px-4 py-2 text-sm font-medium text-surface-600 shadow-sm transition hover:bg-surface-50 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-400 dark:hover:bg-surface-700"
         >
           Cancel
         </button>
         <button
           onClick={onSubmit}
           disabled={!name.trim()}
-          className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {submitLabel}
         </button>
@@ -138,7 +138,7 @@ export default function CategoryForm({ mode }: Props) {
             type="button"
             onClick={() => setDomainsOpen(true)}
             title="Manage domains"
-            className="ml-auto rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
+            className="ml-auto rounded-xl border border-surface-200 bg-surface-card px-3 py-2 text-sm font-medium text-surface-600 shadow-sm transition hover:bg-surface-50 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-400 dark:hover:bg-surface-700"
           >
             🌐 Domains
           </button>

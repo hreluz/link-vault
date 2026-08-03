@@ -254,22 +254,22 @@ export default function ImportExportClient() {
     <main className="mx-auto max-w-2xl px-4 py-8">
       <Link
         href="/dashboard/config"
-        className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 transition hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+        className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-surface-500 transition hover:text-surface-900 dark:text-surface-400 dark:hover:text-surface-100"
       >
         <span aria-hidden="true">←</span> Config
       </Link>
 
-      <h1 className="mb-8 text-2xl font-bold text-slate-900 dark:text-slate-50">Import & Export</h1>
+      <h1 className="mb-8 text-2xl font-bold text-surface-900 dark:text-surface-50">Import & Export</h1>
 
       {/* ── Export ── */}
-      <section className="mb-6 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-700">
+      <section className="mb-6 rounded-2xl bg-surface-card p-6 shadow-sm ring-1 ring-surface-200 dark:bg-surface-900 dark:ring-surface-700">
         <div className="mb-5 flex items-center gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-xl dark:bg-emerald-900/30">
             📤
           </span>
           <div>
-            <h2 className="font-semibold text-slate-900 dark:text-slate-50">Export</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400">Download all your links as a file</p>
+            <h2 className="font-semibold text-surface-900 dark:text-surface-50">Export</h2>
+            <p className="text-sm text-surface-500 dark:text-surface-400">Download all your links as a file</p>
           </div>
         </div>
 
@@ -277,7 +277,7 @@ export default function ImportExportClient() {
           <button
             onClick={() => handleExport('json')}
             disabled={exporting !== null}
-            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100"
+            className="flex items-center gap-2 rounded-xl border border-surface-200 bg-surface-card px-5 py-2.5 text-sm font-medium text-surface-700 shadow-sm transition hover:bg-surface-50 hover:text-surface-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-300 dark:hover:bg-surface-700 dark:hover:text-surface-100"
           >
             <span aria-hidden="true">📄</span>
             {exporting === 'json' ? 'Exporting…' : 'Export as JSON'}
@@ -285,40 +285,40 @@ export default function ImportExportClient() {
           <button
             onClick={() => handleExport('csv')}
             disabled={exporting !== null}
-            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100"
+            className="flex items-center gap-2 rounded-xl border border-surface-200 bg-surface-card px-5 py-2.5 text-sm font-medium text-surface-700 shadow-sm transition hover:bg-surface-50 hover:text-surface-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-300 dark:hover:bg-surface-700 dark:hover:text-surface-100"
           >
             <span aria-hidden="true">📊</span>
             {exporting === 'csv' ? 'Exporting…' : 'Export as CSV'}
           </button>
         </div>
 
-        <p className="mt-4 text-xs text-slate-400 dark:text-slate-500">
+        <p className="mt-4 text-xs text-surface-400 dark:text-surface-500">
           JSON preserves all fields including tags and notes. CSV is compatible with spreadsheet apps.
         </p>
       </section>
 
       {/* ── Import ── */}
-      <section className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-700">
+      <section className="rounded-2xl bg-surface-card p-6 shadow-sm ring-1 ring-surface-200 dark:bg-surface-900 dark:ring-surface-700">
         <div className="mb-5 flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100 text-xl dark:bg-indigo-900/30">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-100 text-xl dark:bg-primary-900/30">
             📥
           </span>
           <div>
-            <h2 className="font-semibold text-slate-900 dark:text-slate-50">Import</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400">Add links from URLs, JSON, or a file</p>
+            <h2 className="font-semibold text-surface-900 dark:text-surface-50">Import</h2>
+            <p className="text-sm text-surface-500 dark:text-surface-400">Add links from URLs, JSON, or a file</p>
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="mb-5 flex rounded-xl border border-slate-200 p-1 dark:border-slate-700">
+        <div className="mb-5 flex rounded-xl border border-surface-200 p-1 dark:border-surface-700">
           {(['urls', 'json', 'file'] as ImportTab[]).map(tab => (
             <button
               key={tab}
               onClick={() => { setImportTab(tab); setLastResult(null) }}
               className={`flex-1 rounded-lg py-2 text-sm font-medium transition ${
                 importTab === tab
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+                  ? 'bg-primary-600 text-white shadow-sm'
+                  : 'text-surface-500 hover:text-surface-700 dark:text-surface-400 dark:hover:text-surface-200'
               }`}
             >
               {TAB_LABELS[tab]}
@@ -328,15 +328,15 @@ export default function ImportExportClient() {
 
         {importTab === 'urls' && (
           <div className="space-y-2">
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              One URL per line — all imported as <span className="font-medium text-slate-700 dark:text-slate-300">unread</span> with <span className="font-mono text-xs">#no-tag</span>
+            <p className="text-xs text-surface-500 dark:text-surface-400">
+              One URL per line — all imported as <span className="font-medium text-surface-700 dark:text-surface-300">unread</span> with <span className="font-mono text-xs">#no-tag</span>
             </p>
             <textarea
               value={urlsText}
               onChange={e => setUrlsText(e.target.value)}
               placeholder={"https://example.com\nhttps://github.com/some/repo\nhttps://youtube.com/watch?v=..."}
               rows={10}
-              className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder-slate-300 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-600"
+              className="w-full resize-none rounded-xl border border-surface-200 bg-surface-card px-4 py-3 text-sm text-surface-900 placeholder-surface-300 outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-100 dark:placeholder-surface-600"
             />
           </div>
         )}
@@ -347,7 +347,7 @@ export default function ImportExportClient() {
             onChange={e => setJsonText(e.target.value)}
             placeholder={'[\n  {\n    "url": "https://example.com",\n    "title": "Example",\n    "tags": ["reading"],\n    "notes": "optional"\n  }\n]'}
             rows={10}
-            className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 font-mono text-sm text-slate-900 placeholder-slate-300 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-600"
+            className="w-full resize-none rounded-xl border border-surface-200 bg-surface-card px-4 py-3 font-mono text-sm text-surface-900 placeholder-surface-300 outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-100 dark:placeholder-surface-600"
           />
         )}
 
@@ -359,10 +359,10 @@ export default function ImportExportClient() {
             onClick={() => fileInputRef.current?.click()}
             className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-10 text-center transition ${
               isDragging
-                ? 'border-indigo-400 bg-indigo-50 dark:border-indigo-500 dark:bg-indigo-900/20'
+                ? 'border-primary-400 bg-primary-50 dark:border-primary-500 dark:bg-primary-900/20'
                 : selectedFile
                 ? 'border-emerald-300 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-900/20'
-                : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:hover:border-slate-600 dark:hover:bg-slate-800'
+                : 'border-surface-200 hover:border-surface-300 hover:bg-surface-50 dark:border-surface-700 dark:hover:border-surface-600 dark:hover:bg-surface-800'
             }`}
           >
             <input
@@ -386,8 +386,8 @@ export default function ImportExportClient() {
               <>
                 <span className="text-4xl">📂</span>
                 <div>
-                  <p className="font-medium text-slate-700 dark:text-slate-300">Drop your file here</p>
-                  <p className="mt-0.5 text-sm text-slate-400 dark:text-slate-500">or click to browse — .json or .csv</p>
+                  <p className="font-medium text-surface-700 dark:text-surface-300">Drop your file here</p>
+                  <p className="mt-0.5 text-sm text-surface-400 dark:text-surface-500">or click to browse — .json or .csv</p>
                 </div>
               </>
             )}
@@ -397,13 +397,13 @@ export default function ImportExportClient() {
         {/* Category selector + import button */}
         <div className="mt-5 space-y-4">
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+            <label className="mb-1.5 block text-sm font-medium text-surface-700 dark:text-surface-300">
               Default category for imported links
             </label>
             <select
               value={defaultCategoryId}
               onChange={e => setDefaultCategoryId(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+              className="w-full rounded-xl border border-surface-200 bg-surface-card px-4 py-3 text-sm text-surface-900 outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-100"
             >
               {categories.map(cat => (
                 <option key={cat.id} value={cat.id}>
@@ -414,7 +414,7 @@ export default function ImportExportClient() {
           </div>
 
           {lastResult && (
-            <div className={`rounded-xl px-4 py-3 text-sm ${lastResult.imported > 0 ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400' : 'bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-400'}`}>
+            <div className={`rounded-xl px-4 py-3 text-sm ${lastResult.imported > 0 ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400' : 'bg-surface-50 text-surface-600 dark:bg-surface-800 dark:text-surface-400'}`}>
               {lastResult.imported > 0
                 ? `✅ ${lastResult.imported} link${lastResult.imported !== 1 ? 's' : ''} imported`
                 : '⚠️ No links imported'}
@@ -426,13 +426,13 @@ export default function ImportExportClient() {
           <button
             onClick={handleImport}
             disabled={!hasImportContent || importing}
-            className="w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+            className="w-full rounded-xl bg-primary-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {importing ? 'Importing…' : 'Import links'}
           </button>
         </div>
 
-        <p className="mt-4 text-xs text-slate-400 dark:text-slate-500">
+        <p className="mt-4 text-xs text-surface-400 dark:text-surface-500">
           Importing will add new links. URLs already in your vault will be skipped.
         </p>
       </section>

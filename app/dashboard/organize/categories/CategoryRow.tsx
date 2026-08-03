@@ -16,21 +16,21 @@ export default function CategoryRow({ category }: Props) {
   const color = colorForCategory(category.color)
 
   return (
-    <div className="flex items-center gap-3 rounded-2xl bg-white px-4 py-3.5 shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-700">
+    <div className="flex items-center gap-3 rounded-2xl bg-surface-card px-4 py-3.5 shadow-sm ring-1 ring-surface-200 dark:bg-surface-900 dark:ring-surface-700">
       <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${color.dot}`} aria-hidden="true" />
       <span className="text-xl" aria-hidden="true">{category.emoticon}</span>
-      <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{category.name}</span>
+      <span className="text-sm font-medium text-surface-900 dark:text-surface-100">{category.name}</span>
       <div className="ml-auto flex items-center gap-1">
         {isDeleting ? (
           <>
             {deleteError ? (
               <span className="mr-1 text-xs text-red-600 dark:text-red-400">{deleteError}</span>
             ) : (
-              <span className="mr-1 text-xs text-slate-500 dark:text-slate-400">Delete?</span>
+              <span className="mr-1 text-xs text-surface-500 dark:text-surface-400">Delete?</span>
             )}
             <button
               onClick={() => { setDeletingId(null); setDeleteError(null) }}
-              className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-500 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+              className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-surface-500 transition hover:bg-surface-100 dark:text-surface-400 dark:hover:bg-surface-800"
             >
               {deleteError ? 'OK' : 'Cancel'}
             </button>
@@ -48,7 +48,7 @@ export default function CategoryRow({ category }: Props) {
             <button
               onClick={() => startEdit(category)}
               aria-label="Edit category"
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-surface-400 transition hover:bg-surface-100 hover:text-surface-600 dark:text-surface-500 dark:hover:bg-surface-800 dark:hover:text-surface-300"
             >
               ✏️
             </button>
@@ -56,7 +56,7 @@ export default function CategoryRow({ category }: Props) {
               <button
                 onClick={() => confirmDelete(category.id)}
                 aria-label="Delete category"
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-500 dark:text-slate-500 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-surface-400 transition hover:bg-red-50 hover:text-red-500 dark:text-surface-500 dark:hover:bg-red-900/20 dark:hover:text-red-400"
               >
                 🗑️
               </button>

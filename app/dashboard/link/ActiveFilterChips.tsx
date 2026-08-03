@@ -28,34 +28,34 @@ export default function ActiveFilterChips() {
       {sortBy !== 'newest' && (
         <button
           onClick={() => setSortBy('newest')}
-          className="flex items-center gap-1.5 rounded-full bg-indigo-100 px-3 py-1 text-sm font-medium text-indigo-700 transition hover:bg-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-300 dark:hover:bg-indigo-900/60"
+          className="flex items-center gap-1.5 rounded-full bg-primary-100 px-3 py-1 text-sm font-medium text-primary-700 transition hover:bg-primary-200 dark:bg-primary-900/40 dark:text-primary-300 dark:hover:bg-primary-900/60"
         >
           {SORT_LABELS[sortBy]}
-          <span className="text-indigo-400" aria-hidden="true">✕</span>
+          <span className="text-primary-400" aria-hidden="true">✕</span>
         </button>
       )}
       {category !== 'all' && activeCategory && (
         <button
           onClick={() => setCategory('all')}
-          className="flex items-center gap-1.5 rounded-full bg-indigo-100 px-3 py-1 text-sm font-medium text-indigo-700 transition hover:bg-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-300 dark:hover:bg-indigo-900/60"
+          className="flex items-center gap-1.5 rounded-full bg-primary-100 px-3 py-1 text-sm font-medium text-primary-700 transition hover:bg-primary-200 dark:bg-primary-900/40 dark:text-primary-300 dark:hover:bg-primary-900/60"
         >
           {activeCategory.emoticon} {activeCategory.name}
-          <span className="text-indigo-400" aria-hidden="true">✕</span>
+          <span className="text-primary-400" aria-hidden="true">✕</span>
         </button>
       )}
       {selectedTagIds.map(tagId => (
         <button
           key={tagId}
           onClick={() => setSelectedTagIds(prev => prev.filter(id => id !== tagId))}
-          className="flex items-center gap-1.5 rounded-full bg-indigo-100 px-3 py-1 text-sm font-medium text-indigo-700 transition hover:bg-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-300 dark:hover:bg-indigo-900/60"
+          className="flex items-center gap-1.5 rounded-full bg-primary-100 px-3 py-1 text-sm font-medium text-primary-700 transition hover:bg-primary-200 dark:bg-primary-900/40 dark:text-primary-300 dark:hover:bg-primary-900/60"
         >
           {availableTags.find(t => t.id === tagId)?.name ?? tagId}
-          <span className="text-indigo-400" aria-hidden="true">✕</span>
+          <span className="text-primary-400" aria-hidden="true">✕</span>
         </button>
       ))}
       <button
         onClick={resetFilters}
-        className="text-sm text-slate-400 transition hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+        className="text-sm text-surface-400 transition hover:text-surface-600 dark:text-surface-500 dark:hover:text-surface-300"
       >
         Clear all
       </button>

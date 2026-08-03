@@ -47,7 +47,7 @@ export default function LoginForm() {
   return (
     <form action={action} className="space-y-4">
       <div className="space-y-1">
-        <label htmlFor="email" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+        <label htmlFor="email" className="block text-sm font-medium text-surface-700 dark:text-surface-300">
           Email
         </label>
         <input
@@ -57,12 +57,12 @@ export default function LoginForm() {
           required
           autoComplete="email"
           placeholder="you@example.com"
-          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500"
+          className="w-full rounded-xl border border-surface-200 bg-surface-card px-4 py-3 text-sm text-surface-900 placeholder-surface-400 outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-100 dark:placeholder-surface-500"
         />
       </div>
 
       <div className="space-y-1">
-        <label htmlFor="password" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+        <label htmlFor="password" className="block text-sm font-medium text-surface-700 dark:text-surface-300">
           Password
         </label>
         <input
@@ -74,7 +74,7 @@ export default function LoginForm() {
           placeholder="••••••••"
           value={password}
           onChange={e => setPassword(e.target.value)}
-          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500"
+          className="w-full rounded-xl border border-surface-200 bg-surface-card px-4 py-3 text-sm text-surface-900 placeholder-surface-400 outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-100 dark:placeholder-surface-500"
         />
       </div>
 
@@ -87,20 +87,20 @@ export default function LoginForm() {
       <button
         type="submit"
         disabled={pending || unlocking}
-        className="w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:cursor-not-allowed disabled:opacity-60"
+        className="w-full rounded-xl bg-primary-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {pending ? 'Signing in…' : unlocking ? 'Unlocking vault…' : 'Sign in'}
       </button>
 
-      <p className="text-center text-sm text-slate-500 dark:text-slate-400">
+      <p className="text-center text-sm text-surface-500 dark:text-surface-400">
         No account?{' '}
-        <Link href="/signup" className="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300">
+        <Link href="/signup" className="font-medium text-primary-600 hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300">
           Create one
         </Link>
       </p>
 
-      <p className="text-center text-sm text-slate-500 dark:text-slate-400">
-        <Link href="/restart-account" className="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300">
+      <p className="text-center text-sm text-surface-500 dark:text-surface-400">
+        <Link href="/restart-account" className="font-medium text-primary-600 hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300">
           Restart account
         </Link>
       </p>

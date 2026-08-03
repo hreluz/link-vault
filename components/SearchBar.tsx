@@ -19,7 +19,7 @@ export default function SearchBar({ value, onChange, isHashTagSearch = false, fi
   return (
     <div className="mb-4 flex gap-2">
       <div className="relative flex-1">
-        <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true">
+        <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-surface-400" aria-hidden="true">
           🔍
         </span>
         <input
@@ -31,10 +31,10 @@ export default function SearchBar({ value, onChange, isHashTagSearch = false, fi
             if (onKeyPress(e.key)) e.preventDefault()
           }}
           onBlur={closeSuggestions}
-          className={`w-full rounded-xl border bg-white py-3 pl-11 pr-4 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:ring-2 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500 ${
+          className={`w-full rounded-xl border bg-surface-card py-3 pl-11 pr-4 text-sm text-surface-900 placeholder-surface-400 outline-none transition focus:ring-2 dark:bg-surface-800 dark:text-surface-100 dark:placeholder-surface-500 ${
             isHashTagSearch
-              ? 'border-indigo-400 focus:border-indigo-500 focus:ring-indigo-500/20 ring-1 ring-indigo-300 dark:border-indigo-500'
-              : 'border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20 dark:border-slate-700'
+              ? 'border-primary-400 focus:border-primary-500 focus:ring-primary-500/20 ring-1 ring-primary-300 dark:border-primary-500'
+              : 'border-surface-200 focus:border-primary-500 focus:ring-primary-500/20 dark:border-surface-700'
           }`}
         />
         <TagSuggestionsDropdown suggestions={suggestions} selectedIndex={selectedIndex} onSelect={selectSuggestion} />
@@ -44,8 +44,8 @@ export default function SearchBar({ value, onChange, isHashTagSearch = false, fi
           onClick={onFilterOpen}
           className={`flex shrink-0 items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium transition ${
             (filterCount ?? 0) > 0
-              ? 'bg-indigo-50 text-indigo-600 ring-1 ring-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-400 dark:ring-indigo-800'
-              : 'border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-100'
+              ? 'bg-primary-50 text-primary-600 ring-1 ring-primary-200 dark:bg-primary-900/30 dark:text-primary-400 dark:ring-primary-800'
+              : 'border border-surface-200 bg-surface-card text-surface-600 shadow-sm hover:bg-surface-50 hover:text-surface-900 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-400 dark:hover:bg-surface-700 dark:hover:text-surface-100'
           }`}
         >
           <span aria-hidden="true">⚡</span>

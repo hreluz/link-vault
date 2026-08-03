@@ -21,11 +21,11 @@ export default function TagsField() {
       <label className={LABEL}>Tags</label>
       <div className="relative">
         <div
-          className="flex flex-wrap items-center gap-x-1.5 gap-y-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm transition cursor-text focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800"
+          className="flex flex-wrap items-center gap-x-1.5 gap-y-1 w-full rounded-xl border border-surface-200 bg-surface-card px-4 py-3 text-sm transition cursor-text focus-within:border-primary-500 focus-within:ring-2 focus-within:ring-primary-500/20 dark:border-surface-700 dark:bg-surface-800"
           onClick={() => inputRef.current?.focus()}
         >
           {confirmedTags.map((tag, i) => (
-            <span key={i} className="font-medium text-indigo-600 whitespace-nowrap">#{tag}</span>
+            <span key={i} className="font-medium text-primary-600 whitespace-nowrap">#{tag}</span>
           ))}
           <input
             ref={inputRef}
@@ -41,7 +41,7 @@ export default function TagsField() {
             }}
             onBlur={closeSuggestions}
             placeholder={confirmedTags.length === 0 ? 'react, frontend, learning' : ''}
-            className="flex-1 min-w-32 outline-none bg-transparent text-slate-900 placeholder-slate-400 dark:text-slate-100 dark:placeholder-slate-500"
+            className="flex-1 min-w-32 outline-none bg-transparent text-surface-900 placeholder-surface-400 dark:text-surface-100 dark:placeholder-surface-500"
           />
         </div>
         <TagSuggestionsDropdown suggestions={suggestions} selectedIndex={selectedIndex} onSelect={selectSuggestion} />

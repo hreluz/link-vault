@@ -19,7 +19,7 @@ export default function LinkGrid() {
     return (
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="h-48 animate-pulse rounded-2xl bg-slate-100" />
+          <div key={i} className="h-48 animate-pulse rounded-2xl bg-surface-100" />
         ))}
       </div>
     )
@@ -30,13 +30,13 @@ export default function LinkGrid() {
       return (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <div className="mb-4 text-4xl" aria-hidden="true">⭐</div>
-          <p className="text-slate-500">
+          <p className="text-surface-500">
             {hasActiveFilters ? 'No favorites match your search.' : 'No favorites yet. Star a link to see it here.'}
           </p>
           {hasActiveFilters && (
             <button
               onClick={resetFilters}
-              className="mt-3 text-sm font-medium text-indigo-600 hover:text-indigo-500"
+              className="mt-3 text-sm font-medium text-primary-600 hover:text-primary-500"
             >
               Clear filters
             </button>
@@ -48,11 +48,11 @@ export default function LinkGrid() {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
         <div className="mb-4 text-4xl" aria-hidden="true">📭</div>
-        <p className="text-slate-500">No links match the current filters.</p>
+        <p className="text-surface-500">No links match the current filters.</p>
         {hasActiveFilters && (
           <button
             onClick={resetFilters}
-            className="mt-3 text-sm font-medium text-indigo-600 hover:text-indigo-500"
+            className="mt-3 text-sm font-medium text-primary-600 hover:text-primary-500"
           >
             Clear filters
           </button>
@@ -80,7 +80,7 @@ export default function LinkGrid() {
           />
         ))}
         {loadingMore && Array.from({ length: 3 }).map((_, i) => (
-          <div key={`loading-more-${i}`} className="h-48 animate-pulse rounded-2xl bg-slate-100" />
+          <div key={`loading-more-${i}`} className="h-48 animate-pulse rounded-2xl bg-surface-100" />
         ))}
       </div>
       {hasMore && <div ref={sentinelRef} className="h-1" />}

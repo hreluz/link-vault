@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
-import { getAutoFetchPreference } from '@/lib/services/users'
+import { getAutoFetchPreference } from '@/lib/services/userPreferences'
 import LinkPreferencesForm from './LinkPreferencesForm'
 
 export const metadata: Metadata = { title: 'Link Preferences — Link Vault' }

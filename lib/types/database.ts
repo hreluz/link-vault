@@ -1,5 +1,7 @@
 export type LinkStatus = 'unread' | 'watching' | 'read' | 'archived'
 export type UserRole = 'user' | 'admin'
+export type AccentColor = string
+export type SurfaceFamily = string
 
 export interface Database {
   public: {
@@ -11,7 +13,6 @@ export interface Database {
           full_name: string | null
           avatar_url: string | null
           role: UserRole
-          auto_fetch_enabled: boolean
           created_at: string
           updated_at: string
         }
@@ -21,7 +22,6 @@ export interface Database {
           full_name?: string | null
           avatar_url?: string | null
           role?: UserRole
-          auto_fetch_enabled?: boolean
           created_at?: string
           updated_at?: string
         }
@@ -30,7 +30,6 @@ export interface Database {
           full_name?: string | null
           avatar_url?: string | null
           role?: UserRole
-          auto_fetch_enabled?: boolean
           updated_at?: string
         }
         Relationships: []
@@ -121,6 +120,36 @@ export interface Database {
           password_hash?: string
           hint?: string | null
           failed_attempts?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_preferences: {
+        Row: {
+          id: string
+          user_id: string
+          auto_fetch_enabled: boolean
+          accent_color_light: AccentColor
+          accent_color_dark: AccentColor
+          surface_family: SurfaceFamily
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          auto_fetch_enabled?: boolean
+          accent_color_light?: AccentColor
+          accent_color_dark?: AccentColor
+          surface_family?: SurfaceFamily
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          auto_fetch_enabled?: boolean
+          accent_color_light?: AccentColor
+          accent_color_dark?: AccentColor
+          surface_family?: SurfaceFamily
           updated_at?: string
         }
         Relationships: []
@@ -287,5 +316,6 @@ export type LinkTag = Tables<'link_tags'>
 export type Category = Tables<'categories'>
 export type CategoryDomain = Tables<'category_domains'>
 export type PrivateTagSettings = Tables<'private_tag_settings'>
+export type UserPreferences = Tables<'user_preferences'>
 export type AppSettings = Tables<'app_settings'>
 export type UserEncryptionKey = Tables<'user_encryption_keys'>

@@ -10,7 +10,7 @@ export default function ExpandToggle({ expanded, onToggle }: Props) {
     <button
       type="button"
       onClick={onToggle}
-      className="flex items-center gap-1 text-sm font-medium text-indigo-600 hover:text-indigo-500 transition"
+      className="flex items-center gap-1 text-sm font-medium text-primary-600 hover:text-primary-500 transition"
     >
       <svg
         className={`h-4 w-4 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}

@@ -15,7 +15,7 @@ export function TagRow({ tag }: { tag: TagWithCount }) {
   if (isEditing) return <TagForm mode="edit" />
 
   return (
-    <div className="flex items-center gap-3 rounded-2xl bg-white px-4 py-3.5 shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-700">
+    <div className="flex items-center gap-3 rounded-2xl bg-surface-card px-4 py-3.5 shadow-sm ring-1 ring-surface-200 dark:bg-surface-900 dark:ring-surface-700">
       <span className={`rounded-full px-3 py-1 text-sm font-medium ${color.bg} ${color.text}`}>
         {tag.name}
       </span>
@@ -26,18 +26,18 @@ export function TagRow({ tag }: { tag: TagWithCount }) {
           </svg>
         </span>
       )}
-      <span className="text-xs text-slate-400 dark:text-slate-500">{count} link{count !== 1 ? 's' : ''}</span>
+      <span className="text-xs text-surface-400 dark:text-surface-500">{count} link{count !== 1 ? 's' : ''}</span>
       <div className="ml-auto flex items-center gap-1">
         {isDeleting ? (
           <>
             {deleteError ? (
               <span className="mr-1 text-xs text-red-600 dark:text-red-400">{deleteError}</span>
             ) : (
-              <span className="mr-1 text-xs text-slate-500 dark:text-slate-400">Delete?</span>
+              <span className="mr-1 text-xs text-surface-500 dark:text-surface-400">Delete?</span>
             )}
             <button
               onClick={() => { setDeletingId(null); setDeleteError(null) }}
-              className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-500 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+              className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-surface-500 transition hover:bg-surface-100 dark:text-surface-400 dark:hover:bg-surface-800"
             >
               {deleteError ? 'OK' : 'Cancel'}
             </button>
@@ -55,14 +55,14 @@ export function TagRow({ tag }: { tag: TagWithCount }) {
             <button
               onClick={() => startEdit(tag)}
               aria-label="Edit tag"
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-surface-400 transition hover:bg-surface-100 hover:text-surface-600 dark:text-surface-500 dark:hover:bg-surface-800 dark:hover:text-surface-300"
             >
               ✏️
             </button>
             <button
               onClick={() => confirmDelete(tag.id)}
               aria-label="Delete tag"
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-500 dark:text-slate-500 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-surface-400 transition hover:bg-red-50 hover:text-red-500 dark:text-surface-500 dark:hover:bg-red-900/20 dark:hover:text-red-400"
             >
               🗑️
             </button>

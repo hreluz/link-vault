@@ -52,7 +52,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             className={`pointer-events-auto rounded-xl px-4 py-3 text-sm font-medium shadow-lg ${
               toast.variant === 'destructive'
                 ? 'bg-red-600 text-white'
-                : 'bg-slate-900 text-white'
+                : 'bg-surface-900 text-white'
             } ${toast.onClick ? 'cursor-pointer active:opacity-80' : ''}`}
           >
             {toast.message}

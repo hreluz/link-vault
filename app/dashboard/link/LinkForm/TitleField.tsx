@@ -11,7 +11,7 @@ export default function TitleField() {
       <div className="mb-1.5 flex items-center justify-between">
         <label className={LABEL}>Title</label>
         {fetchingMeta && (
-          <span className="text-xs text-slate-400 dark:text-slate-500">Fetching…</span>
+          <span className="text-xs text-surface-400 dark:text-surface-500">Fetching…</span>
         )}
       </div>
       <input

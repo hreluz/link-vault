@@ -28,22 +28,22 @@ export default function BulkActionToolbar() {
 
   return (
     <>
-      <div className="sticky top-0 z-10 mb-4 -mx-4 px-4 py-3 bg-white/95 backdrop-blur dark:bg-slate-950/95 border-b border-slate-200 dark:border-slate-800">
+      <div className="sticky top-0 z-10 mb-4 -mx-4 px-4 py-3 bg-surface-card/95 backdrop-blur dark:bg-surface-950/95 border-b border-surface-200 dark:border-surface-800">
         <div className="flex items-center gap-3 overflow-x-auto scrollbar-hide">
           <button
             onClick={handleSelectAll}
             disabled={selectingAllMatching}
-            className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+            className="shrink-0 rounded-lg border border-surface-200 bg-surface-card px-3 py-1.5 text-xs font-medium text-surface-600 transition hover:bg-surface-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-surface-700 dark:bg-surface-900 dark:text-surface-300 dark:hover:bg-surface-800"
           >
             {allSelected ? 'Deselect all' : selectingAllMatching ? 'Selecting…' : `Select all ${totalCount}`}
           </button>
 
-          <div className="h-4 w-px shrink-0 bg-slate-200 dark:bg-slate-700" />
+          <div className="h-4 w-px shrink-0 bg-surface-200 dark:bg-surface-700" />
 
           <button
             onClick={handleBulkArchive}
             disabled={selectedCount === 0}
-            className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+            className="shrink-0 rounded-lg border border-surface-200 bg-surface-card px-3 py-1.5 text-xs font-medium text-surface-600 transition hover:bg-surface-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-surface-700 dark:bg-surface-900 dark:text-surface-300 dark:hover:bg-surface-800"
           >
             🗄️ Archive
           </button>
@@ -51,7 +51,7 @@ export default function BulkActionToolbar() {
           <button
             onClick={() => setCategoryModalOpen(true)}
             disabled={selectedCount === 0}
-            className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+            className="shrink-0 rounded-lg border border-surface-200 bg-surface-card px-3 py-1.5 text-xs font-medium text-surface-600 transition hover:bg-surface-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-surface-700 dark:bg-surface-900 dark:text-surface-300 dark:hover:bg-surface-800"
           >
             📁 Category
           </button>
@@ -59,7 +59,7 @@ export default function BulkActionToolbar() {
           <button
             onClick={() => setTagModalOpen(true)}
             disabled={selectedCount === 0}
-            className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+            className="shrink-0 rounded-lg border border-surface-200 bg-surface-card px-3 py-1.5 text-xs font-medium text-surface-600 transition hover:bg-surface-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-surface-700 dark:bg-surface-900 dark:text-surface-300 dark:hover:bg-surface-800"
           >
             🏷️ Add tags
           </button>
@@ -67,7 +67,7 @@ export default function BulkActionToolbar() {
           <button
             onClick={() => setDeleteModalOpen(true)}
             disabled={selectedCount === 0}
-            className="shrink-0 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-red-900 dark:bg-slate-900 dark:hover:bg-red-950"
+            className="shrink-0 rounded-lg border border-red-200 bg-surface-card px-3 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-red-900 dark:bg-surface-900 dark:hover:bg-red-950"
           >
             🗑️ Delete
           </button>

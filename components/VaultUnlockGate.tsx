@@ -38,12 +38,12 @@ export default function VaultUnlockGate({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4 py-12 dark:bg-slate-950">
-      <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-700">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-surface-50 px-4 py-12 dark:bg-surface-950">
+      <div className="w-full max-w-sm rounded-2xl bg-surface-card p-6 shadow-sm ring-1 ring-surface-200 dark:bg-surface-900 dark:ring-surface-700">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <h1 className="text-base font-semibold text-slate-900 dark:text-slate-50">Unlock your vault</h1>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            <h1 className="text-base font-semibold text-surface-900 dark:text-surface-50">Unlock your vault</h1>
+            <p className="mt-1 text-sm text-surface-500 dark:text-surface-400">
               Enter your password to decrypt your links for this session.
             </p>
           </div>
@@ -53,7 +53,7 @@ export default function VaultUnlockGate({ children }: { children: React.ReactNod
             onChange={e => { setPassword(e.target.value); setError(null) }}
             placeholder="Password"
             autoFocus
-            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500"
+            className="w-full rounded-xl border border-surface-200 bg-surface-card px-4 py-3 text-sm text-surface-900 placeholder-surface-400 outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-100 dark:placeholder-surface-500"
           />
           {error && (
             <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
@@ -63,14 +63,14 @@ export default function VaultUnlockGate({ children }: { children: React.ReactNod
           <button
             type="submit"
             disabled={loading || !password.trim()}
-            className="w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:cursor-not-allowed disabled:opacity-60"
+            className="w-full rounded-xl bg-primary-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading ? 'Unlocking…' : 'Unlock'}
           </button>
           <button
             type="button"
             onClick={handleSignOut}
-            className="w-full text-center text-sm font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300"
+            className="w-full text-center text-sm font-medium text-primary-600 hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300"
           >
             Sign out
           </button>

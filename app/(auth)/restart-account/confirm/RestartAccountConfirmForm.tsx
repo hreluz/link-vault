@@ -53,7 +53,7 @@ export default function RestartAccountConfirmForm() {
       </p>
 
       <div className="space-y-1">
-        <label htmlFor="password" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+        <label htmlFor="password" className="block text-sm font-medium text-surface-700 dark:text-surface-300">
           New password
         </label>
         <input
@@ -65,12 +65,12 @@ export default function RestartAccountConfirmForm() {
           placeholder="••••••••"
           value={password}
           onChange={e => setPassword(e.target.value)}
-          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500"
+          className="w-full rounded-xl border border-surface-200 bg-surface-card px-4 py-3 text-sm text-surface-900 placeholder-surface-400 outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-100 dark:placeholder-surface-500"
         />
       </div>
 
       <div className="space-y-1">
-        <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+        <label htmlFor="confirmPassword" className="block text-sm font-medium text-surface-700 dark:text-surface-300">
           Confirm new password
         </label>
         <input
@@ -82,10 +82,10 @@ export default function RestartAccountConfirmForm() {
           placeholder="••••••••"
           value={confirmPassword}
           onChange={e => setConfirmPassword(e.target.value)}
-          className={`w-full rounded-xl border px-4 py-3 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:ring-2 dark:text-slate-100 dark:placeholder-slate-500 ${
+          className={`w-full rounded-xl border px-4 py-3 text-sm text-surface-900 placeholder-surface-400 outline-none transition focus:ring-2 dark:text-surface-100 dark:placeholder-surface-500 ${
             !passwordsMatch
               ? 'border-red-400 bg-red-50 focus:border-red-500 focus:ring-red-500/20 dark:border-red-700 dark:bg-red-900/20'
-              : 'border-slate-200 bg-white focus:border-indigo-500 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800'
+              : 'border-surface-200 bg-surface-card focus:border-primary-500 focus:ring-primary-500/20 dark:border-surface-700 dark:bg-surface-800'
           }`}
         />
         {!passwordsMatch && (
@@ -93,20 +93,20 @@ export default function RestartAccountConfirmForm() {
         )}
       </div>
 
-      <div className="border-t border-slate-100 dark:border-slate-800" />
+      <div className="border-t border-surface-100 dark:border-surface-800" />
 
-      <label className="flex items-start gap-2.5 text-sm text-slate-700 dark:text-slate-300">
+      <label className="flex items-start gap-2.5 text-sm text-surface-700 dark:text-surface-300">
         <input
           type="checkbox"
           checked={acknowledged}
           onChange={e => setAcknowledged(e.target.checked)}
-          className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/40 dark:border-slate-600 dark:bg-slate-800"
+          className="mt-0.5 h-4 w-4 rounded border-surface-300 text-primary-600 focus:ring-primary-500/40 dark:border-surface-600 dark:bg-surface-800"
         />
         I understand this will permanently delete all my saved links, categories, and tags.
       </label>
 
       <div className="space-y-1">
-        <label htmlFor="deleteWord" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+        <label htmlFor="deleteWord" className="block text-sm font-medium text-surface-700 dark:text-surface-300">
           Type <span className="font-mono font-semibold">{CONFIRM_WORD}</span> to confirm
         </label>
         <input
@@ -117,7 +117,7 @@ export default function RestartAccountConfirmForm() {
           placeholder={CONFIRM_WORD}
           value={deleteWord}
           onChange={e => setDeleteWord(e.target.value)}
-          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500"
+          className="w-full rounded-xl border border-surface-200 bg-surface-card px-4 py-3 text-sm text-surface-900 placeholder-surface-400 outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-100 dark:placeholder-surface-500"
         />
       </div>
 

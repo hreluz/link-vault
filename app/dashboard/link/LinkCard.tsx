@@ -51,9 +51,9 @@ export default function LinkCard({
   return (
     <SwipeableCard onSwipeDelete={isSelectionMode ? undefined : onDelete}>
       <article
-        className={`relative flex h-full flex-col bg-white transition dark:bg-slate-900 ${
+        className={`relative flex h-full flex-col bg-surface-card transition dark:bg-surface-900 ${
           isSelectionMode ? 'cursor-pointer select-none' : ''
-        } ${isSelected ? 'ring-2 ring-indigo-500 ring-inset rounded-2xl' : ''}`}
+        } ${isSelected ? 'ring-2 ring-primary-500 ring-inset rounded-2xl' : ''}`}
         onPointerDown={startLongPress}
         onPointerUp={cancelLongPress}
         onPointerLeave={cancelLongPress}
@@ -64,8 +64,8 @@ export default function LinkCard({
             <div
               className={`flex h-6 w-6 items-center justify-center rounded-full border-2 transition ${
                 isSelected
-                  ? 'border-indigo-500 bg-indigo-500 text-white'
-                  : 'border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-800'
+                  ? 'border-primary-500 bg-primary-500 text-white'
+                  : 'border-surface-300 bg-surface-card dark:border-surface-600 dark:bg-surface-800'
               }`}
             >
               {isSelected && (
@@ -98,10 +98,10 @@ export default function LinkCard({
 
         <div className="relative flex flex-1 flex-col gap-3 p-5">
           <div className="flex items-start justify-between gap-2">
-            <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300 ${isSelectionMode ? 'ml-8' : ''}`}>
+            <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full bg-surface-100 px-2.5 py-1 text-xs font-medium text-surface-700 dark:bg-surface-800 dark:text-surface-300 ${isSelectionMode ? 'ml-8' : ''}`}>
               {category
                 ? <>{category.emoticon && <span aria-hidden="true">{category.emoticon}</span>}{category.name}</>
-                : <span className="text-slate-400 dark:text-slate-500">Uncategorized</span>
+                : <span className="text-surface-400 dark:text-surface-500">Uncategorized</span>
               }
             </span>
             {!isSelectionMode && (
@@ -112,7 +112,7 @@ export default function LinkCard({
                   className={`flex h-8 w-8 items-center justify-center rounded-lg text-lg transition ${
                     link.is_favorite
                       ? 'text-amber-400 hover:text-amber-500'
-                      : 'text-slate-300 hover:text-amber-400 hover:bg-slate-100 dark:text-slate-600 dark:hover:bg-slate-800'
+                      : 'text-surface-300 hover:text-amber-400 hover:bg-surface-100 dark:text-surface-600 dark:hover:bg-surface-800'
                   }`}
                 >
                   {link.is_favorite ? '⭐' : '☆'}
@@ -120,7 +120,7 @@ export default function LinkCard({
                 <button
                   onClick={onMenuOpen}
                   aria-label="Link options"
-                  className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-sm text-slate-500 transition hover:bg-slate-200 hover:text-slate-700 active:bg-slate-200 lg:h-10 lg:w-10 lg:text-xl dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-200"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-100 text-sm text-surface-500 transition hover:bg-surface-200 hover:text-surface-700 active:bg-surface-200 lg:h-10 lg:w-10 lg:text-xl dark:bg-surface-800 dark:text-surface-400 dark:hover:bg-surface-700 dark:hover:text-surface-200"
                 >
                   ···
                 </button>
@@ -129,7 +129,7 @@ export default function LinkCard({
           </div>
 
           <div>
-            <h3 className="line-clamp-2 font-semibold leading-snug text-slate-900 dark:text-slate-50">
+            <h3 className="line-clamp-2 font-semibold leading-snug text-surface-900 dark:text-surface-50">
               {isSelectionMode ? (
                 link.title
               ) : (
@@ -138,30 +138,30 @@ export default function LinkCard({
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={onOpen}
-                  className="after:absolute after:inset-0 after:rounded-2xl after:content-[''] focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-indigo-500"
+                  className="after:absolute after:inset-0 after:rounded-2xl after:content-[''] focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-primary-500"
                 >
                   {link.title}
                 </a>
               )}
             </h3>
-            <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">
+            <p className="mt-0.5 text-xs text-surface-400 dark:text-surface-500">
               {link.site_name} ↗
               {!link.image_url && link.duration && (
-                <span className="ml-2 rounded-full bg-slate-100 px-1.5 py-0.5 font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                <span className="ml-2 rounded-full bg-surface-100 px-1.5 py-0.5 font-medium text-surface-500 dark:bg-surface-800 dark:text-surface-400">
                   {link.duration}
                 </span>
               )}
             </p>
           </div>
 
-          <p className="line-clamp-2 flex-1 text-sm text-slate-500 dark:text-slate-400">{link.description}</p>
+          <p className="line-clamp-2 flex-1 text-sm text-surface-500 dark:text-surface-400">{link.description}</p>
 
           <div className="relative z-10 flex flex-wrap items-center gap-1.5">
             <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${status.badge}`}>
               {status.label}
             </span>
             {link.tags.map(tagId => (
-              <span key={tagId} className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+              <span key={tagId} className="rounded-full bg-surface-100 px-2.5 py-0.5 text-xs text-surface-500 dark:bg-surface-800 dark:text-surface-400">
                 {tagNameById.get(tagId) ?? tagId}
               </span>
             ))}

@@ -124,7 +124,7 @@ describe('ImportExportClient', () => {
     it('shows the Paste URLs tab as active by default', () => {
       render(<ImportExportClient />)
 
-      expect(screen.getByText('🔗 Paste URLs').className).toContain('bg-indigo-600')
+      expect(screen.getByText('🔗 Paste URLs').className).toContain('bg-primary-600')
     })
 
     it('renders a textarea on the URLs tab', () => {
@@ -184,7 +184,7 @@ describe('ImportExportClient', () => {
       render(<ImportExportClient />)
       fireEvent.click(screen.getByText('📋 Paste JSON'))
 
-      expect(screen.getByText('📋 Paste JSON').className).toContain('bg-indigo-600')
+      expect(screen.getByText('📋 Paste JSON').className).toContain('bg-primary-600')
     })
 
     it('shows a textarea on the JSON tab', () => {

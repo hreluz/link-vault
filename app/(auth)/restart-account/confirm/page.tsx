@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 export default function RestartAccountConfirmPage() {
   return (
     <>
-      <h2 className="mb-6 text-lg font-semibold text-slate-900 dark:text-slate-50">Set a new password</h2>
+      <h2 className="mb-6 text-lg font-semibold text-surface-900 dark:text-surface-50">Set a new password</h2>
       <RestartAccountConfirmForm />
     </>
   )
