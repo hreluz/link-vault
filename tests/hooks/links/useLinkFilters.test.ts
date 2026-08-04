@@ -96,6 +96,23 @@ describe('useLinkFilters', () => {
       expect(result.current.filterParams.textSearch).toBe('')
       vi.useRealTimers()
     })
+
+    it('falls back to a literal text filter for a #tag token that matches no known tag, instead of clearing all filters', () => {
+      mockUseTagsContext.mockReturnValue({
+        tags: [{ id: 'tag-react', name: 'react', color: null, is_private: false, created_at: '', link_count: 0 }],
+        loading: false,
+        refetchTags: vi.fn(),
+      })
+      vi.useFakeTimers()
+      const { result } = renderHook(() => useLinkFilters())
+
+      act(() => result.current.setSearchQuery('#no-tag-234234i23489238i4923'))
+      act(() => { vi.advanceTimersByTime(350) })
+
+      expect(result.current.filterParams.tagIds).toEqual([])
+      expect(result.current.filterParams.textSearch).toBe('#no-tag-234234i23489238i4923')
+      vi.useRealTimers()
+    })
   })
 
   describe('search debounce', () => {
