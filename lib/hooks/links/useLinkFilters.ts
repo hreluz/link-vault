@@ -38,13 +38,20 @@ export function useLinkFilters() {
     const trimmed = debouncedSearch.trim()
     // `#tag` tokens in the search box resolve to tag ids (via the already-
     // decrypted tag cache) and fold into the structural tag filter -- the
-    // server never needs to match against a tag name. Whatever plain text
+    // server never needs to match against a tag name. A `#tag` token that
+    // doesn't match any known tag is left in place as plain text instead of
+    // being dropped, so it still narrows results (via client-side text
+    // match) rather than silently clearing the filter. Whatever plain text
     // remains is evaluated client-side after decryption (see ENCRYPTION.md).
-    const hashtagNames = Array.from(trimmed.matchAll(/#(\w+)/g), m => m[1].toLowerCase())
-    const hashtagIds = hashtagNames
-      .map(name => tags.find(t => t.name.toLowerCase() === name)?.id)
-      .filter((id): id is string => !!id)
-    const textSearch = trimmed.replace(/#\w+/g, '').trim()
+    const hashtagIds: string[] = []
+    const textSearch = trimmed
+      .replace(/#(\w+)/g, (match, name: string) => {
+        const tag = tags.find(t => t.name.toLowerCase() === name.toLowerCase())
+        if (!tag) return match
+        hashtagIds.push(tag.id)
+        return ''
+      })
+      .trim()
 
     return {
       textSearch,
