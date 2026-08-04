@@ -8,6 +8,24 @@ A personal "save for later" app for bookmarking links across content types — v
 
 Always run `nvm use v24.13.0` before executing any shell commands (dev server, tests, installs, etc.).
 
+## Switching branches locally
+
+`next dev`'s build cache (`.next/cache`) persists on disk across restarts — it is not
+cleared just because you stopped and restarted the process. If you `git checkout`
+between branches that touch `globals.css`, Tailwind theme tokens, or other build
+config, a plain restart can still serve stale CSS/JS chunks built against the
+*previous* branch's source, while the HTML comes from the new branch's components.
+Symptom: layout/spacing utilities render fine but color utilities silently resolve
+to nothing (e.g. `bg-primary-600` renders as transparent) because the cached chunk
+never defined those classes.
+
+Fix: `rm -rf .next` before restarting `npm run dev` when switching to/from a branch
+with theme or config changes.
+
+This is a local dev-only issue — Vercel deployments build from a clean checkout each
+time and pair HTML with content-hashed chunks from the same build, so it doesn't
+reproduce in production.
+
 ## Manual browser verification (Playwright)
 
 When a change needs visual/end-to-end confirmation (not just unit tests), drive a real browser against a local dev server instead of guessing from code.
@@ -136,7 +154,7 @@ Unique constraint: `(user_id, domain)`.
 
 ## Key features
 
-1. **Save a link** — paste URL, auto-extract `site_name` from hostname; `fetchLinkMeta` server action (`app/dashboard/link/actions.ts`) fetches `og:title`, `og:description`, and `og:image` after a 600 ms debounce; title pre-fills only if the user hasn't typed one; description and image always populate; `image_url` stored in the `links` table and shown as a full-bleed thumbnail at the top of `LinkCard`; an ON/OFF toggle in `UrlField` disables auto-fetch and clears prefilled data; YouTube video duration is fetched via YouTube Data API v3 (`YOUTUBE_API_KEY` env var, optional, free tier 10k units/day) and stored in `duration`; duration is editable in the form for any platform and shown as a badge over the thumbnail (or inline next to `site_name` when no thumbnail)
+1. **Save a link** — paste URL, auto-extract `site_name` from hostname; `fetchLinkMeta` server action (`app/dashboard/link/actions.ts`) fetches `og:title`, `og:description`, and `og:image` after a 600 ms debounce; title pre-fills only if the user hasn't typed one; description and image always populate; `image_url` stored in the `links` table and shown as a full-bleed thumbnail at the top of `LinkCard`; an ON/OFF toggle in `UrlField` disables auto-fetch and clears prefilled data (its default is a per-user preference, `auto_fetch_enabled` on `user_preferences`, set at `/dashboard/config/link-preferences` via `getAutoFetchPreference`/`setAutoFetchPreference` in `lib/services/userPreferences.ts`); YouTube video duration is fetched via YouTube Data API v3 (`YOUTUBE_API_KEY` env var, optional, free tier 10k units/day) and stored in `duration`; duration is editable in the form for any platform and shown as a badge over the thumbnail (or inline next to `site_name` when no thumbnail)
 2. **Categorize** — auto-assign category by domain mapping; user can override
 3. **Tag** — add/remove tags using comma-separated input or `#tag` syntax; browse by tag; autocomplete suggests existing tags as you type (substring match, up to 8 results); keyboard-navigable with ↑/↓, Tab/Enter to select, Escape to dismiss; available in the link form (`TagsField`), `BulkTagModal`, and `SearchBar`; all three are powered by the same `useAvailableTags()` hook (privacy-filtered names from `TagsContext`) + `useTagInput(tags, onChange, availableTags)` / `useSearchTagSuggestions`
 4. **Private tags** — single global password (SHA-256 + optional hint) protects all private tags; session-scoped unlock via `UnlockTagModal`; lock/unlock icon buttons in the tags header; links hidden until unlocked; every wrong attempt logs the user out; 5 failures trigger a scoped nuke (private-tag-linked links + private tags deleted) then allow a fresh password
@@ -153,6 +171,7 @@ Unique constraint: `(user_id, domain)`.
 14. **Dark mode** — theme toggle via `ThemeProvider`; inline script prevents flash on load
 15. **Account restart** — `/restart-account` (forgotten password): user submits email → `requestAccountRestart` sends a Supabase recovery-type email → `/auth/confirm` verifies the OTP and redirects to `/restart-account/confirm`, where the user sets a new password, ticks an acknowledgement checkbox, and types `DELETE` to confirm; `useRestartAccount` hook then updates the password, wipes all links/tags/categories/`user_encryption_keys` via `wipeVaultData`, and bootstraps a fresh vault key
 16. **Admin settings** — `/dashboard/config/admin-settings`, gated by `role === 'admin'` on the `users` table (`getCurrentUserRole`); two independent on/off switches backed by the single-row `app_settings` table: `registrations_enabled` (shown as a disabled-message on `/signup` when off) and `restart_account_enabled` (same treatment on `/restart-account`, re-checked server-side in `restartAccountAction` too); service functions `isRegistrationEnabled`/`setRegistrationEnabled` and `isRestartAccountEnabled`/`setRestartAccountEnabled` in `lib/services/appSettings.ts`
+17. **Appearance** — `/dashboard/config/appearance`; light/dark mode plus an independent accent color per mode (e.g. Blue in light mode, Violet in dark mode), backed by `accent_color_light`/`accent_color_dark` columns on `user_preferences` (service functions `getAccentColors`/`setAccentColor` in `lib/services/userPreferences.ts`); 7 curated presets (Indigo default, Violet, Blue, Emerald, Rose, Amber, Teal) reuse Tailwind's own hue ramps via `[data-accent]` CSS overrides in `app/globals.css`, or a custom hex generates a full shade ramp algorithmically (`lib/utils/accentRamp.ts`, cloning indigo's lightness/chroma shape re-hued to the input, with a non-blocking WCAG contrast warning); a single shared **surface tone** (not per light/dark) picks the neutral gray family used for backgrounds/text/borders app-wide — Slate default, Gray, Zinc, Neutral, Stone (`lib/utils/surfaceFamilies.ts`, applied via `[data-surface]`), backed by a `surface_family` column on `user_preferences` (`getSurfaceFamily`/`setSurfaceFamily`); `components/ThemeProvider.tsx` is the single source of truth for theme + both accents + surface family (applied via the `primary-*`/`surface-*` tokens, see Design system below), synced client-side via `localStorage` for a no-flash paint and reconciled from the DB on dashboard load (`AccentSync`)
 
 ## Conventions
 
@@ -211,12 +230,9 @@ The single privacy rule — `isTagVisible(isPrivate, name, unlockedTagNames)` in
 Mobile-first. All UI must follow these Tailwind conventions — no exceptions.
 
 ### Color palette
-- **Primary:** `indigo-600` (hover: `indigo-500`)
-- **Background:** `slate-50` (page), `white` (cards/inputs)
-- **Text:** `slate-900` (headings), `slate-700` (labels), `slate-500` (secondary/muted)
-- **Border:** `slate-200`
+- **Primary:** `primary-600` (hover: `primary-500`) — a CSS-variable-backed token (`app/globals.css`), not a literal Tailwind hue. It resolves to the user's chosen accent color (`/dashboard/config/appearance`, default: indigo), swapped at runtime via `[data-accent]` on `<html>` for the 7 curated presets, or via inline `--color-primary-*` overrides for a custom hex (see `lib/utils/accentRamp.ts`). **Always use `primary-*` for brand/UI-chrome elements — never hardcode `indigo-*` or another hue literal for them.** Literal hue classes remain correct when representing fixed, non-brand semantics unrelated to the app's accent — e.g. the status badge colors in `app/dashboard/config.ts` and the per-category/tag color choices in `components/ColorPicker.tsx` — don't sweep those into `primary-*`.
+- **Neutral (background/text/border):** `surface-*` — a CSS-variable-backed token (`app/globals.css`), not a literal Tailwind gray, and not a simple alias to Tailwind's own gray/zinc/neutral/stone vars either — those are too close in hue/chroma to read as distinct presets, so each preset is a hand-authored `oklch()` ramp with its own hue (Slate cool blue, Gray sage green, Zinc mauve, Neutral true chroma-0 gray, Stone warm tan) and boosted chroma, keeping Tailwind's original per-shade lightness so text contrast is unaffected. Resolves to the user's chosen family (`/dashboard/config/appearance`, default: slate), swapped at runtime via `[data-surface]` on `<html>` (`lib/utils/surfaceFamilies.ts`). **Always use `surface-*` — never hardcode `slate-*` or another gray literal for backgrounds/text/borders.** Usage: `surface-50` (page background), `surface-card` (elevated surfaces — cards/header/inputs/modals — a dedicated light-mode-only token, lighter than `surface-50`, that replaced literal `bg-white`), `surface-900`/`surface-950` (dark-mode card/page background), `surface-900` (headings), `surface-700` (labels), `surface-500` (secondary/muted text), `surface-400` (placeholder), `surface-200` (border). Literal `white` remains correct only for non-surface elements with no dark-mode pairing: toggle-switch knobs and one emerald-themed button in `ChangePasswordForm.tsx`. Literal `slate-*` remains correct only for the two exclusions carried over from the accent system: `app/dashboard/config.ts` status badges and `components/ColorPicker.tsx`'s own `COLORS` array.
 - **Error:** `red-600` text on `red-50` background
-- **Placeholder:** `slate-400`
 
 ### Radius & shape
 - Cards and containers: `rounded-2xl`
@@ -224,23 +240,23 @@ Mobile-first. All UI must follow these Tailwind conventions — no exceptions.
 
 ### Inputs
 ```
-w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900
-placeholder-slate-400 outline-none transition
-focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20
+w-full rounded-xl border border-surface-200 bg-surface-card px-4 py-3 text-sm text-surface-900
+placeholder-surface-400 outline-none transition
+focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20
 ```
 
 ### Primary button
 ```
-w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-sm
-transition hover:bg-indigo-500
-focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600
+w-full rounded-xl bg-primary-600 px-4 py-3 text-sm font-semibold text-white shadow-sm
+transition hover:bg-primary-500
+focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600
 disabled:cursor-not-allowed disabled:opacity-60
 ```
 
 ### Secondary / ghost button
 ```
-rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600
-shadow-sm transition hover:bg-slate-50 hover:text-slate-900
+rounded-xl border border-surface-200 bg-surface-card px-4 py-2 text-sm font-medium text-surface-600
+shadow-sm transition hover:bg-surface-50 hover:text-surface-900
 disabled:cursor-not-allowed disabled:opacity-60
 ```
 
@@ -251,20 +267,20 @@ rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600
 
 ### Labels
 ```
-block text-sm font-medium text-slate-700
+block text-sm font-medium text-surface-700
 ```
 
 ### Links
 ```
-font-medium text-indigo-600 hover:text-indigo-500
+font-medium text-primary-600 hover:text-primary-500
 ```
 
 ### Card shell
 ```
-rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200
+rounded-2xl bg-surface-card p-6 shadow-sm ring-1 ring-surface-200
 ```
 
 ### Page wrapper (centered auth / empty-state layouts)
 ```
-flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4 py-12
+flex min-h-screen flex-col items-center justify-center bg-surface-50 px-4 py-12
 ```

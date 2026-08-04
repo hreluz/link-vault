@@ -36,14 +36,14 @@ export default function AdminSettingsForm({
     <main className="mx-auto max-w-md px-4 py-8">
       <Link
         href="/dashboard/config"
-        className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 transition hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+        className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-surface-500 transition hover:text-surface-900 dark:text-surface-400 dark:hover:text-surface-100"
       >
         <span aria-hidden="true">←</span> Config
       </Link>
 
-      <h1 className="mb-8 text-2xl font-bold text-slate-900 dark:text-slate-50">Admin Settings</h1>
+      <h1 className="mb-8 text-2xl font-bold text-surface-900 dark:text-surface-50">Admin Settings</h1>
 
-      <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-700">
+      <div className="rounded-2xl bg-surface-card p-6 shadow-sm ring-1 ring-surface-200 dark:bg-surface-900 dark:ring-surface-700">
         {error && (
           <p className="mb-5 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
             {error}
@@ -52,8 +52,8 @@ export default function AdminSettingsForm({
 
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="font-medium text-slate-900 dark:text-slate-50">New user registration</p>
-            <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
+            <p className="font-medium text-surface-900 dark:text-surface-50">New user registration</p>
+            <p className="mt-0.5 text-sm text-surface-500 dark:text-surface-400">
               {enabled ? 'Sign up is currently enabled.' : 'Sign up is currently disabled.'}
             </p>
           </div>
@@ -64,7 +64,7 @@ export default function AdminSettingsForm({
             disabled={isPending}
             onClick={handleToggle}
             className={`relative h-7 w-12 shrink-0 rounded-full transition disabled:opacity-50 ${
-              enabled ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'
+              enabled ? 'bg-primary-600' : 'bg-surface-300 dark:bg-surface-700'
             }`}
           >
             <span
@@ -76,7 +76,7 @@ export default function AdminSettingsForm({
         </div>
       </div>
 
-      <div className="mt-6 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-700">
+      <div className="mt-6 rounded-2xl bg-surface-card p-6 shadow-sm ring-1 ring-surface-200 dark:bg-surface-900 dark:ring-surface-700">
         {restartAccountError && (
           <p className="mb-5 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
             {restartAccountError}
@@ -85,8 +85,8 @@ export default function AdminSettingsForm({
 
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="font-medium text-slate-900 dark:text-slate-50">Account restart</p>
-            <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
+            <p className="font-medium text-surface-900 dark:text-surface-50">Account restart</p>
+            <p className="mt-0.5 text-sm text-surface-500 dark:text-surface-400">
               {restartAccountEnabled
                 ? 'Account restart is currently enabled.'
                 : 'Account restart is currently disabled.'}
@@ -99,7 +99,7 @@ export default function AdminSettingsForm({
             disabled={isRestartAccountPending}
             onClick={handleRestartAccountToggle}
             className={`relative h-7 w-12 shrink-0 rounded-full transition disabled:opacity-50 ${
-              restartAccountEnabled ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'
+              restartAccountEnabled ? 'bg-primary-600' : 'bg-surface-300 dark:bg-surface-700'
             }`}
           >
             <span
@@ -111,16 +111,16 @@ export default function AdminSettingsForm({
         </div>
       </div>
 
-      <div className="mt-6 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-700">
-        <p className="mb-4 font-medium text-slate-900 dark:text-slate-50">YouTube API key</p>
+      <div className="mt-6 rounded-2xl bg-surface-card p-6 shadow-sm ring-1 ring-surface-200 dark:bg-surface-900 dark:ring-surface-700">
+        <p className="mb-4 font-medium text-surface-900 dark:text-surface-50">YouTube API key</p>
         <dl className="space-y-2 text-sm">
           <div className="flex items-center justify-between gap-4">
-            <dt className="text-slate-500 dark:text-slate-400">Has key</dt>
-            <dd className="text-slate-900 dark:text-slate-50">{youtubeKeyDebug.hasYouTubeKey ? 'Yes' : 'No'}</dd>
+            <dt className="text-surface-500 dark:text-surface-400">Has key</dt>
+            <dd className="text-surface-900 dark:text-surface-50">{youtubeKeyDebug.hasYouTubeKey ? 'Yes' : 'No'}</dd>
           </div>
           <div className="flex items-center justify-between gap-4">
-            <dt className="text-slate-500 dark:text-slate-400">Key length</dt>
-            <dd className="text-slate-900 dark:text-slate-50">{youtubeKeyDebug.keyLength ?? '—'}</dd>
+            <dt className="text-surface-500 dark:text-surface-400">Key length</dt>
+            <dd className="text-surface-900 dark:text-surface-50">{youtubeKeyDebug.keyLength ?? '—'}</dd>
           </div>
         </dl>
       </div>

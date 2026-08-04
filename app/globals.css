@@ -7,6 +7,196 @@
   --font-mono: var(--font-geist-mono);
 }
 
+@theme {
+  --color-primary-50:  var(--color-indigo-50);
+  --color-primary-100: var(--color-indigo-100);
+  --color-primary-200: var(--color-indigo-200);
+  --color-primary-300: var(--color-indigo-300);
+  --color-primary-400: var(--color-indigo-400);
+  --color-primary-500: var(--color-indigo-500);
+  --color-primary-600: var(--color-indigo-600);
+  --color-primary-700: var(--color-indigo-700);
+  --color-primary-800: var(--color-indigo-800);
+  --color-primary-900: var(--color-indigo-900);
+
+  --color-surface-50:  oklch(98.4% 0.0140 255);
+  --color-surface-100: oklch(96.8% 0.0200 255);
+  --color-surface-200: oklch(92.9% 0.0280 255);
+  --color-surface-300: oklch(86.9% 0.0360 255);
+  --color-surface-400: oklch(70.4% 0.0420 255);
+  --color-surface-500: oklch(55.4% 0.0480 255);
+  --color-surface-600: oklch(44.6% 0.0440 255);
+  --color-surface-700: oklch(37.2% 0.0320 255);
+  --color-surface-800: oklch(27.9% 0.0280 255);
+  --color-surface-900: oklch(20.8% 0.0260 255);
+  --color-surface-950: oklch(12.9% 0.0240 255);
+  --color-surface-card: oklch(98.9% 0.0100 255);
+}
+
+/*
+ * Accent presets: remap the primary-* tokens above to another Tailwind hue's
+ * own tested ramp, keyed by [data-accent] on <html>. "indigo" needs no rule
+ * (it's the @theme default) but is always set explicitly on the DOM so
+ * document.documentElement.dataset.accent is always readable.
+ * Custom hex accents bypass this entirely via inline --color-primary-* vars
+ * set directly on <html> (see lib/utils/accentRamp.ts), which always win the
+ * cascade over these attribute-selector rules.
+ */
+[data-accent="violet"] {
+  --color-primary-50:  var(--color-violet-50);
+  --color-primary-100: var(--color-violet-100);
+  --color-primary-200: var(--color-violet-200);
+  --color-primary-300: var(--color-violet-300);
+  --color-primary-400: var(--color-violet-400);
+  --color-primary-500: var(--color-violet-500);
+  --color-primary-600: var(--color-violet-600);
+  --color-primary-700: var(--color-violet-700);
+  --color-primary-800: var(--color-violet-800);
+  --color-primary-900: var(--color-violet-900);
+}
+
+[data-accent="blue"] {
+  --color-primary-50:  var(--color-blue-50);
+  --color-primary-100: var(--color-blue-100);
+  --color-primary-200: var(--color-blue-200);
+  --color-primary-300: var(--color-blue-300);
+  --color-primary-400: var(--color-blue-400);
+  --color-primary-500: var(--color-blue-500);
+  --color-primary-600: var(--color-blue-600);
+  --color-primary-700: var(--color-blue-700);
+  --color-primary-800: var(--color-blue-800);
+  --color-primary-900: var(--color-blue-900);
+}
+
+[data-accent="emerald"] {
+  --color-primary-50:  var(--color-emerald-50);
+  --color-primary-100: var(--color-emerald-100);
+  --color-primary-200: var(--color-emerald-200);
+  --color-primary-300: var(--color-emerald-300);
+  --color-primary-400: var(--color-emerald-400);
+  --color-primary-500: var(--color-emerald-500);
+  --color-primary-600: var(--color-emerald-600);
+  --color-primary-700: var(--color-emerald-700);
+  --color-primary-800: var(--color-emerald-800);
+  --color-primary-900: var(--color-emerald-900);
+}
+
+[data-accent="rose"] {
+  --color-primary-50:  var(--color-rose-50);
+  --color-primary-100: var(--color-rose-100);
+  --color-primary-200: var(--color-rose-200);
+  --color-primary-300: var(--color-rose-300);
+  --color-primary-400: var(--color-rose-400);
+  --color-primary-500: var(--color-rose-500);
+  --color-primary-600: var(--color-rose-600);
+  --color-primary-700: var(--color-rose-700);
+  --color-primary-800: var(--color-rose-800);
+  --color-primary-900: var(--color-rose-900);
+}
+
+[data-accent="amber"] {
+  --color-primary-50:  var(--color-amber-50);
+  --color-primary-100: var(--color-amber-100);
+  --color-primary-200: var(--color-amber-200);
+  --color-primary-300: var(--color-amber-300);
+  --color-primary-400: var(--color-amber-400);
+  --color-primary-500: var(--color-amber-500);
+  --color-primary-600: var(--color-amber-600);
+  --color-primary-700: var(--color-amber-700);
+  --color-primary-800: var(--color-amber-800);
+  --color-primary-900: var(--color-amber-900);
+}
+
+[data-accent="teal"] {
+  --color-primary-50:  var(--color-teal-50);
+  --color-primary-100: var(--color-teal-100);
+  --color-primary-200: var(--color-teal-200);
+  --color-primary-300: var(--color-teal-300);
+  --color-primary-400: var(--color-teal-400);
+  --color-primary-500: var(--color-teal-500);
+  --color-primary-600: var(--color-teal-600);
+  --color-primary-700: var(--color-teal-700);
+  --color-primary-800: var(--color-teal-800);
+  --color-primary-900: var(--color-teal-900);
+}
+
+/*
+ * Surface presets: remap the surface-* tokens above to a hand-authored,
+ * hue-spread palette, keyed by [data-surface] on <html>. "slate" needs no
+ * rule (it's the @theme default) but is always set explicitly on the DOM.
+ * These are NOT simple aliases to Tailwind's own gray/zinc/neutral/stone
+ * vars -- those are too close in hue/chroma to read as different presets
+ * (confirmed: gray and slate sit at nearly the same ~255-265deg hue, zinc
+ * and neutral are both near-zero chroma). Each preset below keeps the same
+ * per-shade LIGHTNESS as Tailwind's native ramps (so text contrast is
+ * unaffected -- only chroma/hue change) but gets its own distinct hue and a
+ * boosted chroma on the background-only shades (50-300, card) so the tint
+ * is clearly visible, with a more restrained boost on 700-950 since those
+ * shades double as light-mode heading/label text.
+ * --color-surface-card is a light-mode-only anchor for elevated surfaces
+ * (cards/header/inputs/modals) that used to be literal white -- dark mode
+ * continues to use the numbered 800/900 shades via existing dark: classes.
+ */
+[data-surface="gray"] {
+  --color-surface-50:  oklch(98.4% 0.0105 150);
+  --color-surface-100: oklch(96.8% 0.0150 150);
+  --color-surface-200: oklch(92.9% 0.0210 150);
+  --color-surface-300: oklch(86.9% 0.0270 150);
+  --color-surface-400: oklch(70.4% 0.0315 150);
+  --color-surface-500: oklch(55.4% 0.0360 150);
+  --color-surface-600: oklch(44.6% 0.0330 150);
+  --color-surface-700: oklch(37.2% 0.0240 150);
+  --color-surface-800: oklch(27.9% 0.0210 150);
+  --color-surface-900: oklch(20.8% 0.0195 150);
+  --color-surface-950: oklch(12.9% 0.0180 150);
+  --color-surface-card: oklch(98.9% 0.0075 150);
+}
+
+[data-surface="zinc"] {
+  --color-surface-50:  oklch(98.4% 0.0112 330);
+  --color-surface-100: oklch(96.8% 0.0160 330);
+  --color-surface-200: oklch(92.9% 0.0224 330);
+  --color-surface-300: oklch(86.9% 0.0288 330);
+  --color-surface-400: oklch(70.4% 0.0336 330);
+  --color-surface-500: oklch(55.4% 0.0384 330);
+  --color-surface-600: oklch(44.6% 0.0352 330);
+  --color-surface-700: oklch(37.2% 0.0256 330);
+  --color-surface-800: oklch(27.9% 0.0224 330);
+  --color-surface-900: oklch(20.8% 0.0208 330);
+  --color-surface-950: oklch(12.9% 0.0192 330);
+  --color-surface-card: oklch(98.9% 0.0080 330);
+}
+
+[data-surface="neutral"] {
+  --color-surface-50:  oklch(98.4% 0 0);
+  --color-surface-100: oklch(96.8% 0 0);
+  --color-surface-200: oklch(92.9% 0 0);
+  --color-surface-300: oklch(86.9% 0 0);
+  --color-surface-400: oklch(70.4% 0 0);
+  --color-surface-500: oklch(55.4% 0 0);
+  --color-surface-600: oklch(44.6% 0 0);
+  --color-surface-700: oklch(37.2% 0 0);
+  --color-surface-800: oklch(27.9% 0 0);
+  --color-surface-900: oklch(20.8% 0 0);
+  --color-surface-950: oklch(12.9% 0 0);
+  --color-surface-card: oklch(98.9% 0 0);
+}
+
+[data-surface="stone"] {
+  --color-surface-50:  oklch(98.4% 0.0119 55);
+  --color-surface-100: oklch(96.8% 0.0170 55);
+  --color-surface-200: oklch(92.9% 0.0238 55);
+  --color-surface-300: oklch(86.9% 0.0306 55);
+  --color-surface-400: oklch(70.4% 0.0357 55);
+  --color-surface-500: oklch(55.4% 0.0408 55);
+  --color-surface-600: oklch(44.6% 0.0374 55);
+  --color-surface-700: oklch(37.2% 0.0272 55);
+  --color-surface-800: oklch(27.9% 0.0238 55);
+  --color-surface-900: oklch(20.8% 0.0221 55);
+  --color-surface-950: oklch(12.9% 0.0204 55);
+  --color-surface-card: oklch(98.9% 0.0085 55);
+}
+
 html.theme-switching *,
 html.theme-switching *::before,
 html.theme-switching *::after {

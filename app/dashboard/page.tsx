@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { getAutoFetchPreference } from '@/lib/services/users'
+import { getAutoFetchPreference } from '@/lib/services/userPreferences'
 import LinkList from './link/LinkList'
 
 export const metadata = {

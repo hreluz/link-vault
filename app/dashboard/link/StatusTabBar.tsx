@@ -18,8 +18,8 @@ export function StatusTabBar({ value, onChange }: Props) {
         onClick={() => onChange(null)}
         className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition ${
           value === null
-            ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
-            : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700'
+            ? 'bg-primary-600 text-white'
+            : 'bg-surface-100 text-surface-600 hover:bg-surface-200 dark:bg-surface-800 dark:text-surface-400 dark:hover:bg-surface-700'
         }`}
       >
         All
@@ -31,7 +31,7 @@ export function StatusTabBar({ value, onChange }: Props) {
           className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition ${
             value === s
               ? STATUS_CONFIG[s].badge
-              : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700'
+              : 'bg-surface-100 text-surface-600 hover:bg-surface-200 dark:bg-surface-800 dark:text-surface-400 dark:hover:bg-surface-700'
           }`}
         >
           {STATUS_CONFIG[s].label}

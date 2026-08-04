@@ -18,7 +18,7 @@ export function colorFor(value: string | null | undefined) {
 export function ColorPicker({ selected, onChange }: { selected: string; onChange: (v: string) => void }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-xs text-slate-500 dark:text-slate-400">Color</span>
+      <span className="text-xs text-surface-500 dark:text-surface-400">Color</span>
       {COLORS.map(c => (
         <button
           key={c.value}
@@ -26,7 +26,7 @@ export function ColorPicker({ selected, onChange }: { selected: string; onChange
           onClick={() => onChange(c.value)}
           aria-label={c.value}
           className={`h-5 w-5 rounded-full transition ${c.dot} ring-offset-2 ${
-            selected === c.value ? 'ring-2 ring-indigo-500 scale-110' : 'hover:scale-110'
+            selected === c.value ? 'ring-2 ring-primary-500 scale-110' : 'hover:scale-110'
           }`}
         />
       ))}

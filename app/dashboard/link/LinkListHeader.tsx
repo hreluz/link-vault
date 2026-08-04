@@ -8,12 +8,12 @@ export default function LinkListHeader() {
   if (isSelectionMode) {
     return (
       <div className="mb-5 flex items-center justify-between gap-4">
-        <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+        <p className="text-sm font-semibold text-surface-700 dark:text-surface-300">
           {selectedCount} selected
         </p>
         <button
           onClick={exitSelectionMode}
-          className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+          className="rounded-xl border border-surface-200 bg-surface-card px-4 py-2 text-sm font-medium text-surface-600 shadow-sm transition hover:bg-surface-50 hover:text-surface-900 dark:border-surface-700 dark:bg-surface-900 dark:text-surface-300 dark:hover:bg-surface-800"
         >
           Cancel
         </button>
@@ -24,10 +24,10 @@ export default function LinkListHeader() {
   return (
     <div className="mb-5 flex items-center justify-between gap-4">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">
+        <h1 className="text-2xl font-bold text-surface-900 dark:text-surface-50">
           {favoritesOnly ? 'Favorites' : 'Your Links'}
         </h1>
-        <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
+        <p className="mt-0.5 text-sm text-surface-500 dark:text-surface-400">
           {totalCount} link{totalCount !== 1 ? 's' : ''}
         </p>
       </div>
@@ -35,13 +35,13 @@ export default function LinkListHeader() {
         <button
           onClick={enterSelectionMode}
           aria-label="Select links"
-          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+          className="rounded-xl border border-surface-200 bg-surface-card px-3 py-2 text-sm font-medium text-surface-600 shadow-sm transition hover:bg-surface-50 hover:text-surface-900 dark:border-surface-700 dark:bg-surface-900 dark:text-surface-300 dark:hover:bg-surface-800"
         >
           Select
         </button>
         <button
           onClick={() => setModalOpen(true)}
-          className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500"
+          className="rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500"
         >
           + Add link
         </button>

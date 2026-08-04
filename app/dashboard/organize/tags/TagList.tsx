@@ -27,15 +27,15 @@ function TagListContent() {
     <main className="mx-auto max-w-2xl px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">Tags</h1>
-          <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{visibleTags.length} tag{visibleTags.length !== 1 ? 's' : ''}</p>
+          <h1 className="text-2xl font-bold text-surface-900 dark:text-surface-50">Tags</h1>
+          <p className="mt-0.5 text-sm text-surface-500 dark:text-surface-400">{visibleTags.length} tag{visibleTags.length !== 1 ? 's' : ''}</p>
         </div>
         <div className="flex items-center gap-2">
           {hasPrivate && !hasUnlocked && (
             <button
               onClick={() => setUnlocking(true)}
               title="Unlock all private tags"
-              className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 transition hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-400 dark:hover:bg-indigo-900/50"
+              className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-50 text-primary-600 transition hover:bg-primary-100 dark:bg-primary-900/30 dark:text-primary-400 dark:hover:bg-primary-900/50"
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="h-4 w-4">
                 <path fillRule="evenodd" d="M8 1a3.5 3.5 0 0 0-3.5 3.5V6H4a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-.5V4.5A3.5 3.5 0 0 0 8 1Zm2 5V4.5a2 2 0 1 0-4 0V6h4Z" clipRule="evenodd" />
@@ -56,7 +56,7 @@ function TagListContent() {
           {!adding && (
             <button
               onClick={openAdd}
-              className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500"
+              className="rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500"
             >
               + New tag
             </button>
@@ -77,7 +77,7 @@ function TagListContent() {
       {visibleTags.length === 0 && (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <div className="mb-4 text-4xl" aria-hidden="true">🏷️</div>
-          <p className="text-slate-500 dark:text-slate-400">
+          <p className="text-surface-500 dark:text-surface-400">
             {tags.length === 0 ? 'No tags yet. Create your first one.' : 'All tags are private. Unlock to view them.'}
           </p>
         </div>

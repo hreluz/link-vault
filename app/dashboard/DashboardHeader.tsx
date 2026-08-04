@@ -12,12 +12,12 @@ export default function DashboardHeader({ userEmail }: { userEmail: string }) {
   const logo = (
     <>
       <span className="text-xl" aria-hidden="true">🔖</span>
-      <span className="font-semibold text-slate-900 dark:text-slate-50">Link Vault</span>
+      <span className="font-semibold text-surface-900 dark:text-surface-50">Link Vault</span>
     </>
   )
 
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+    <header className="sticky top-0 z-40 border-b border-surface-200 bg-surface-card dark:border-surface-700 dark:bg-surface-900">
       <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
         {pathname === '/dashboard' ? (
           // Already on the links page: just scroll to top directly, without
@@ -33,7 +33,7 @@ export default function DashboardHeader({ userEmail }: { userEmail: string }) {
           </Link>
         )}
         <div className="flex items-center gap-2">
-          <span className="hidden text-sm text-slate-500 dark:text-slate-400 sm:block">{userEmail}</span>
+          <span className="hidden text-sm text-surface-500 dark:text-surface-400 sm:block">{userEmail}</span>
           <ThemeToggleButton />
           <LogoutButton />
         </div>

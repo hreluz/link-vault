@@ -80,7 +80,7 @@ export default function SwipeableCard({ onSwipeDelete, children }: Props) {
   }, []) // run once — callback is always current via onSwipeDeleteRef
 
   return (
-    <div className="relative overflow-hidden rounded-2xl shadow-sm ring-1 ring-slate-200 transition hover:shadow-md hover:ring-slate-300 dark:ring-slate-700 dark:hover:ring-slate-600">
+    <div className="relative overflow-hidden rounded-2xl shadow-sm ring-1 ring-surface-200 transition hover:shadow-md hover:ring-surface-300 dark:ring-surface-700 dark:hover:ring-surface-600">
       <div className="pointer-events-none absolute inset-0 flex items-center justify-end bg-red-100 pr-5 dark:bg-red-900/40" aria-hidden="true">
         <span className="text-2xl text-red-400">🗑️</span>
       </div>

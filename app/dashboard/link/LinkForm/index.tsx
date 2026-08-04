@@ -26,7 +26,7 @@ export default function LinkForm({ scrollable = false, collapsible = false }: Pr
     : 'space-y-4'
 
   const footerCls = scrollable
-    ? 'flex gap-3 border-t border-slate-100 px-6 py-4 dark:border-slate-800'
+    ? 'flex gap-3 border-t border-surface-100 px-6 py-4 dark:border-surface-800'
     : 'mt-6 flex gap-3'
 
   return (

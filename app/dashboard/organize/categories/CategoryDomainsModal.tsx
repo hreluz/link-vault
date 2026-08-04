@@ -37,17 +37,17 @@ export default function CategoryDomainsModal({ category, onClose }: Props) {
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-700">
+      <div className="w-full max-w-md rounded-2xl bg-surface-card p-6 shadow-xl ring-1 ring-surface-200 dark:bg-surface-900 dark:ring-surface-700">
         <div className="mb-5 flex items-center gap-2">
           <span className="text-xl" aria-hidden="true">{category.emoticon}</span>
           <div>
-            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">{category.name}</h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Domains linked to this category</p>
+            <h2 className="text-sm font-semibold text-surface-900 dark:text-surface-50">{category.name}</h2>
+            <p className="text-xs text-surface-500 dark:text-surface-400">Domains linked to this category</p>
           </div>
           <button
             onClick={onClose}
             aria-label="Close"
-            className="ml-auto flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+            className="ml-auto flex h-8 w-8 items-center justify-center rounded-lg text-surface-400 transition hover:bg-surface-100 hover:text-surface-600 dark:text-surface-500 dark:hover:bg-surface-800 dark:hover:text-surface-300"
           >
             ✕
           </button>
@@ -61,12 +61,12 @@ export default function CategoryDomainsModal({ category, onClose }: Props) {
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500"
+            className="flex-1 rounded-xl border border-surface-200 bg-surface-card px-4 py-2.5 text-sm text-surface-900 placeholder-surface-400 outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-100 dark:placeholder-surface-500"
           />
           <button
             onClick={handleAdd}
             disabled={adding || !input.trim()}
-            className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Add
           </button>
@@ -77,21 +77,21 @@ export default function CategoryDomainsModal({ category, onClose }: Props) {
         )}
 
         {loading ? (
-          <p className="py-4 text-center text-sm text-slate-400 dark:text-slate-500">Loading…</p>
+          <p className="py-4 text-center text-sm text-surface-400 dark:text-surface-500">Loading…</p>
         ) : domains.length === 0 ? (
-          <p className="py-4 text-center text-sm text-slate-400 dark:text-slate-500">No domains yet. Add one above.</p>
+          <p className="py-4 text-center text-sm text-surface-400 dark:text-surface-500">No domains yet. Add one above.</p>
         ) : (
           <ul className="space-y-2">
             {domains.map(d => (
               <li
                 key={d.id}
-                className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 dark:border-slate-700 dark:bg-slate-800"
+                className="flex items-center justify-between rounded-xl border border-surface-200 bg-surface-50 px-4 py-2.5 dark:border-surface-700 dark:bg-surface-800"
               >
-                <span className="text-sm text-slate-700 dark:text-slate-300">{d.domain}</span>
+                <span className="text-sm text-surface-700 dark:text-surface-300">{d.domain}</span>
                 <button
                   onClick={() => remove(d.id)}
                   aria-label={`Remove ${d.domain}`}
-                  className="ml-3 flex h-6 w-6 items-center justify-center rounded-md text-slate-400 transition hover:bg-red-50 hover:text-red-500 dark:text-slate-500 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+                  className="ml-3 flex h-6 w-6 items-center justify-center rounded-md text-surface-400 transition hover:bg-red-50 hover:text-red-500 dark:text-surface-500 dark:hover:bg-red-900/20 dark:hover:text-red-400"
                 >
                   ✕
                 </button>

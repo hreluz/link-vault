@@ -76,10 +76,10 @@ export function PrivateTagPasswordSection() {
   }
 
   return (
-    <div className="mb-6 rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-700">
+    <div className="mb-6 rounded-2xl bg-surface-card shadow-sm ring-1 ring-surface-200 dark:bg-surface-900 dark:ring-surface-700">
       <div className="flex items-center justify-between p-5">
         <div className="flex items-center gap-3">
-          <span className={`flex h-9 w-9 items-center justify-center rounded-xl transition ${isUnlocked ? 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400' : 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30'}`}>
+          <span className={`flex h-9 w-9 items-center justify-center rounded-xl transition ${isUnlocked ? 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400' : 'bg-primary-50 text-primary-600 dark:bg-primary-900/30'}`}>
             {isUnlocked ? (
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="h-4 w-4">
                 <path d="M11 1a3.5 3.5 0 0 0-3.5 3.5V6H4a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1H9V4.5a2 2 0 1 1 4 0 .75.75 0 0 0 1.5 0A3.5 3.5 0 0 0 11 1Z" />
@@ -91,36 +91,36 @@ export function PrivateTagPasswordSection() {
             )}
           </span>
           <div>
-            <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">
+            <p className="text-sm font-semibold text-surface-900 dark:text-surface-50">
               Private tag password
             </p>
             {hasPassword && currentHint && (
-              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+              <p className="mt-0.5 text-xs text-surface-500 dark:text-surface-400">
                 Hint: {currentHint}
               </p>
             )}
             {hasPassword && !currentHint && (
-              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">No hint set</p>
+              <p className="mt-0.5 text-xs text-surface-500 dark:text-surface-400">No hint set</p>
             )}
             {!hasPassword && (
-              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Not set — private tags won&apos;t be lockable yet</p>
+              <p className="mt-0.5 text-xs text-surface-500 dark:text-surface-400">Not set — private tags won&apos;t be lockable yet</p>
             )}
           </div>
         </div>
         <button
           onClick={() => { setOpen(v => !v); resetForm() }}
-          className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
+          className="rounded-xl border border-surface-200 bg-surface-card px-3 py-1.5 text-xs font-medium text-surface-600 shadow-sm transition hover:bg-surface-50 hover:text-surface-900 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-400 dark:hover:bg-surface-700"
         >
           {hasPassword ? 'Change' : 'Set password'}
         </button>
       </div>
 
       {open && (
-        <form onSubmit={handleSubmit} className="border-t border-slate-100 px-5 pb-5 pt-4 dark:border-slate-800">
+        <form onSubmit={handleSubmit} className="border-t border-surface-100 px-5 pb-5 pt-4 dark:border-surface-800">
           <div className="space-y-3">
             {hasPassword && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                <label className="block text-sm font-medium text-surface-700 dark:text-surface-300">
                   Current password
                 </label>
                 <input
@@ -129,12 +129,12 @@ export function PrivateTagPasswordSection() {
                   onChange={e => { setCurrentPassword(e.target.value); setError(null) }}
                   placeholder="Enter current password"
                   autoFocus
-                  className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500"
+                  className="mt-1.5 w-full rounded-xl border border-surface-200 bg-surface-card px-4 py-3 text-sm text-surface-900 placeholder-surface-400 outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-100 dark:placeholder-surface-500"
                 />
               </div>
             )}
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+              <label className="block text-sm font-medium text-surface-700 dark:text-surface-300">
                 New password
               </label>
               <input
@@ -143,11 +143,11 @@ export function PrivateTagPasswordSection() {
                 onChange={e => { setPassword(e.target.value); setError(null) }}
                 placeholder="Enter password"
                 autoFocus={!hasPassword}
-                className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500"
+                className="mt-1.5 w-full rounded-xl border border-surface-200 bg-surface-card px-4 py-3 text-sm text-surface-900 placeholder-surface-400 outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-100 dark:placeholder-surface-500"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+              <label className="block text-sm font-medium text-surface-700 dark:text-surface-300">
                 Confirm password
               </label>
               <input
@@ -155,19 +155,19 @@ export function PrivateTagPasswordSection() {
                 value={confirm}
                 onChange={e => { setConfirm(e.target.value); setError(null) }}
                 placeholder="Repeat password"
-                className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500"
+                className="mt-1.5 w-full rounded-xl border border-surface-200 bg-surface-card px-4 py-3 text-sm text-surface-900 placeholder-surface-400 outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-100 dark:placeholder-surface-500"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
-                Hint <span className="font-normal text-slate-400">(optional)</span>
+              <label className="block text-sm font-medium text-surface-700 dark:text-surface-300">
+                Hint <span className="font-normal text-surface-400">(optional)</span>
               </label>
               <input
                 type="text"
                 value={hint}
                 onChange={e => setHint(e.target.value)}
                 placeholder="A reminder for yourself"
-                className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500"
+                className="mt-1.5 w-full rounded-xl border border-surface-200 bg-surface-card px-4 py-3 text-sm text-surface-900 placeholder-surface-400 outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-100 dark:placeholder-surface-500"
               />
             </div>
           </div>
@@ -182,14 +182,14 @@ export function PrivateTagPasswordSection() {
             <button
               type="button"
               onClick={() => { setOpen(false); resetForm() }}
-              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
+              className="rounded-xl border border-surface-200 bg-surface-card px-4 py-2 text-sm font-medium text-surface-600 shadow-sm transition hover:bg-surface-50 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-400 dark:hover:bg-surface-700"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading || !password.trim() || !confirm.trim() || (hasPassword && !currentPassword.trim())}
-              className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading ? 'Saving…' : hasPassword ? 'Update password' : 'Set password'}
             </button>

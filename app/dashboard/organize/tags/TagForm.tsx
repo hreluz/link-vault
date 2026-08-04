@@ -29,8 +29,8 @@ export function TagForm({ mode }: Props) {
   const error = isAdd ? addError : editError
 
   return (
-    <div className={`rounded-2xl bg-white shadow-sm ring-1 dark:bg-slate-900 ${isAdd ? 'mb-4 p-5 ring-slate-200 dark:ring-slate-700' : 'p-4 ring-indigo-200 dark:ring-indigo-700'}`}>
-      {isAdd && <p className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-300">New tag</p>}
+    <div className={`rounded-2xl bg-surface-card shadow-sm ring-1 dark:bg-surface-900 ${isAdd ? 'mb-4 p-5 ring-surface-200 dark:ring-surface-700' : 'p-4 ring-primary-200 dark:ring-primary-700'}`}>
+      {isAdd && <p className="mb-3 text-sm font-semibold text-surface-700 dark:text-surface-300">New tag</p>}
       <input
         autoFocus
         type="text"
@@ -38,7 +38,7 @@ export function TagForm({ mode }: Props) {
         value={name}
         onChange={e => onNameChange(e.target.value)}
         onKeyDown={e => { if (e.key === 'Enter') onSubmit(); if (e.key === 'Escape') onCancel() }}
-        className={`w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500 ${isAdd ? 'py-3' : 'py-2.5'}`}
+        className={`w-full rounded-xl border border-surface-200 bg-surface-card px-4 text-sm text-surface-900 placeholder-surface-400 outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-100 dark:placeholder-surface-500 ${isAdd ? 'py-3' : 'py-2.5'}`}
       />
       <div className="mt-3">
         <ColorPicker selected={color} onChange={onColorChange} />
@@ -49,9 +49,9 @@ export function TagForm({ mode }: Props) {
           type="checkbox"
           checked={isPrivate}
           onChange={e => onIsPrivateChange(e.target.checked)}
-          className="h-4 w-4 rounded border-slate-300 text-indigo-600 accent-indigo-600"
+          className="h-4 w-4 rounded border-surface-300 text-primary-600 accent-primary-600"
         />
-        <span className="text-sm text-slate-700 dark:text-slate-300">Private tag</span>
+        <span className="text-sm text-surface-700 dark:text-surface-300">Private tag</span>
       </label>
 
       {error && (
@@ -60,14 +60,14 @@ export function TagForm({ mode }: Props) {
       <div className={`flex gap-2 ${isAdd ? 'mt-4' : 'mt-3'}`}>
         <button
           onClick={onCancel}
-          className={`rounded-xl border border-slate-200 bg-white font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 ${isAdd ? 'px-4 py-2 text-sm shadow-sm' : 'px-3 py-1.5 text-xs'}`}
+          className={`rounded-xl border border-surface-200 bg-surface-card font-medium text-surface-600 transition hover:bg-surface-50 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-400 dark:hover:bg-surface-700 ${isAdd ? 'px-4 py-2 text-sm shadow-sm' : 'px-3 py-1.5 text-xs'}`}
         >
           Cancel
         </button>
         <button
           onClick={onSubmit}
           disabled={!name.trim()}
-          className={`rounded-xl bg-indigo-600 font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60 ${isAdd ? 'px-4 py-2 text-sm shadow-sm' : 'px-3 py-1.5 text-xs'}`}
+          className={`rounded-xl bg-primary-600 font-semibold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:opacity-60 ${isAdd ? 'px-4 py-2 text-sm shadow-sm' : 'px-3 py-1.5 text-xs'}`}
         >
           {isAdd ? 'Add tag' : 'Save'}
         </button>

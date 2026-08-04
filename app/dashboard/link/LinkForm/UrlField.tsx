@@ -15,15 +15,15 @@ export default function UrlField() {
           <button
             type="button"
             onClick={toggleAutoFetch}
-            className="flex items-center gap-1.5 text-xs text-slate-500 transition hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+            className="flex items-center gap-1.5 text-xs text-surface-500 transition hover:text-surface-700 dark:text-surface-400 dark:hover:text-surface-200"
             aria-label={autoFetch ? 'Disable auto-fetch' : 'Enable auto-fetch'}
           >
-            <span className={autoFetch ? 'text-slate-600 dark:text-slate-300' : 'text-slate-400 dark:text-slate-500'}>
+            <span className={autoFetch ? 'text-surface-600 dark:text-surface-300' : 'text-surface-400 dark:text-surface-500'}>
               Auto-fetch
             </span>
             <span
               className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors ${
-                autoFetch ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-600'
+                autoFetch ? 'bg-primary-600' : 'bg-surface-300 dark:bg-surface-600'
               }`}
             >
               <span
@@ -46,7 +46,7 @@ export default function UrlField() {
         />
         {fetchingMeta && (
           <svg
-            className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-indigo-500"
+            className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-primary-500"
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
             viewBox="0 0 24 24"
@@ -59,7 +59,7 @@ export default function UrlField() {
       </div>
 
       {duplicateLinkId && (
-        <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+        <p className="mt-1.5 text-xs text-surface-500 dark:text-surface-400">
           You already saved this link.
         </p>
       )}

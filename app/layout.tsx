@@ -34,11 +34,11 @@ export default function RootLayout({
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark')}catch(e){}`,
+            __html: `try{var isDark=localStorage.getItem('theme')==='dark';if(isDark)document.documentElement.classList.add('dark');var a=localStorage.getItem(isDark?'accent_dark':'accent_light');if(a)document.documentElement.dataset.accent=a;var s=localStorage.getItem('surface_family');if(s)document.documentElement.dataset.surface=s}catch(e){}`,
           }}
         />
       </head>
-      <body className="min-h-full flex flex-col bg-slate-50 dark:bg-slate-950">
+      <body className="min-h-full flex flex-col bg-surface-50 dark:bg-surface-950">
         <ThemeProvider>
           <VaultProvider>
             {children}

@@ -12,7 +12,7 @@ export default function TrashGrid() {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
         <div className="mb-4 text-4xl" aria-hidden="true">🗑️</div>
-        <p className="text-slate-500 dark:text-slate-400">No deleted links.</p>
+        <p className="text-surface-500 dark:text-surface-400">No deleted links.</p>
       </div>
     )
   }
