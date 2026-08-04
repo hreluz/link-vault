@@ -59,7 +59,15 @@ describe('useTagInput', () => {
       act(() => result.current.onInputChange('react'))
       expect(onChange).toHaveBeenCalledWith('css, react')
     })
+
+    it('lowercases uppercase/mixed-case input as the user types', () => {
+      const { result, onChange } = render()
+      act(() => result.current.onInputChange('ReAct'))
+      expect(result.current.currentInput).toBe('react')
+      expect(onChange).toHaveBeenCalledWith('react')
+    })
   })
+
 
   describe('onKeyPress — confirming tags', () => {
     it('comma confirms current input as a tag', () => {
@@ -175,6 +183,18 @@ describe('useTagInput', () => {
       act(() => result.current.onPaste('react,css'))
       expect(result.current.confirmedTags).toEqual(['existing', 'react', 'css'])
     })
+
+    it('lowercases multi-word pasted tags', () => {
+      const { result } = render()
+      act(() => result.current.onPaste('React,CSS'))
+      expect(result.current.confirmedTags).toEqual(['react', 'css'])
+    })
+
+    it('lowercases a single pasted word appended to currentInput', () => {
+      const { result } = render()
+      act(() => result.current.onPaste('RE'))
+      expect(result.current.currentInput).toBe('re')
+    })
   })
 
   describe('confirmCurrent', () => {
@@ -192,6 +212,13 @@ describe('useTagInput', () => {
       act(() => result.current.confirmCurrent())
       expect(result.current.confirmedTags).toEqual([])
       expect(onChange).not.toHaveBeenCalled()
+    })
+
+    it('lowercases the confirmed tag', () => {
+      const { result } = render()
+      act(() => result.current.onInputChange('ReAct'))
+      act(() => result.current.confirmCurrent())
+      expect(result.current.confirmedTags).toEqual(['react'])
     })
   })
 

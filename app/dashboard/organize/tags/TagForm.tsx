@@ -36,7 +36,7 @@ export function TagForm({ mode }: Props) {
         type="text"
         placeholder={isAdd ? 'Tag name' : undefined}
         value={name}
-        onChange={e => onNameChange(e.target.value)}
+        onChange={e => onNameChange(e.target.value.toLowerCase())}
         onKeyDown={e => { if (e.key === 'Enter') onSubmit(); if (e.key === 'Escape') onCancel() }}
         className={`w-full rounded-xl border border-surface-200 bg-surface-card px-4 text-sm text-surface-900 placeholder-surface-400 outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-100 dark:placeholder-surface-500 ${isAdd ? 'py-3' : 'py-2.5'}`}
       />

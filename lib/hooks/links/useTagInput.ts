@@ -41,7 +41,7 @@ export function useTagInput(
   }
 
   function confirmCurrent() {
-    const tag = currentInput.trim()
+    const tag = currentInput.trim().toLowerCase()
     if (!tag) return
     const next = [...confirmedTags, tag]
     setConfirmedTags(next)
@@ -87,14 +87,14 @@ export function useTagInput(
   }
 
   function onInputChange(value: string) {
-    const cleaned = value.replace(/[#,]/g, '')
+    const cleaned = value.replace(/[#,]/g, '').toLowerCase()
     setCurrentInput(cleaned)
     setSelectedIndex(-1)
     onChange(serialize(confirmedTags, cleaned))
   }
 
   function onPaste(text: string) {
-    const parts = text.split(/[,\s]+/).map(p => p.replace(/#/g, '').trim()).filter(Boolean)
+    const parts = text.split(/[,\s]+/).map(p => p.replace(/#/g, '').trim().toLowerCase()).filter(Boolean)
     if (parts.length > 1) {
       const next = [...confirmedTags, ...parts]
       setConfirmedTags(next)
