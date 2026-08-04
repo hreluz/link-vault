@@ -1,13 +1,10 @@
 'use client'
 
-import { useEffect } from 'react'
 import Link from 'next/link'
-import { useTheme } from '@/components/ThemeProvider'
-import { useAsyncSelect } from '@/lib/hooks/useAsyncSelect'
-import { setAccentColorAction, setSurfaceFamilyAction } from './actions'
 import { checkAccentContrast, isPresetAccent, PRESET_ACCENTS } from '@/lib/utils/accentRamp'
 import { isSurfaceFamily, SURFACE_FAMILIES } from '@/lib/utils/surfaceFamilies'
-import type { AccentColor, SurfaceFamily } from '@/lib/types/database'
+import { useAppearanceSettings } from '@/lib/hooks/appearance/useAppearanceSettings'
+import type { SurfaceFamily } from '@/lib/types/database'
 import ColorFamilyPicker from './ColorFamilyPicker'
 import ThemeModeCard from './ThemeModeCard'
 
@@ -20,31 +17,11 @@ export default function AppearanceForm({
   initialDark: string
   initialSurface: SurfaceFamily
 }) {
-  const { setAccentLight, setAccentDark, setSurfaceFamily } = useTheme()
-
-  const light = useAsyncSelect(initialLight, (accent: AccentColor) => setAccentColorAction('light', accent))
-  const dark = useAsyncSelect(initialDark, (accent: AccentColor) => setAccentColorAction('dark', accent))
-  const surface = useAsyncSelect(initialSurface, (family: SurfaceFamily) => setSurfaceFamilyAction(family))
-
-  useEffect(() => {
-    setAccentLight(light.value)
-  }, [light.value, setAccentLight])
-
-  useEffect(() => {
-    setAccentDark(dark.value)
-  }, [dark.value, setAccentDark])
-
-  useEffect(() => {
-    setSurfaceFamily(surface.value)
-  }, [surface.value, setSurfaceFamily])
-
-  const isResetting = light.isPending || dark.isPending || surface.isPending
-
-  function handleReset() {
-    light.select('indigo')
-    dark.select('indigo')
-    surface.select('slate')
-  }
+  const { light, dark, surface, isResetting, handleReset } = useAppearanceSettings({
+    initialLight,
+    initialDark,
+    initialSurface,
+  })
 
   return (
     <main className="mx-auto max-w-md px-4 py-8">
