@@ -12,7 +12,7 @@ export default function TagsField() {
   const availableTags = useAvailableTags()
   const {
     confirmedTags, currentInput, onKeyPress, onInputChange, onPaste,
-    suggestions, selectedIndex, selectSuggestion, closeSuggestions,
+    suggestions, selectedIndex, selectSuggestion, closeSuggestions, removeTag,
   } = useTagInput(tags, setTags, availableTags)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -25,7 +25,20 @@ export default function TagsField() {
           onClick={() => inputRef.current?.focus()}
         >
           {confirmedTags.map((tag, i) => (
-            <span key={i} className="font-medium text-primary-600 whitespace-nowrap">#{tag}</span>
+            <span
+              key={i}
+              className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-primary-100 py-0.5 pl-2.5 pr-1.5 text-xs font-medium text-primary-700 dark:bg-primary-900/40 dark:text-primary-300"
+            >
+              #{tag}
+              <button
+                type="button"
+                onClick={() => removeTag(i)}
+                className="flex h-4 w-4 items-center justify-center rounded-full text-primary-700/70 transition hover:bg-primary-200 hover:text-primary-700 dark:text-primary-300/70 dark:hover:bg-primary-800 dark:hover:text-primary-200"
+                aria-label={`Remove tag ${tag}`}
+              >
+                <span aria-hidden="true" className="text-[10px]">✕</span>
+              </button>
+            </span>
           ))}
           <input
             ref={inputRef}

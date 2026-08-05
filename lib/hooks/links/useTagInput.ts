@@ -40,6 +40,12 @@ export function useTagInput(
     setSelectedIndex(-1)
   }
 
+  function removeTag(index: number) {
+    const next = confirmedTags.filter((_, i) => i !== index)
+    setConfirmedTags(next)
+    onChange(serialize(next, currentInput))
+  }
+
   function confirmCurrent() {
     const tag = currentInput.trim().toLowerCase()
     if (!tag) return
@@ -111,6 +117,6 @@ export function useTagInput(
 
   return {
     confirmedTags, currentInput, confirmCurrent, onKeyPress, onInputChange, onPaste,
-    suggestions, selectedIndex, selectSuggestion, closeSuggestions,
+    suggestions, selectedIndex, selectSuggestion, closeSuggestions, removeTag,
   }
 }
