@@ -149,6 +149,31 @@ describe('useTagInput', () => {
     })
   })
 
+  describe('removeTag', () => {
+    it('removes the tag at the given index, leaving the others in order', () => {
+      const { result, onChange } = render('react, css, vue')
+      act(() => result.current.removeTag(0))
+      expect(result.current.confirmedTags).toEqual(['css', 'vue'])
+      expect(onChange).toHaveBeenLastCalledWith('css, vue')
+    })
+
+    it('can remove a tag from the middle of the list', () => {
+      const { result, onChange } = render('react, css, vue')
+      act(() => result.current.removeTag(1))
+      expect(result.current.confirmedTags).toEqual(['react', 'vue'])
+      expect(onChange).toHaveBeenLastCalledWith('react, vue')
+    })
+
+    it('preserves an in-progress currentInput when removing a confirmed tag', () => {
+      const { result, onChange } = render('react, css')
+      act(() => result.current.onInputChange('vu'))
+      act(() => result.current.removeTag(0))
+      expect(result.current.confirmedTags).toEqual(['css'])
+      expect(result.current.currentInput).toBe('vu')
+      expect(onChange).toHaveBeenLastCalledWith('css, vu')
+    })
+  })
+
   describe('onPaste', () => {
     it('splits pasted text by comma into multiple confirmed tags', () => {
       const { result, onChange } = render()
