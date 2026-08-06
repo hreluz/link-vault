@@ -211,3 +211,16 @@ html.theme-switching *::after {
 .animate-sheet-up {
   animation: sheet-up 0.22s cubic-bezier(0.32, 0.72, 0, 1);
 }
+
+/*
+ * Mobile browsers (iOS Safari, Firefox Android) auto-zoom the viewport when
+ * focusing a form control with a computed font-size under ~16px, and don't
+ * reliably reset zoom on blur. Our inputs use text-sm (14px) app-wide, so
+ * override to 16px below the sm breakpoint. !important is required: a plain
+ * element selector can't out-specificity Tailwind's .text-sm class.
+ */
+@media (max-width: 767px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
