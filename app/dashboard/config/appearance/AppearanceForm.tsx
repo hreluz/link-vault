@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { checkAccentContrast, isPresetAccent, PRESET_ACCENTS } from '@/lib/utils/accentRamp'
 import { isSurfaceFamily, SURFACE_FAMILIES } from '@/lib/utils/surfaceFamilies'
 import { useAppearanceSettings } from '@/lib/hooks/appearance/useAppearanceSettings'
-import type { SurfaceFamily } from '@/lib/types/database'
+import type { SurfaceFamily, ThemeMode } from '@/lib/types/database'
 import ColorFamilyPicker from './ColorFamilyPicker'
 import ThemeModeCard from './ThemeModeCard'
 
@@ -12,15 +12,18 @@ export default function AppearanceForm({
   initialLight,
   initialDark,
   initialSurface,
+  initialMode,
 }: {
   initialLight: string
   initialDark: string
   initialSurface: SurfaceFamily
+  initialMode: ThemeMode
 }) {
-  const { light, dark, surface, isResetting, handleReset } = useAppearanceSettings({
+  const { light, dark, surface, mode, isResetting, handleReset } = useAppearanceSettings({
     initialLight,
     initialDark,
     initialSurface,
+    initialMode,
   })
 
   return (
@@ -45,7 +48,7 @@ export default function AppearanceForm({
       </div>
 
       <div className="space-y-6">
-        <ThemeModeCard />
+        <ThemeModeCard value={mode.value} onSelect={mode.select} isPending={mode.isPending} error={mode.error} />
 
         <div className="rounded-2xl bg-surface-card p-6 shadow-sm ring-1 ring-surface-200 dark:bg-surface-900 dark:ring-surface-700">
           <ColorFamilyPicker

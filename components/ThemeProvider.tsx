@@ -5,6 +5,14 @@ import { generateAccentRamp, isPresetAccent, SHADE_KEYS } from '@/lib/utils/acce
 import { generateSurfaceRamp, isSurfaceFamily, SURFACE_SHADE_KEYS } from '@/lib/utils/surfaceFamilies'
 
 type Theme = 'light' | 'dark'
+type ThemeMode = 'light' | 'dark' | 'system'
+
+function resolveTheme(mode: ThemeMode): Theme {
+  if (mode !== 'system') return mode
+  return typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
+    ? 'dark'
+    : 'light'
+}
 
 function applyAccent(value: string) {
   const html = document.documentElement
@@ -42,9 +50,17 @@ function readStoredSurface(): string {
   return localStorage.getItem('surface_family') ?? 'slate'
 }
 
+function readStoredThemeMode(): ThemeMode {
+  if (typeof window === 'undefined') return 'system'
+  const stored = localStorage.getItem('theme_mode')
+  return stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system'
+}
+
 const ThemeContext = createContext<{
   theme: Theme
+  themeMode: ThemeMode
   toggleTheme: () => void
+  setThemeMode: (mode: ThemeMode) => void
   accentLight: string
   accentDark: string
   setAccentLight: (accent: string) => void
@@ -53,7 +69,9 @@ const ThemeContext = createContext<{
   setSurfaceFamily: (family: string) => void
 }>({
   theme: 'light',
+  themeMode: 'system',
   toggleTheme: () => {},
+  setThemeMode: () => {},
   accentLight: 'indigo',
   accentDark: 'indigo',
   setAccentLight: () => {},
@@ -70,6 +88,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>(() =>
     typeof document !== 'undefined' && document.documentElement.classList.contains('dark') ? 'dark' : 'light',
   )
+  const [themeMode, setThemeModeState] = useState<ThemeMode>(() => readStoredThemeMode())
   const [accentLight, setAccentLightState] = useState(() => readStoredAccent('accent_light'))
   const [accentDark, setAccentDarkState] = useState(() => readStoredAccent('accent_dark'))
   const [surfaceFamily, setSurfaceFamilyState] = useState(() => readStoredSurface())
@@ -97,16 +116,39 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     applySurface(surfaceFamily)
   }, [surfaceFamily])
 
-  function toggleTheme() {
-    const html = document.documentElement
-    html.classList.add('theme-switching')
-    setTimeout(() => html.classList.remove('theme-switching'), 300)
-    setTheme(prev => {
-      const next = prev === 'light' ? 'dark' : 'light'
+  // Only relevant while the preference is "system" — follows OS/browser
+  // scheme changes live (e.g. the user's system switches to dark at sunset).
+  useEffect(() => {
+    if (themeMode !== 'system') return
+    const mql = window.matchMedia('(prefers-color-scheme: dark)')
+    function handleChange(e: MediaQueryListEvent) {
+      const next: Theme = e.matches ? 'dark' : 'light'
+      const html = document.documentElement
+      html.classList.add('theme-switching')
+      setTimeout(() => html.classList.remove('theme-switching'), 300)
       html.classList.toggle('dark', next === 'dark')
-      localStorage.setItem('theme', next)
-      return next
+      setTheme(next)
+    }
+    mql.addEventListener('change', handleChange)
+    return () => mql.removeEventListener('change', handleChange)
+  }, [themeMode])
+
+  function setThemeMode(next: ThemeMode) {
+    localStorage.setItem('theme_mode', next)
+    setThemeModeState(next)
+    const resolved = resolveTheme(next)
+    setTheme(prev => {
+      if (resolved === prev) return prev
+      const html = document.documentElement
+      html.classList.add('theme-switching')
+      setTimeout(() => html.classList.remove('theme-switching'), 300)
+      html.classList.toggle('dark', resolved === 'dark')
+      return resolved
     })
+  }
+
+  function toggleTheme() {
+    setThemeMode(theme === 'dark' ? 'light' : 'dark')
   }
 
   function setAccentLight(next: string) {
@@ -128,7 +170,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     <ThemeContext.Provider
       value={{
         theme,
+        themeMode,
         toggleTheme,
+        setThemeMode,
         accentLight,
         accentDark,
         setAccentLight,

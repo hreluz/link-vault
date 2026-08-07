@@ -2,6 +2,7 @@ export type LinkStatus = 'unread' | 'watching' | 'read' | 'archived'
 export type UserRole = 'user' | 'admin'
 export type AccentColor = string
 export type SurfaceFamily = string
+export type ThemeMode = 'light' | 'dark' | 'system'
 
 export interface Database {
   public: {
@@ -132,6 +133,7 @@ export interface Database {
           accent_color_light: AccentColor
           accent_color_dark: AccentColor
           surface_family: SurfaceFamily
+          theme_mode: ThemeMode
           created_at: string
           updated_at: string
         }
@@ -142,6 +144,7 @@ export interface Database {
           accent_color_light?: AccentColor
           accent_color_dark?: AccentColor
           surface_family?: SurfaceFamily
+          theme_mode?: ThemeMode
           created_at?: string
           updated_at?: string
         }
@@ -150,6 +153,7 @@ export interface Database {
           accent_color_light?: AccentColor
           accent_color_dark?: AccentColor
           surface_family?: SurfaceFamily
+          theme_mode?: ThemeMode
           updated_at?: string
         }
         Relationships: []

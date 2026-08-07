@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { getAccentColors, getSurfaceFamily } from '@/lib/services/userPreferences'
+import { getAccentColors, getSurfaceFamily, getThemeMode } from '@/lib/services/userPreferences'
 import { ToastProvider } from '@/components/ToastProvider'
 import { UnlockedTagsProvider } from '@/lib/context/UnlockedTagsContext'
 import { TagsProvider } from '@/lib/context/TagsContext'
@@ -17,10 +17,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   const { light, dark } = await getAccentColors(supabase)
   const surface = await getSurfaceFamily(supabase)
+  const mode = await getThemeMode(supabase)
 
   return (
     <ToastProvider>
-      <AccentSync light={light} dark={dark} surface={surface} />
+      <AccentSync light={light} dark={dark} surface={surface} mode={mode} />
       <UnlockedTagsProvider>
         <VaultUnlockGate>
           <TagsProvider>
