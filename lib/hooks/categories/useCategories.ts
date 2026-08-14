@@ -30,6 +30,7 @@ export function useCategories() {
   const [editIcon, setEditIcon] = useState('')
   const [editName, setEditName] = useState('')
   const [editColor, setEditColor] = useState('indigo')
+  const [search, setSearch] = useState('')
 
   useEffect(() => {
     if (!dek) return
@@ -98,8 +99,15 @@ export function useCategories() {
     setDeleteError(null)
   }
 
+  const filteredCategories = categories.filter(c =>
+    c.name.toLowerCase().includes(search.trim().toLowerCase())
+  )
+
   return {
     categories,
+    filteredCategories,
+    search,
+    setSearch,
     loading,
     adding,
     addError,
