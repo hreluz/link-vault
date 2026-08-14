@@ -1,112 +1,51 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { COLORS } from '@/components/ColorPicker'
-import {
-  getTags,
-  createTag,
-  updateTag,
-  deleteTag as deleteTagService,
-  getTagLinksCount,
-  toKebabCase,
-  type TagWithCount,
-} from '@/lib/services/tags'
+import { type TagWithCount } from '@/lib/services/tags'
 import { useTagsContext } from '@/lib/context/TagsContext'
 import { useVault } from '@/lib/context/VaultContext'
+import { useTagListState } from './useTagListState'
+import { useTagAddForm } from './useTagAddForm'
+import { useTagEditForm } from './useTagEditForm'
+import { useTagDeleteFlow } from './useTagDeleteFlow'
 
 export type { TagWithCount }
 
 export function useTagList() {
   const { dek } = useVault()
   const { refetchTags } = useTagsContext()
-  const [tags, setTags] = useState<TagWithCount[]>([])
-  const [loading, setLoading] = useState(true)
-  const [addError, setAddError] = useState<string | null>(null)
-  const [editError, setEditError] = useState<string | null>(null)
-  const [adding, setAdding] = useState(false)
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
-  const [deleteError, setDeleteError] = useState<string | null>(null)
-  const [newName, setNewName] = useState('')
-  const [newColor, setNewColor] = useState(COLORS[0].value)
-  const [newIsPrivate, setNewIsPrivate] = useState(false)
-  const [editName, setEditName] = useState('')
-  const [editColor, setEditColor] = useState('')
-  const [editIsPrivate, setEditIsPrivate] = useState(false)
-  const [search, setSearch] = useState('')
+  const { tags, setTags, loading, search, setSearch } = useTagListState(dek)
+  const addForm = useTagAddForm(setTags, dek, refetchTags)
+  const editForm = useTagEditForm(setTags, dek, refetchTags)
+  const deleteFlow = useTagDeleteFlow(setTags, refetchTags)
 
-  useEffect(() => {
-    if (!dek) return
-    getTags(dek).then(data => {
-      setTags(data)
-      setLoading(false)
-    })
-  }, [dek])
-
-  function openAdd() { setAdding(true); setAddError(null); setEditingId(null); setDeletingId(null) }
-  function closeAdd() { setAdding(false); setAddError(null); setNewName(''); setNewColor(COLORS[0].value); setNewIsPrivate(false) }
-
-  async function addTag() {
-    const name = toKebabCase(newName)
-    if (!name || !dek) return
-    setAddError(null)
-    const result = await createTag({ name, color: newColor, is_private: newIsPrivate }, dek)
-    if (result.error === 'name_taken') { setAddError('A tag with that name already exists.'); return }
-    if (result.error) { setAddError('Something went wrong. Please try again.'); return }
-    setTags(prev => [...prev, { ...result.data, link_count: 0 }])
-    closeAdd()
-    refetchTags()
+  function openAdd() {
+    editForm.cancelEditing()
+    deleteFlow.cancelDeleting()
+    addForm.openAdd()
   }
 
   function startEdit(tag: TagWithCount) {
-    setEditingId(tag.id)
-    setEditName(tag.name)
-    setEditColor(tag.color ?? COLORS[0].value)
-    setEditIsPrivate(tag.is_private)
-    setEditError(null)
-    setDeletingId(null)
-    setAdding(false)
+    addForm.cancelAdding()
+    deleteFlow.cancelDeleting()
+    editForm.startEdit(tag)
   }
 
-  async function saveEdit() {
-    const name = toKebabCase(editName)
-    if (!name || !editingId || !dek) return
-    setEditError(null)
-    const result = await updateTag({ id: editingId, name, color: editColor, is_private: editIsPrivate }, dek)
-    if (result.error === 'name_taken') { setEditError('A tag with that name already exists.'); return }
-    if (result.error) { setEditError('Something went wrong. Please try again.'); return }
-    setTags(prev => prev.map(t =>
-      t.id === editingId ? { ...t, name: result.data.name, color: result.data.color, is_private: result.data.is_private } : t
-    ))
-    setEditingId(null)
-    refetchTags()
-  }
-
-  function confirmDelete(id: string) { setDeletingId(id); setEditingId(null); setAdding(false); setDeleteError(null) }
-
-  async function removeTag(id: string) {
-    const count = await getTagLinksCount(id)
-    if (count > 0) {
-      setDeleteError(`This tag has ${count} link${count === 1 ? '' : 's'} and cannot be deleted.`)
-      return
-    }
-    const ok = await deleteTagService(id)
-    if (!ok) { setDeleteError('Could not delete tag. Please try again.'); return }
-    setTags(prev => prev.filter(t => t.id !== id))
-    setDeletingId(null)
-    setDeleteError(null)
-    refetchTags()
+  function confirmDelete(id: string) {
+    addForm.cancelAdding()
+    editForm.cancelEditing()
+    deleteFlow.confirmDelete(id)
   }
 
   return {
-    tags, loading, addError, editError, adding, editingId, deletingId, deleteError,
-    search, setSearch,
-    newName, newColor, newIsPrivate,
-    editName, editColor, editIsPrivate,
-    setNewName, setNewColor, setNewIsPrivate,
-    setEditName, setEditColor, setEditIsPrivate,
-    setEditingId, setDeletingId, setDeleteError,
-    openAdd, closeAdd, addTag, startEdit, saveEdit, confirmDelete,
-    deleteTag: removeTag,
+    tags,
+    loading,
+    search,
+    setSearch,
+    ...addForm,
+    ...editForm,
+    ...deleteFlow,
+    openAdd,
+    startEdit,
+    confirmDelete,
   }
 }
