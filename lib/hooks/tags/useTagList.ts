@@ -33,6 +33,7 @@ export function useTagList() {
   const [editName, setEditName] = useState('')
   const [editColor, setEditColor] = useState('')
   const [editIsPrivate, setEditIsPrivate] = useState(false)
+  const [search, setSearch] = useState('')
 
   useEffect(() => {
     if (!dek) return
@@ -99,6 +100,7 @@ export function useTagList() {
 
   return {
     tags, loading, addError, editError, adding, editingId, deletingId, deleteError,
+    search, setSearch,
     newName, newColor, newIsPrivate,
     editName, editColor, editIsPrivate,
     setNewName, setNewColor, setNewIsPrivate,

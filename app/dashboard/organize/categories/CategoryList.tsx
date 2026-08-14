@@ -4,9 +4,10 @@ import { CategoriesProvider, useCategoriesContext } from './CategoriesContext'
 import CategoryForm from './CategoryForm'
 import CategoryRow from './CategoryRow'
 import CategoryDomainsModal from './CategoryDomainsModal'
+import ListSearchInput from '@/components/ListSearchInput'
 
 function CategoryListInner() {
-  const { categories, adding, editingId, openAdd, createdCategory, setCreatedCategory } = useCategoriesContext()
+  const { categories, filteredCategories, search, setSearch, adding, editingId, openAdd, createdCategory, setCreatedCategory } = useCategoriesContext()
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
@@ -25,10 +26,14 @@ function CategoryListInner() {
         )}
       </div>
 
+      {categories.length > 0 && (
+        <ListSearchInput value={search} onChange={setSearch} placeholder="Search categories…" />
+      )}
+
       {adding && <CategoryForm mode="add" />}
 
       <div className="space-y-2">
-        {categories.map(cat =>
+        {filteredCategories.map(cat =>
           editingId === cat.id ? (
             <CategoryForm key={cat.id} mode="edit" />
           ) : (
@@ -41,6 +46,13 @@ function CategoryListInner() {
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <div className="mb-4 text-4xl" aria-hidden="true">📂</div>
           <p className="text-surface-500 dark:text-surface-400">No categories yet. Create your first one.</p>
+        </div>
+      )}
+
+      {categories.length > 0 && filteredCategories.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <div className="mb-4 text-4xl" aria-hidden="true">🔍</div>
+          <p className="text-surface-500 dark:text-surface-400">No categories match &ldquo;{search}&rdquo;.</p>
         </div>
       )}
 

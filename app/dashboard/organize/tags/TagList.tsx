@@ -6,17 +6,19 @@ import { TagForm } from './TagForm'
 import { TagRow } from './TagRow'
 import { PrivateTagPasswordSection } from './PrivateTagPasswordSection'
 import UnlockTagModal from '@/components/UnlockTagModal'
+import ListSearchInput from '@/components/ListSearchInput'
 import { useUnlockedTags } from '@/lib/context/UnlockedTagsContext'
 import { getPrivateTagIds, isTagVisible } from '@/lib/services/tags'
 
 function TagListContent() {
-  const { tags, adding, openAdd } = useTagContext()
+  const { tags, search, setSearch, adding, openAdd } = useTagContext()
   const { unlockedTagIds, unlockTag, lockAll } = useUnlockedTags()
   const [unlocking, setUnlocking] = useState(false)
 
   const hasPrivate = tags.some(t => t.is_private)
   const hasUnlocked = tags.some(t => t.is_private && unlockedTagIds.has(t.id))
   const visibleTags = tags.filter(t => isTagVisible(t.is_private, t.id, unlockedTagIds))
+  const filteredTags = visibleTags.filter(t => t.name.toLowerCase().includes(search.trim().toLowerCase()))
 
   async function handleUnlock() {
     const ids = await getPrivateTagIds()
@@ -66,10 +68,14 @@ function TagListContent() {
 
       <PrivateTagPasswordSection />
 
+      {visibleTags.length > 0 && (
+        <ListSearchInput value={search} onChange={setSearch} placeholder="Search tags…" />
+      )}
+
       {adding && <TagForm mode="add" />}
 
       <div className="space-y-2">
-        {visibleTags.map(tag => (
+        {filteredTags.map(tag => (
           <TagRow key={tag.id} tag={tag} />
         ))}
       </div>
@@ -80,6 +86,13 @@ function TagListContent() {
           <p className="text-surface-500 dark:text-surface-400">
             {tags.length === 0 ? 'No tags yet. Create your first one.' : 'All tags are private. Unlock to view them.'}
           </p>
+        </div>
+      )}
+
+      {visibleTags.length > 0 && filteredTags.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <div className="mb-4 text-4xl" aria-hidden="true">🔍</div>
+          <p className="text-surface-500 dark:text-surface-400">No tags match &ldquo;{search}&rdquo;.</p>
         </div>
       )}
 
