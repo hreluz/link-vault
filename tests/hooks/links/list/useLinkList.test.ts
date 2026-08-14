@@ -4,7 +4,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
-import { useLinkList } from '@/lib/hooks/links/useLinkList'
+import { useLinkList } from '@/lib/hooks/links/list/useLinkList'
 import type { LinkWithTags, LinkFilterParams } from '@/lib/services/links'
 
 const mockAddToast = vi.fn()

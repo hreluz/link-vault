@@ -2,7 +2,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
-import { useAddLinkForm } from '@/lib/hooks/links/useAddLinkForm'
+import { useAddLinkForm } from '@/lib/hooks/links/form/useAddLinkForm'
 import type { LinkWithTags } from '@/lib/services/links'
 
 const SAVED_LINK: LinkWithTags = {

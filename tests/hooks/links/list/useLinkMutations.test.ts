@@ -3,7 +3,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useState } from 'react'
-import { useLinkMutations } from '@/lib/hooks/links/useLinkMutations'
+import { useLinkMutations } from '@/lib/hooks/links/list/useLinkMutations'
 import type { LinkWithTags, LinkFilterParams } from '@/lib/services/links'
 
 const mockAddToast = vi.fn()

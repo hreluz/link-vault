@@ -2,7 +2,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { useEditLinkForm } from '@/lib/hooks/links/useEditLinkForm'
+import { useEditLinkForm } from '@/lib/hooks/links/form/useEditLinkForm'
 import type { LinkWithTags } from '@/lib/services/links'
 
 const LINK: LinkWithTags = {

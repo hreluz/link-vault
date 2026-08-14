@@ -1,7 +1,7 @@
 'use client'
 
 import { useAddLinkForm } from '@/lib/hooks/links'
-import { useAutoAssignCategory } from '@/lib/hooks/links/useAutoAssignCategory'
+import { useAutoAssignCategory } from '@/lib/hooks/links/form/useAutoAssignCategory'
 import { useCategoryList } from '@/lib/hooks/categories/useCategoryList'
 import type { LinkWithTags } from '@/lib/services/links'
 import { toast } from 'sonner'

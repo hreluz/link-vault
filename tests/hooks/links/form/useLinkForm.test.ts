@@ -2,7 +2,7 @@
 
 import { describe, it, expect, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { useLinkForm, DEFAULT_FIELDS } from '@/lib/hooks/links/useLinkForm'
+import { useLinkForm, DEFAULT_FIELDS } from '@/lib/hooks/links/form/useLinkForm'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 

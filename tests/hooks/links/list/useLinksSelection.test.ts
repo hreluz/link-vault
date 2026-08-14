@@ -2,7 +2,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { useLinksSelection } from '@/lib/hooks/links/useLinksSelection'
+import { useLinksSelection } from '@/lib/hooks/links/list/useLinksSelection'
 
 describe('useLinksSelection', () => {
   describe('initial state', () => {

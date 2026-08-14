@@ -2,7 +2,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
-import { useLinkListQuery } from '@/lib/hooks/links/useLinkListQuery'
+import { useLinkListQuery } from '@/lib/hooks/links/list/useLinkListQuery'
 import type { LinkWithTags, LinkFilterParams } from '@/lib/services/links'
 
 const FAKE_DEK = { fake: true } as unknown as CryptoKey

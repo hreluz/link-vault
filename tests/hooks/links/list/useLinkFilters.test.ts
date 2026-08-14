@@ -2,7 +2,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { useLinkFilters } from '@/lib/hooks/links/useLinkFilters'
+import { useLinkFilters } from '@/lib/hooks/links/list/useLinkFilters'
 
 const mockUseUnlockedTags = vi.fn()
 vi.mock('@/lib/context/UnlockedTagsContext', () => ({

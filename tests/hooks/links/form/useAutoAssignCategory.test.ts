@@ -3,7 +3,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { useState } from 'react'
-import { useAutoAssignCategory } from '@/lib/hooks/links/useAutoAssignCategory'
+import { useAutoAssignCategory } from '@/lib/hooks/links/form/useAutoAssignCategory'
 import type { Category } from '@/lib/services/categories'
 
 vi.mock('@/lib/services/category-domains', () => ({

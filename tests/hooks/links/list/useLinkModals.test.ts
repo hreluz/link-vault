@@ -2,7 +2,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { useLinkModals } from '@/lib/hooks/links/useLinkModals'
+import { useLinkModals } from '@/lib/hooks/links/list/useLinkModals'
 
 const { mockReplace, mockParams } = vi.hoisted(() => ({
   mockReplace: vi.fn(),
