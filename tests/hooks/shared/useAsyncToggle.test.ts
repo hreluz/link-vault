@@ -2,7 +2,7 @@
 
 import { describe, it, expect, vi } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
-import { useAsyncToggle } from '@/lib/hooks/useAsyncToggle'
+import { useAsyncToggle } from '@/lib/hooks/shared/useAsyncToggle'
 
 describe('useAsyncToggle', () => {
   it('starts with the initial enabled value and no error', () => {

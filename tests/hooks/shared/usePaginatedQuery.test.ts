@@ -2,7 +2,7 @@
 
 import { describe, it, expect, vi } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
-import { usePaginatedQuery, type PageResult } from '@/lib/hooks/usePaginatedQuery'
+import { usePaginatedQuery, type PageResult } from '@/lib/hooks/shared/usePaginatedQuery'
 
 type Item = { id: number }
 

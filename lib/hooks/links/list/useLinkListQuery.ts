@@ -5,7 +5,7 @@ import { getLinksPage, getMatchingLinkIds, getLinksByIds, type LinkWithTags, typ
 import { getPrivateTagIds, isTagVisible } from '@/lib/services/tags'
 import { useTagNameLookup } from '@/lib/hooks/tags/useTagNameLookup'
 import { useUnlockedTags } from '@/lib/context/UnlockedTagsContext'
-import { usePaginatedQuery } from '@/lib/hooks/usePaginatedQuery'
+import { usePaginatedQuery } from '@/lib/hooks/shared/usePaginatedQuery'
 
 const PAGE_SIZE = 40
 

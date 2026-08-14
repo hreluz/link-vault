@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { setAccentColor, setSurfaceFamily, setThemeMode } from '@/lib/services/userPreferences'
-import type { ToggleResult } from '@/lib/hooks/useAsyncToggle'
+import type { ToggleResult } from '@/lib/hooks/shared/useAsyncToggle'
 import type { AccentColor, SurfaceFamily, ThemeMode } from '@/lib/types/database'
 
 export async function setAccentColorAction(

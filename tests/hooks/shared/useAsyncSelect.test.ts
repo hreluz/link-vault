@@ -2,7 +2,7 @@
 
 import { describe, it, expect, vi } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
-import { useAsyncSelect } from '@/lib/hooks/useAsyncSelect'
+import { useAsyncSelect } from '@/lib/hooks/shared/useAsyncSelect'
 
 describe('useAsyncSelect', () => {
   it('starts with the initial value and no error', () => {

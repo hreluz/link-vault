@@ -2,7 +2,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { useScrollToTop } from '@/lib/hooks/useScrollToTop'
+import { useScrollToTop } from '@/lib/hooks/shared/useScrollToTop'
 
 function setScrollY(value: number) {
   vi.spyOn(window, 'scrollY', 'get').mockReturnValue(value)

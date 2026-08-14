@@ -2,7 +2,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render } from '@testing-library/react'
-import { useInfiniteScrollSentinel } from '@/lib/hooks/useInfiniteScrollSentinel'
+import { useInfiniteScrollSentinel } from '@/lib/hooks/shared/useInfiniteScrollSentinel'
 
 type ObserverCallback = (entries: Pick<IntersectionObserverEntry, 'isIntersecting'>[]) => void
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { useCategoryList } from '@/lib/hooks/categories/useCategoryList'
-import { useInfiniteScrollSentinel } from '@/lib/hooks/useInfiniteScrollSentinel'
+import { useInfiniteScrollSentinel } from '@/lib/hooks/shared/useInfiniteScrollSentinel'
 import { useLinkListContext } from './LinkListContext'
 import LinkCard from './LinkCard'
 

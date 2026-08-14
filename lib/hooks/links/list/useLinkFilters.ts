@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import type { LinkStatus } from '@/lib/types/database'
 import type { LinkFilterParams } from '@/lib/services/links'
 import type { SortBy } from '@/app/dashboard/link/FilterSheet'
-import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
+import { useDebouncedValue } from '@/lib/hooks/shared/useDebouncedValue'
 import { useUnlockedTags } from '@/lib/context/UnlockedTagsContext'
 import { useTagsContext } from '@/lib/context/TagsContext'
 
