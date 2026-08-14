@@ -9,7 +9,7 @@ import {
 } from '@/lib/services/category-domains'
 import { useVault } from '@/lib/context/VaultContext'
 
-export function useCategoryDomains(categoryId: string) {
+export function useDomainAutoAssign(categoryId: string) {
   const { dek } = useVault()
   const [domains, setDomains] = useState<CategoryDomain[]>([])
   const [loading, setLoading] = useState(true)

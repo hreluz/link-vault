@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { useCategoryDomains } from '@/lib/hooks/categories/useCategoryDomains'
+import { useDomainAutoAssign } from '@/lib/hooks/categories/useDomainAutoAssign'
 import type { Category } from '@/lib/services/categories'
 
 interface Props {
@@ -10,7 +10,7 @@ interface Props {
 }
 
 export default function CategoryDomainsModal({ category, onClose }: Props) {
-  const { domains, loading, error, add, remove } = useCategoryDomains(category.id)
+  const { domains, loading, error, add, remove } = useDomainAutoAssign(category.id)
   const [input, setInput] = useState('')
   const [adding, setAdding] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)

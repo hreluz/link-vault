@@ -2,7 +2,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
-import { useCategoryDomains } from '@/lib/hooks/categories/useCategoryDomains'
+import { useDomainAutoAssign } from '@/lib/hooks/categories/useDomainAutoAssign'
 import type { CategoryDomain } from '@/lib/services/category-domains'
 
 vi.mock('@/lib/services/category-domains', () => ({
@@ -36,16 +36,16 @@ beforeEach(() => {
 })
 
 async function renderLoaded(categoryId = 'cat-1') {
-  const utils = renderHook(() => useCategoryDomains(categoryId))
+  const utils = renderHook(() => useDomainAutoAssign(categoryId))
   await waitFor(() => expect(utils.result.current.loading).toBe(false))
   return utils
 }
 
-describe('useCategoryDomains', () => {
+describe('useDomainAutoAssign', () => {
   describe('initial state', () => {
     it('starts in loading with no domains', () => {
       mockGet.mockImplementation(() => new Promise(() => {}))
-      const { result } = renderHook(() => useCategoryDomains('cat-1'))
+      const { result } = renderHook(() => useDomainAutoAssign('cat-1'))
 
       expect(result.current.loading).toBe(true)
       expect(result.current.domains).toHaveLength(0)
