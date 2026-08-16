@@ -460,6 +460,16 @@ describe('mergeTag', () => {
     mockDeleteEq.mockResolvedValue({ error: null })
   })
 
+  it('returns false without touching the database when sourceId equals targetId', async () => {
+    const result = await mergeTag('same-id', 'same-id')
+
+    expect(result).toBe(false)
+    expect(mockLinkTagsSelectEq).not.toHaveBeenCalled()
+    expect(mockLinkTagsUpdateEq).not.toHaveBeenCalled()
+    expect(mockLinkTagsDeleteEq).not.toHaveBeenCalled()
+    expect(mockDeleteEq).not.toHaveBeenCalled()
+  })
+
   it('reassigns all source links to the target when there is no overlap', async () => {
     stubSelects(['l1', 'l2'], [])
 

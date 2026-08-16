@@ -165,6 +165,8 @@ export async function deleteTag(id: string): Promise<boolean> {
 
 /** Moves all links from sourceId onto targetId (deduping links that already have both), then deletes sourceId. */
 export async function mergeTag(sourceId: string, targetId: string): Promise<boolean> {
+  if (sourceId === targetId) return false
+
   const supabase = createClient()
 
   const [{ data: sourceRows, error: sourceError }, { data: targetRows, error: targetError }] = await Promise.all([
