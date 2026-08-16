@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest'
 import {
-  getTags, createTag, updateTag, deleteTag, getTagLinksCount, toKebabCase,
+  getTags, createTag, updateTag, deleteTag, mergeTag, getTagLinksCount, toKebabCase,
   getPrivateTagIds, setPrivateTagPassword, verifyPrivateTagPassword, getPrivateTagSettings,
   syncTagsByName,
 } from '@/lib/services/tags'
@@ -16,6 +16,10 @@ const {
   mockDeleteEq,
   mockLinkTagsCountEq,
   mockLinkTagsIn,
+  mockLinkTagsSelectEq,
+  mockLinkTagsUpdateEq,
+  mockLinkTagsUpdateIn,
+  mockLinkTagsDeleteEq,
   mockLinksDeleteIn,
   mockTagsDeleteIn,
   mockPrivateIdsEq,
@@ -41,6 +45,10 @@ const {
   const mockDeleteEq = vi.fn()
   const mockLinkTagsCountEq = vi.fn()
   const mockLinkTagsIn = vi.fn()
+  const mockLinkTagsSelectEq = vi.fn()
+  const mockLinkTagsUpdateIn = vi.fn()
+  const mockLinkTagsUpdateEq = vi.fn(() => ({ in: mockLinkTagsUpdateIn }))
+  const mockLinkTagsDeleteEq = vi.fn()
   const mockLinksDeleteIn = vi.fn()
   const mockTagsDeleteIn = vi.fn()
   const mockPrivateIdsEq = vi.fn()
@@ -58,6 +66,10 @@ const {
     mockDeleteEq,
     mockLinkTagsCountEq,
     mockLinkTagsIn,
+    mockLinkTagsSelectEq,
+    mockLinkTagsUpdateEq,
+    mockLinkTagsUpdateIn,
+    mockLinkTagsDeleteEq,
     mockLinksDeleteIn,
     mockTagsDeleteIn,
     mockPrivateIdsEq,
@@ -76,9 +88,11 @@ vi.mock('@/lib/supabase/client', () => ({
     from: vi.fn((table: string) => {
       if (table === 'link_tags') return {
         select: vi.fn((col?: string) => {
-          if (col === 'link_id') return { in: mockLinkTagsIn }
+          if (col === 'link_id') return { in: mockLinkTagsIn, eq: mockLinkTagsSelectEq }
           return { eq: mockLinkTagsCountEq }
         }),
+        update: vi.fn(() => ({ eq: mockLinkTagsUpdateEq })),
+        delete: vi.fn(() => ({ eq: mockLinkTagsDeleteEq })),
       }
       if (table === 'links') return {
         delete: vi.fn(() => ({ eq: mockDeleteEq, in: mockLinksDeleteIn })),
@@ -426,6 +440,105 @@ describe('deleteTag', () => {
     mockDeleteEq.mockResolvedValue({ error: { message: 'DB error' } })
 
     expect(await deleteTag('tag-1')).toBe(false)
+  })
+})
+
+// ── mergeTag ──────────────────────────────────────────────────────────────────
+
+describe('mergeTag', () => {
+  function stubSelects(sourceLinkIds: string[], targetLinkIds: string[]) {
+    mockLinkTagsSelectEq.mockImplementation((field: string, tagId: string) => {
+      if (tagId === 'source') return Promise.resolve({ data: sourceLinkIds.map(link_id => ({ link_id })), error: null })
+      if (tagId === 'target') return Promise.resolve({ data: targetLinkIds.map(link_id => ({ link_id })), error: null })
+      return Promise.resolve({ data: [], error: null })
+    })
+  }
+
+  beforeEach(() => {
+    mockLinkTagsUpdateIn.mockResolvedValue({ error: null })
+    mockLinkTagsDeleteEq.mockResolvedValue({ error: null })
+    mockDeleteEq.mockResolvedValue({ error: null })
+  })
+
+  it('reassigns all source links to the target when there is no overlap', async () => {
+    stubSelects(['l1', 'l2'], [])
+
+    const result = await mergeTag('source', 'target')
+
+    expect(result).toBe(true)
+    expect(mockLinkTagsUpdateEq).toHaveBeenCalledWith('tag_id', 'source')
+    expect(mockLinkTagsUpdateIn).toHaveBeenCalledWith('link_id', ['l1', 'l2'])
+  })
+
+  it('only reassigns links that do not already have the target tag', async () => {
+    stubSelects(['l1', 'l2'], ['l2', 'l3'])
+
+    await mergeTag('source', 'target')
+
+    expect(mockLinkTagsUpdateIn).toHaveBeenCalledWith('link_id', ['l1'])
+  })
+
+  it('skips the reassign update entirely when every source link already has the target tag', async () => {
+    stubSelects(['l1'], ['l1'])
+
+    await mergeTag('source', 'target')
+
+    expect(mockLinkTagsUpdateEq).not.toHaveBeenCalled()
+  })
+
+  it('cleans up any remaining source link_tags rows after reassigning', async () => {
+    stubSelects(['l1'], [])
+
+    await mergeTag('source', 'target')
+
+    expect(mockLinkTagsDeleteEq).toHaveBeenCalledWith('tag_id', 'source')
+  })
+
+  it('deletes the source tag after a successful merge', async () => {
+    stubSelects([], [])
+
+    await mergeTag('source', 'target')
+
+    expect(mockDeleteEq).toHaveBeenCalledWith('id', 'source')
+  })
+
+  it('returns false without mutating anything when reading source/target links fails', async () => {
+    mockLinkTagsSelectEq.mockResolvedValue({ data: null, error: { message: 'DB error' } })
+
+    const result = await mergeTag('source', 'target')
+
+    expect(result).toBe(false)
+    expect(mockLinkTagsUpdateEq).not.toHaveBeenCalled()
+    expect(mockDeleteEq).not.toHaveBeenCalled()
+  })
+
+  it('returns false when reassigning links fails', async () => {
+    stubSelects(['l1'], [])
+    mockLinkTagsUpdateIn.mockResolvedValue({ error: { message: 'DB error' } })
+
+    const result = await mergeTag('source', 'target')
+
+    expect(result).toBe(false)
+    expect(mockDeleteEq).not.toHaveBeenCalled()
+  })
+
+  it('returns false when cleaning up leftover source rows fails', async () => {
+    stubSelects(['l1'], [])
+    mockLinkTagsDeleteEq.mockResolvedValue({ error: { message: 'DB error' } })
+
+    const result = await mergeTag('source', 'target')
+
+    expect(result).toBe(false)
+    expect(mockDeleteEq).not.toHaveBeenCalled()
+  })
+
+  it('returns false when the final source tag deletion fails', async () => {
+    stubSelects([], [])
+    mockDeleteEq.mockResolvedValue({ error: { message: 'DB error' } })
+
+    const result = await mergeTag('source', 'target')
+
+    expect(result).toBe(false)
   })
 })
 

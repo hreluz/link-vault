@@ -140,4 +140,14 @@ describe('useTagEditForm', () => {
     expect(result.current.editError).toBeTruthy()
     expect(result.current.editingId).toBe(MOCK_TAG.id)
   })
+
+  it('hints at the Merge to action in the name_taken error message', async () => {
+    mockUpdateTag.mockResolvedValue({ data: null, error: 'name_taken' })
+    const { result } = renderHook(() => useHarness())
+
+    act(() => { result.current.startEdit(MOCK_TAG); result.current.setEditName('typescript') })
+    await act(async () => result.current.saveEdit())
+
+    expect(result.current.editError).toBe('A tag with that name already exists. Use Merge to combine them.')
+  })
 })

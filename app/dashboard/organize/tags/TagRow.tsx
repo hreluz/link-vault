@@ -2,17 +2,20 @@
 
 import { useTagContext } from './TagContext'
 import { TagForm } from './TagForm'
+import { TagMergeForm } from './TagMergeForm'
 import { colorFor } from '@/components/ColorPicker'
 import type { TagWithCount } from '@/lib/services/tags'
 
 export function TagRow({ tag }: { tag: TagWithCount }) {
-  const { editingId, deletingId, deleteError, startEdit, confirmDelete, deleteTag, setDeletingId, setDeleteError } = useTagContext()
+  const { editingId, deletingId, mergingTag, deleteError, startEdit, confirmDelete, deleteTag, setDeletingId, setDeleteError, startMerge } = useTagContext()
   const color = colorFor(tag.color)
   const count = tag.link_count
   const isEditing = editingId === tag.id
   const isDeleting = deletingId === tag.id
+  const isMerging = mergingTag?.id === tag.id
 
   if (isEditing) return <TagForm mode="edit" />
+  if (isMerging) return <TagMergeForm tag={tag} />
 
   return (
     <div className="flex items-center gap-3 rounded-2xl bg-surface-card px-4 py-3.5 shadow-sm ring-1 ring-surface-200 dark:bg-surface-900 dark:ring-surface-700">
@@ -58,6 +61,13 @@ export function TagRow({ tag }: { tag: TagWithCount }) {
               className="flex h-8 w-8 items-center justify-center rounded-lg text-surface-400 transition hover:bg-surface-100 hover:text-surface-600 dark:text-surface-500 dark:hover:bg-surface-800 dark:hover:text-surface-300"
             >
               ✏️
+            </button>
+            <button
+              onClick={() => startMerge(tag)}
+              aria-label="Merge into another tag"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-surface-400 transition hover:bg-surface-100 hover:text-surface-600 dark:text-surface-500 dark:hover:bg-surface-800 dark:hover:text-surface-300"
+            >
+              🔀
             </button>
             <button
               onClick={() => confirmDelete(tag.id)}

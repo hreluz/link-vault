@@ -163,6 +163,34 @@ export async function deleteTag(id: string): Promise<boolean> {
   return !error
 }
 
+/** Moves all links from sourceId onto targetId (deduping links that already have both), then deletes sourceId. */
+export async function mergeTag(sourceId: string, targetId: string): Promise<boolean> {
+  const supabase = createClient()
+
+  const [{ data: sourceRows, error: sourceError }, { data: targetRows, error: targetError }] = await Promise.all([
+    supabase.from('link_tags').select('link_id').eq('tag_id', sourceId),
+    supabase.from('link_tags').select('link_id').eq('tag_id', targetId),
+  ])
+  if (sourceError || targetError) return false
+
+  const targetLinkIds = new Set((targetRows ?? []).map(r => r.link_id))
+  const linkIdsToReassign = (sourceRows ?? []).map(r => r.link_id).filter(id => !targetLinkIds.has(id))
+
+  if (linkIdsToReassign.length > 0) {
+    const { error } = await supabase
+      .from('link_tags')
+      .update({ tag_id: targetId })
+      .eq('tag_id', sourceId)
+      .in('link_id', linkIdsToReassign)
+    if (error) return false
+  }
+
+  const { error: cleanupError } = await supabase.from('link_tags').delete().eq('tag_id', sourceId)
+  if (cleanupError) return false
+
+  return deleteTag(sourceId)
+}
+
 // --- Global private tag password ---
 
 export async function setPrivateTagPassword(

@@ -30,7 +30,7 @@ export function useTagEditForm(
     if (!name || !editingId || !dek) return
     setEditError(null)
     const result = await updateTag({ id: editingId, name, color: editColor, is_private: editIsPrivate }, dek)
-    if (result.error === 'name_taken') { setEditError('A tag with that name already exists.'); return }
+    if (result.error === 'name_taken') { setEditError('A tag with that name already exists. Use Merge to combine them.'); return }
     if (result.error) { setEditError('Something went wrong. Please try again.'); return }
     setTags(prev => prev.map(t =>
       t.id === editingId ? { ...t, name: result.data.name, color: result.data.color, is_private: result.data.is_private } : t
