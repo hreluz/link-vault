@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { toggleRegistrationAction, toggleRestartAccountAction } from './actions'
-import { useAsyncToggle } from '@/lib/hooks/useAsyncToggle'
+import { useAsyncToggle } from '@/lib/hooks/shared/useAsyncToggle'
 
 type YoutubeKeyDebug = {
   hasYouTubeKey: boolean

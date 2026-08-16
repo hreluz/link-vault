@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useScrollToTop } from '@/lib/hooks/useScrollToTop'
+import { useScrollToTop } from '@/lib/hooks/shared/useScrollToTop'
 
 const NAV_ITEMS = [
   { label: 'Links',    icon: '🔖', href: '/dashboard' },

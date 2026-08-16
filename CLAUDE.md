@@ -184,6 +184,12 @@ Unique constraint: `(user_id, domain)`.
 - Keep components small and focused; co-locate styles with Tailwind classes
 - Prefer server components by default; use `"use client"` only when needed
 
+### Splitting overloaded hooks
+
+When a hook accumulates multiple independent concerns (e.g. list/search state plus separate add/edit/delete flows, each with its own fields, error state, and service calls), split it into one hook per concern rather than letting it grow into a single large hook — this applies whether the hook lives in `lib/hooks/<domain>/` or is defined inline by a component. Each concern hook owns just its own state and calls its own service functions; a thin top-level hook composes them and re-exports the same merged shape so existing consumers need no changes. Any interaction where one concern must reach into another's state (e.g. opening the add form should close an in-progress edit) belongs in the composing hook, not inside the sub-hooks — keep sub-hooks unaware of each other so they stay independently testable. Reference: `lib/hooks/categories/useCategories.ts`, composed from `useCategoryListState`, `useCategoryAddForm`, `useCategoryEditForm`, and `useCategoryDeleteFlow`; also `lib/hooks/links/useLinkForm.ts` composed by `useAddLinkForm`/`useEditLinkForm`.
+
+Tests should mirror the same split: one test file per concern hook, testing it in isolation (a small local harness hook wiring up `useState` plus the hook under test works well when it needs external state like `setCategories`). Only the cross-concern coordination itself — behavior that only exists once hooks are composed — stays as a test against the top-level composed hook; don't duplicate every per-concern case there too. Reference layout: `tests/hooks/categories/`.
+
 ### Supabase client rules
 
 | Context | Client to use | Import |

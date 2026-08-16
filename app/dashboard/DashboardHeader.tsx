@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useScrollToTop } from '@/lib/hooks/useScrollToTop'
+import { useScrollToTop } from '@/lib/hooks/shared/useScrollToTop'
 import LogoutButton from './LogoutButton'
 import ThemeToggleButton from './ThemeToggleButton'
 

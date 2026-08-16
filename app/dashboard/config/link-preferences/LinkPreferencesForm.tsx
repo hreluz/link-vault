@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { toggleAutoFetchPreferenceAction } from './actions'
-import { useAsyncToggle } from '@/lib/hooks/useAsyncToggle'
+import { useAsyncToggle } from '@/lib/hooks/shared/useAsyncToggle'
 
 export default function LinkPreferencesForm({
   initialAutoFetchEnabled,

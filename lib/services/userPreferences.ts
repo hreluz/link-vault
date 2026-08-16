@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { AccentColor, Database, SurfaceFamily, ThemeMode } from '@/lib/types/database'
-import type { ToggleResult } from '@/lib/hooks/useAsyncToggle'
+import type { ToggleResult } from '@/lib/hooks/shared/useAsyncToggle'
 import { isValidAccent } from '@/lib/utils/accentRamp'
 import { isValidSurfaceFamily } from '@/lib/utils/surfaceFamilies'
 

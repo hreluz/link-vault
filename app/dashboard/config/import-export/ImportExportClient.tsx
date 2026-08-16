@@ -1,254 +1,30 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import { toast } from 'sonner'
-import { useCategoryList } from '@/lib/hooks/categories/useCategoryList'
-import { getLinks } from '@/lib/services/links'
-import { importLinks, type ImportLinkInput } from '@/lib/services/links'
-import { getCategories, getOrCreateCategoryByName } from '@/lib/services/categories'
-import { useTagsContext } from '@/lib/context/TagsContext'
-import { useTagNameLookup } from '@/lib/hooks/tags/useTagNameLookup'
-import { useVault } from '@/lib/context/VaultContext'
+import { useLinkExport } from '@/lib/hooks/importExport/useLinkExport'
+import { useLinkImport, type ImportTab } from '@/lib/hooks/importExport/useLinkImport'
 
-type ImportTab = 'urls' | 'json' | 'file'
-type ParsedRow = ImportLinkInput & { categoryName?: string }
-
-function triggerDownload(content: string, filename: string, mimeType: string) {
-  const blob = new Blob([content], { type: mimeType })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
-function linksToCSV(
-  links: Awaited<ReturnType<typeof getLinks>>,
-  categoryMap: Map<string, string>,
-  tagNameById: Map<string, string>,
-): string {
-  const header = 'url,title,site_name,category,status,is_favorite,notes,tags,created_at'
-  const escape = (val: string | null | undefined) => {
-    if (val == null) return ''
-    const s = String(val)
-    return s.includes(',') || s.includes('"') || s.includes('\n')
-      ? `"${s.replace(/"/g, '""')}"`
-      : s
-  }
-  const rows = links.map(l =>
-    [
-      escape(l.url),
-      escape(l.title),
-      escape(l.site_name),
-      escape(l.category_id ? (categoryMap.get(l.category_id) ?? '') : ''),
-      escape(l.status),
-      l.is_favorite ? 'true' : 'false',
-      escape(l.notes),
-      escape(l.tags.map(id => tagNameById.get(id) ?? id).join('|')),
-      escape(l.created_at),
-    ].join(','),
-  )
-  return [header, ...rows].join('\n')
-}
-
-function splitCSVLine(line: string): string[] {
-  const cols: string[] = []
-  let i = 0
-  while (i <= line.length) {
-    if (line[i] === '"') {
-      let field = ''
-      i++
-      while (i < line.length) {
-        if (line[i] === '"' && line[i + 1] === '"') { field += '"'; i += 2 }
-        else if (line[i] === '"') { i++; break }
-        else { field += line[i++] }
-      }
-      cols.push(field)
-      if (line[i] === ',') i++
-    } else {
-      const end = line.indexOf(',', i)
-      if (end === -1) { cols.push(line.slice(i)); break }
-      cols.push(line.slice(i, end))
-      i = end + 1
-    }
-  }
-  return cols
-}
-
-function parseCSV(text: string): ParsedRow[] {
-  const lines = text.trim().split('\n')
-  if (lines.length < 2) return []
-  const headers = splitCSVLine(lines[0])
-  const urlIdx = headers.indexOf('url')
-  const titleIdx = headers.indexOf('title')
-  const notesIdx = headers.indexOf('notes')
-  const tagsIdx = headers.indexOf('tags')
-  const categoryIdx = headers.indexOf('category')
-  if (urlIdx === -1) return []
-
-  return lines.slice(1).map(line => {
-    const cols = splitCSVLine(line)
-    return {
-      url: cols[urlIdx] ?? '',
-      title: titleIdx !== -1 ? cols[titleIdx] || null : null,
-      notes: notesIdx !== -1 ? cols[notesIdx] || null : null,
-      tags: tagsIdx !== -1 ? (cols[tagsIdx]?.split('|').filter(Boolean) ?? []) : [],
-      categoryName: categoryIdx !== -1 ? cols[categoryIdx] || undefined : undefined,
-    }
-  }).filter(r => r.url)
+const TAB_LABELS: Record<ImportTab, string> = {
+  urls: '🔗 Paste URLs',
+  json: '📋 Paste JSON',
+  file: '📁 Upload file',
 }
 
 export default function ImportExportClient() {
-  const { dek } = useVault()
-  const { refetchTags } = useTagsContext()
-  const tagNameById = useTagNameLookup()
-  const [importTab, setImportTab] = useState<ImportTab>('urls')
-  const [isDragging, setIsDragging] = useState(false)
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [urlsText, setUrlsText] = useState('')
-  const [jsonText, setJsonText] = useState('')
-  const [defaultCategoryId, setDefaultCategoryId] = useState<string>('')
-  const defaultCategorySet = useRef(false)
-  const [importing, setImporting] = useState(false)
-  const [exporting, setExporting] = useState<'json' | 'csv' | null>(null)
-  const [lastResult, setLastResult] = useState<{ imported: number; skipped: number; duplicates: number } | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const { categories } = useCategoryList()
-
-  useEffect(() => {
-    if (categories.length > 0 && !defaultCategorySet.current) {
-      const notDefined = categories.find(c => c.name === 'Not defined')
-      setDefaultCategoryId((notDefined ?? categories[0]).id)
-      defaultCategorySet.current = true
-    }
-  }, [categories])
-
-  function handleDragOver(e: React.DragEvent) {
-    e.preventDefault()
-    setIsDragging(true)
-  }
-  function handleDragLeave() { setIsDragging(false) }
-  function handleDrop(e: React.DragEvent) {
-    e.preventDefault()
-    setIsDragging(false)
-    const file = e.dataTransfer.files[0]
-    if (file) setSelectedFile(file)
-  }
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    setSelectedFile(e.target.files?.[0] ?? null)
-  }
-
-  const hasImportContent =
-    importTab === 'urls' ? urlsText.trim().length > 0
-    : importTab === 'json' ? jsonText.trim().length > 0
-    : !!selectedFile
-
-  async function handleExport(format: 'json' | 'csv') {
-    if (!dek) return
-    setExporting(format)
-    try {
-      const links = await getLinks(dek)
-      const now = new Date().toISOString().slice(0, 10)
-      if (format === 'json') {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars -- destructured only to omit them from the export
-        const data = links.map(({ user_id, deleted_at, tags, ...rest }) => ({
-          ...rest,
-          tags: tags.map(id => tagNameById.get(id) ?? id),
-        }))
-        triggerDownload(JSON.stringify(data, null, 2), `link-vault-${now}.json`, 'application/json')
-      } else {
-        const categories = await getCategories(dek)
-        const categoryMap = new Map(categories.map(c => [c.id, c.name]))
-        triggerDownload(linksToCSV(links, categoryMap, tagNameById), `link-vault-${now}.csv`, 'text/csv')
-      }
-      toast.success(`Exported ${links.length} links as ${format.toUpperCase()}`)
-    } catch {
-      toast.error('Export failed')
-    } finally {
-      setExporting(null)
-    }
-  }
-
-  async function handleImport() {
-    if (!dek) return
-    setImporting(true)
-    setLastResult(null)
-    const catId = defaultCategoryId || null
-
-    try {
-      let inputs: ImportLinkInput[] = []
-
-      if (importTab === 'urls') {
-        inputs = urlsText
-          .split('\n')
-          .map(line => line.trim())
-          .filter(Boolean)
-          .map(url => ({ url, tags: [] }))
-      } else if (importTab === 'json') {
-        let parsed: unknown
-        try { parsed = JSON.parse(jsonText) } catch { toast.error('Invalid JSON'); return }
-        if (!Array.isArray(parsed)) { toast.error('JSON must be an array'); return }
-        inputs = (parsed as ImportLinkInput[]).filter(item => typeof item?.url === 'string')
-      } else if (importTab === 'file' && selectedFile) {
-        const text = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader()
-          reader.onload = e => resolve(e.target?.result as string)
-          reader.onerror = reject
-          reader.readAsText(selectedFile)
-        })
-        if (selectedFile.name.endsWith('.csv')) {
-          const parsed = parseCSV(text)
-          const uniqueNames = [...new Set(
-            parsed.map(r => r.categoryName).filter((n): n is string => !!n),
-          )]
-          const nameToId = new Map<string, string>()
-          for (const name of uniqueNames) {
-            const id = await getOrCreateCategoryByName(name, dek)
-            if (id) nameToId.set(name, id)
-          }
-          inputs = parsed.map(({ categoryName, ...row }) => ({
-            ...row,
-            category_id: categoryName ? (nameToId.get(categoryName) ?? null) : null,
-          }))
-        } else {
-          let parsed: unknown
-          try { parsed = JSON.parse(text) } catch { toast.error('Invalid JSON file'); return }
-          if (!Array.isArray(parsed)) { toast.error('JSON file must be an array'); return }
-          inputs = (parsed as ImportLinkInput[]).filter(item => typeof item?.url === 'string')
-        }
-      }
-
-      if (inputs.length === 0) { toast.error('No valid links found'); return }
-
-      const result = await importLinks(inputs, catId, dek)
-      setLastResult(result)
-      if (result.imported > 0) {
-        setUrlsText('')
-        setJsonText('')
-        setSelectedFile(null)
-        refetchTags()
-        const dupSuffix = result.duplicates > 0 ? ` (${result.duplicates} already existed)` : ''
-        toast.success(`Imported ${result.imported} link${result.imported !== 1 ? 's' : ''}${dupSuffix}`)
-      } else {
-        const parts: string[] = []
-        if (result.duplicates > 0) parts.push(`${result.duplicates} already existed`)
-        if (result.skipped > 0) parts.push(`${result.skipped} invalid`)
-        toast.warning(`No links imported${parts.length > 0 ? ` — ${parts.join(', ')}` : ''}`)
-      }
-    } catch {
-      toast.error('Import failed')
-    } finally {
-      setImporting(false)
-    }
-  }
-
-  const TAB_LABELS: Record<ImportTab, string> = {
-    urls: '🔗 Paste URLs',
-    json: '📋 Paste JSON',
-    file: '📁 Upload file',
-  }
+  const { exporting, handleExport } = useLinkExport()
+  const {
+    importTab, switchTab,
+    isDragging, selectedFile,
+    urlsText, setUrlsText,
+    jsonText, setJsonText,
+    defaultCategoryId, setDefaultCategoryId,
+    categories,
+    importing, lastResult,
+    fileInputRef,
+    hasImportContent,
+    handleDragOver, handleDragLeave, handleDrop, handleFileChange,
+    handleImport,
+  } = useLinkImport()
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
@@ -314,7 +90,7 @@ export default function ImportExportClient() {
           {(['urls', 'json', 'file'] as ImportTab[]).map(tab => (
             <button
               key={tab}
-              onClick={() => { setImportTab(tab); setLastResult(null) }}
+              onClick={() => switchTab(tab)}
               className={`flex-1 rounded-lg py-2 text-sm font-medium transition ${
                 importTab === tab
                   ? 'bg-primary-600 text-white shadow-sm'

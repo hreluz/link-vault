@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useTheme } from '@/components/ThemeProvider'
-import { useAsyncSelect } from '@/lib/hooks/useAsyncSelect'
+import { useAsyncSelect } from '@/lib/hooks/shared/useAsyncSelect'
 import { setAccentColorAction, setSurfaceFamilyAction, setThemeModeAction } from '@/app/dashboard/config/appearance/actions'
 import type { AccentColor, SurfaceFamily, ThemeMode } from '@/lib/types/database'
 
