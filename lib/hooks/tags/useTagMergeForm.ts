@@ -8,7 +8,7 @@ const MAX_SUGGESTIONS = 8
 export function useTagMergeForm(
   setTags: React.Dispatch<React.SetStateAction<TagWithCount[]>>,
   refetchTags: () => void,
-  availableTags: { id: string; name: string }[],
+  availableTags: { id: string; name: string; is_private: boolean }[],
 ) {
   const [mergingTag, setMergingTag] = useState<TagWithCount | null>(null)
   const [mergeQuery, setMergeQueryState] = useState('')
@@ -35,7 +35,9 @@ export function useTagMergeForm(
     if (!mergingTag) return []
     const lower = mergeQuery.trim().toLowerCase()
     return availableTags
-      .filter(t => t.id !== mergingTag.id && (lower === '' || t.name.toLowerCase().includes(lower)))
+      .filter(t => t.id !== mergingTag.id
+        && t.is_private === mergingTag.is_private
+        && (lower === '' || t.name.toLowerCase().includes(lower)))
       .slice(0, MAX_SUGGESTIONS)
   }, [mergingTag, mergeQuery, availableTags])
 

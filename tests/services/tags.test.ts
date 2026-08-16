@@ -23,6 +23,7 @@ const {
   mockLinksDeleteIn,
   mockTagsDeleteIn,
   mockPrivateIdsEq,
+  mockTagsPrivacyIn,
   mockSettingsMaybeSingle,
   mockSettingsEq,
   mockSettingsUpdateEq,
@@ -52,6 +53,7 @@ const {
   const mockLinksDeleteIn = vi.fn()
   const mockTagsDeleteIn = vi.fn()
   const mockPrivateIdsEq = vi.fn()
+  const mockTagsPrivacyIn = vi.fn()
 
   const mockSettingsMaybeSingle = vi.fn()
   const mockSettingsEq = vi.fn(() => ({ maybeSingle: mockSettingsMaybeSingle }))
@@ -73,6 +75,7 @@ const {
     mockLinksDeleteIn,
     mockTagsDeleteIn,
     mockPrivateIdsEq,
+    mockTagsPrivacyIn,
     mockSettingsMaybeSingle,
     mockSettingsEq,
     mockSettingsUpdateEq,
@@ -117,6 +120,7 @@ vi.mock('@/lib/supabase/client', () => ({
               }),
             }
           }
+          if (col === 'id, is_private') return { in: mockTagsPrivacyIn }
           return mockTagsSelect()
         }),
         insert: mockInsert,
@@ -455,6 +459,10 @@ describe('mergeTag', () => {
   }
 
   beforeEach(() => {
+    mockTagsPrivacyIn.mockResolvedValue({
+      data: [{ id: 'source', is_private: false }, { id: 'target', is_private: false }],
+      error: null,
+    })
     mockLinkTagsUpdateIn.mockResolvedValue({ error: null })
     mockLinkTagsDeleteEq.mockResolvedValue({ error: null })
     mockDeleteEq.mockResolvedValue({ error: null })
@@ -549,6 +557,55 @@ describe('mergeTag', () => {
     const result = await mergeTag('source', 'target')
 
     expect(result).toBe(false)
+  })
+
+  it('returns false without touching links when the source tag is private and the target is not', async () => {
+    mockTagsPrivacyIn.mockResolvedValue({
+      data: [{ id: 'source', is_private: true }, { id: 'target', is_private: false }],
+      error: null,
+    })
+    stubSelects(['l1'], [])
+
+    const result = await mergeTag('source', 'target')
+
+    expect(result).toBe(false)
+    expect(mockLinkTagsSelectEq).not.toHaveBeenCalled()
+    expect(mockDeleteEq).not.toHaveBeenCalled()
+  })
+
+  it('returns false without touching links when the source tag is public and the target is private', async () => {
+    mockTagsPrivacyIn.mockResolvedValue({
+      data: [{ id: 'source', is_private: false }, { id: 'target', is_private: true }],
+      error: null,
+    })
+    stubSelects(['l1'], [])
+
+    const result = await mergeTag('source', 'target')
+
+    expect(result).toBe(false)
+    expect(mockLinkTagsSelectEq).not.toHaveBeenCalled()
+    expect(mockDeleteEq).not.toHaveBeenCalled()
+  })
+
+  it('proceeds normally when both tags are private', async () => {
+    mockTagsPrivacyIn.mockResolvedValue({
+      data: [{ id: 'source', is_private: true }, { id: 'target', is_private: true }],
+      error: null,
+    })
+    stubSelects(['l1'], [])
+
+    const result = await mergeTag('source', 'target')
+
+    expect(result).toBe(true)
+  })
+
+  it('returns false when the privacy lookup fails', async () => {
+    mockTagsPrivacyIn.mockResolvedValue({ data: null, error: { message: 'DB error' } })
+
+    const result = await mergeTag('source', 'target')
+
+    expect(result).toBe(false)
+    expect(mockLinkTagsSelectEq).not.toHaveBeenCalled()
   })
 })
 

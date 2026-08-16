@@ -29,16 +29,22 @@ const MOCK_TAG_3: TagWithCount = {
   id: '3', user_id: 'u1', name: 'work-in-progress', color: 'emerald',
   is_private: false, created_at: '2026-01-01T00:00:00Z', link_count: 0,
 }
+const MOCK_TAG_PRIVATE: TagWithCount = {
+  id: '4', user_id: 'u1', name: 'secret-notes', color: 'rose',
+  is_private: true, created_at: '2026-01-01T00:00:00Z', link_count: 2,
+}
 
 const AVAILABLE = [
-  { id: MOCK_TAG.id, name: MOCK_TAG.name },
-  { id: MOCK_TAG_2.id, name: MOCK_TAG_2.name },
-  { id: MOCK_TAG_3.id, name: MOCK_TAG_3.name },
+  { id: MOCK_TAG.id, name: MOCK_TAG.name, is_private: false },
+  { id: MOCK_TAG_2.id, name: MOCK_TAG_2.name, is_private: false },
+  { id: MOCK_TAG_3.id, name: MOCK_TAG_3.name, is_private: false },
+  { id: MOCK_TAG_PRIVATE.id, name: MOCK_TAG_PRIVATE.name, is_private: true },
+  { id: '5', name: 'secret-notes-2', is_private: true },
 ]
 
 function useHarness(
-  initial: TagWithCount[] = [MOCK_TAG, MOCK_TAG_2, MOCK_TAG_3],
-  availableTags: { id: string; name: string }[] = AVAILABLE,
+  initial: TagWithCount[] = [MOCK_TAG, MOCK_TAG_2, MOCK_TAG_3, MOCK_TAG_PRIVATE],
+  availableTags: { id: string; name: string; is_private: boolean }[] = AVAILABLE,
 ) {
   const [tags, setTags] = useState<TagWithCount[]>(initial)
   return { tags, ...useTagMergeForm(setTags, mockRefetchTags, availableTags) }
@@ -85,7 +91,23 @@ describe('useTagMergeForm', () => {
     act(() => { result.current.startMerge(MOCK_TAG) })
     act(() => { result.current.setMergeQuery('WORK-N') })
 
-    expect(result.current.suggestions).toEqual([{ id: MOCK_TAG_2.id, name: MOCK_TAG_2.name }])
+    expect(result.current.suggestions).toEqual([{ id: MOCK_TAG_2.id, name: MOCK_TAG_2.name, is_private: false }])
+  })
+
+  it('suggestions exclude private tags when the tag being merged is public', () => {
+    const { result } = renderHook(() => useHarness())
+
+    act(() => { result.current.startMerge(MOCK_TAG) })
+
+    expect(result.current.suggestions.every(t => !t.is_private)).toBe(true)
+  })
+
+  it('suggestions exclude non-private tags when the tag being merged is private, but include other private tags', () => {
+    const { result } = renderHook(() => useHarness())
+
+    act(() => { result.current.startMerge(MOCK_TAG_PRIVATE) })
+
+    expect(result.current.suggestions).toEqual([{ id: '5', name: 'secret-notes-2', is_private: true }])
   })
 
   it('selecting a suggestion sets mergeTarget', async () => {
@@ -141,7 +163,7 @@ describe('useTagMergeForm', () => {
 
       await act(async () => { result.current.onKeyPress('Enter') })
 
-      expect(result.current.mergeTarget).toEqual({ id: MOCK_TAG_2.id, name: MOCK_TAG_2.name })
+      expect(result.current.mergeTarget).toEqual({ id: MOCK_TAG_2.id, name: MOCK_TAG_2.name, is_private: false })
     })
 
     it('Enter does nothing when nothing is highlighted', () => {

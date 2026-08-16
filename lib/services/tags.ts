@@ -199,6 +199,17 @@ export async function mergeTag(sourceId: string, targetId: string): Promise<bool
 
   const supabase = createClient()
 
+  const { data: privacyRows, error: privacyError } = await supabase
+    .from('tags')
+    .select('id, is_private')
+    .in('id', [sourceId, targetId])
+  if (privacyError || !privacyRows) return false
+
+  const source = privacyRows.find(r => r.id === sourceId)
+  const target = privacyRows.find(r => r.id === targetId)
+  if (!source || !target) return false
+  if (source.is_private !== target.is_private) return false
+
   const linkIds = await fetchSourceTargetLinkIds(sourceId, targetId)
   if (!linkIds) return false
   const { sourceLinkIds, targetLinkIds } = linkIds

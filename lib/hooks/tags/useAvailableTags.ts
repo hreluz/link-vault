@@ -17,12 +17,12 @@ export function useAvailableTags(): string[] {
 }
 
 /** Visible tags as id+name pairs, for selection UIs (e.g. FilterSheet) that filter by tag id. */
-export function useAvailableTagsWithIds(): { id: string; name: string }[] {
+export function useAvailableTagsWithIds(): { id: string; name: string; is_private: boolean }[] {
   const { tags } = useTagsContext()
   const { unlockedTagIds } = useUnlockedTags()
 
   return useMemo(
-    () => tags.filter(t => isTagVisible(t.is_private, t.id, unlockedTagIds)).map(t => ({ id: t.id, name: t.name })),
+    () => tags.filter(t => isTagVisible(t.is_private, t.id, unlockedTagIds)).map(t => ({ id: t.id, name: t.name, is_private: t.is_private })),
     [tags, unlockedTagIds],
   )
 }

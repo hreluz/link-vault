@@ -80,7 +80,7 @@ describe('useAvailableTagsWithIds', () => {
 
     const { result } = renderHook(() => useAvailableTagsWithIds())
 
-    expect(result.current).toEqual([{ id: '1', name: 'react' }])
+    expect(result.current).toEqual([{ id: '1', name: 'react', is_private: false }])
   })
 
   it('includes a private tag once unlocked, keyed by id', () => {
@@ -92,6 +92,6 @@ describe('useAvailableTagsWithIds', () => {
 
     const { result } = renderHook(() => useAvailableTagsWithIds())
 
-    expect(result.current).toEqual([{ id: '2', name: 'secret' }])
+    expect(result.current).toEqual([{ id: '2', name: 'secret', is_private: true }])
   })
 })
