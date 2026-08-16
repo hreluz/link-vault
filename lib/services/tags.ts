@@ -163,20 +163,48 @@ export async function deleteTag(id: string): Promise<boolean> {
   return !error
 }
 
+async function fetchSourceTargetLinkIds(
+  sourceId: string,
+  targetId: string,
+): Promise<{ sourceLinkIds: string[]; targetLinkIds: string[] } | null> {
+  const supabase = createClient()
+  const [{ data: sourceRows, error: sourceError }, { data: targetRows, error: targetError }] = await Promise.all([
+    supabase.from('link_tags').select('link_id').eq('tag_id', sourceId),
+    supabase.from('link_tags').select('link_id').eq('tag_id', targetId),
+  ])
+  if (sourceError || targetError) return null
+
+  return {
+    sourceLinkIds: (sourceRows ?? []).map(r => r.link_id),
+    targetLinkIds: (targetRows ?? []).map(r => r.link_id),
+  }
+}
+
+export type MergePreview = { sourceCount: number; targetCount: number; totalAfterMerge: number }
+
+/** Previews the link-count impact of merging sourceId into targetId, without changing anything. */
+export async function getMergePreview(sourceId: string, targetId: string): Promise<MergePreview | null> {
+  const linkIds = await fetchSourceTargetLinkIds(sourceId, targetId)
+  if (!linkIds) return null
+
+  const { sourceLinkIds, targetLinkIds } = linkIds
+  const totalAfterMerge = new Set([...sourceLinkIds, ...targetLinkIds]).size
+
+  return { sourceCount: sourceLinkIds.length, targetCount: targetLinkIds.length, totalAfterMerge }
+}
+
 /** Moves all links from sourceId onto targetId (deduping links that already have both), then deletes sourceId. */
 export async function mergeTag(sourceId: string, targetId: string): Promise<boolean> {
   if (sourceId === targetId) return false
 
   const supabase = createClient()
 
-  const [{ data: sourceRows, error: sourceError }, { data: targetRows, error: targetError }] = await Promise.all([
-    supabase.from('link_tags').select('link_id').eq('tag_id', sourceId),
-    supabase.from('link_tags').select('link_id').eq('tag_id', targetId),
-  ])
-  if (sourceError || targetError) return false
+  const linkIds = await fetchSourceTargetLinkIds(sourceId, targetId)
+  if (!linkIds) return false
+  const { sourceLinkIds, targetLinkIds } = linkIds
 
-  const targetLinkIds = new Set((targetRows ?? []).map(r => r.link_id))
-  const linkIdsToReassign = (sourceRows ?? []).map(r => r.link_id).filter(id => !targetLinkIds.has(id))
+  const targetLinkIdSet = new Set(targetLinkIds)
+  const linkIdsToReassign = sourceLinkIds.filter(id => !targetLinkIdSet.has(id))
 
   if (linkIdsToReassign.length > 0) {
     const { error } = await supabase

@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { mergeTag, getTagLinksCount, type TagWithCount } from '@/lib/services/tags'
+import { useState, useMemo, useEffect } from 'react'
+import { mergeTag, getTagLinksCount, getMergePreview, type TagWithCount, type MergePreview } from '@/lib/services/tags'
 
 const MAX_SUGGESTIONS = 8
 
@@ -15,6 +15,21 @@ export function useTagMergeForm(
   const [selectedIndex, setSelectedIndex] = useState(-1)
   const [mergeTarget, setMergeTarget] = useState<{ id: string; name: string } | null>(null)
   const [mergeError, setMergeError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [mergePreview, setMergePreview] = useState<MergePreview | null>(null)
+  const [previewLoading, setPreviewLoading] = useState(false)
+
+  useEffect(() => {
+    if (!mergingTag || !mergeTarget) { setMergePreview(null); return }
+    let cancelled = false
+    setPreviewLoading(true)
+    getMergePreview(mergingTag.id, mergeTarget.id).then(preview => {
+      if (cancelled) return
+      setMergePreview(preview)
+      setPreviewLoading(false)
+    })
+    return () => { cancelled = true }
+  }, [mergingTag, mergeTarget])
 
   const suggestions = useMemo(() => {
     if (!mergingTag) return []
@@ -30,6 +45,7 @@ export function useTagMergeForm(
     setSelectedIndex(-1)
     setMergeTarget(null)
     setMergeError(null)
+    setSubmitting(false)
   }
 
   function cancelMerging() {
@@ -38,6 +54,7 @@ export function useTagMergeForm(
     setSelectedIndex(-1)
     setMergeTarget(null)
     setMergeError(null)
+    setSubmitting(false)
   }
 
   function setMergeQuery(q: string) {
@@ -75,10 +92,11 @@ export function useTagMergeForm(
   }
 
   async function confirmMerge() {
-    if (!mergingTag || !mergeTarget) return
+    if (!mergingTag || !mergeTarget || submitting) return
+    setSubmitting(true)
     setMergeError(null)
     const ok = await mergeTag(mergingTag.id, mergeTarget.id)
-    if (!ok) { setMergeError('Could not merge tags. Please try again.'); return }
+    if (!ok) { setMergeError('Could not merge tags. Please try again.'); setSubmitting(false); return }
     const targetId = mergeTarget.id
     const newTargetCount = await getTagLinksCount(targetId)
     setTags(prev => prev
@@ -97,6 +115,9 @@ export function useTagMergeForm(
     suggestions,
     mergeTarget,
     mergeError,
+    submitting,
+    mergePreview,
+    previewLoading,
     startMerge,
     cancelMerging,
     selectSuggestion,

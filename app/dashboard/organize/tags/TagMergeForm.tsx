@@ -10,19 +10,27 @@ interface Props {
 
 export function TagMergeForm({ tag }: Props) {
   const {
-    mergeQuery, setMergeQuery, selectedIndex, suggestions, mergeTarget, mergeError,
+    mergeQuery, setMergeQuery, selectedIndex, suggestions, mergeTarget, mergeError, submitting,
+    mergePreview, previewLoading,
     cancelMerging, selectSuggestion, cancelMerge, onKeyPress, confirmMerge,
   } = useTagContext()
 
   if (mergeTarget) {
+    const sourceCount = mergePreview ? String(mergePreview.sourceCount) : previewLoading ? '…' : null
+    const targetCount = mergePreview ? String(mergePreview.targetCount) : previewLoading ? '…' : null
+    const totalAfterMerge = mergePreview ? String(mergePreview.totalAfterMerge) : previewLoading ? '…' : null
+
     return (
       <div className="rounded-2xl bg-surface-card p-4 shadow-sm ring-1 ring-primary-200 dark:bg-surface-900 dark:ring-primary-700">
         <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
           <p className="font-semibold">
-            Merge &ldquo;{tag.name}&rdquo; into existing tag &ldquo;{mergeTarget.name}&rdquo;?
+            Merge &ldquo;{tag.name}&rdquo;{sourceCount !== null && ` (${sourceCount} link${sourceCount === '1' ? '' : 's'})`} into existing tag &ldquo;{mergeTarget.name}&rdquo;{targetCount !== null && ` (${targetCount} link${targetCount === '1' ? '' : 's'})`}?
           </p>
           <p className="mt-1.5">
-            This moves all of &ldquo;{tag.name}&rdquo;&rsquo;s links into &ldquo;{mergeTarget.name}&rdquo; and deletes &ldquo;{tag.name}&rdquo;. This can&rsquo;t be undone.
+            {totalAfterMerge !== null
+              ? <>&ldquo;{mergeTarget.name}&rdquo; will have {totalAfterMerge} link{totalAfterMerge === '1' ? '' : 's'} after merging. This can&rsquo;t be undone.</>
+              : <>This moves all of &ldquo;{tag.name}&rdquo;&rsquo;s links into &ldquo;{mergeTarget.name}&rdquo; and deletes &ldquo;{tag.name}&rdquo;. This can&rsquo;t be undone.</>
+            }
           </p>
         </div>
         {mergeError && (
@@ -31,15 +39,17 @@ export function TagMergeForm({ tag }: Props) {
         <div className="mt-3 flex gap-2">
           <button
             onClick={cancelMerge}
-            className="rounded-xl border border-surface-200 bg-surface-card px-3 py-1.5 text-xs font-medium text-surface-600 transition hover:bg-surface-50 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-400 dark:hover:bg-surface-700"
+            disabled={submitting}
+            className="rounded-xl border border-surface-200 bg-surface-card px-3 py-1.5 text-xs font-medium text-surface-600 transition hover:bg-surface-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-400 dark:hover:bg-surface-700"
           >
             Cancel
           </button>
           <button
             onClick={confirmMerge}
-            className="rounded-xl bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-red-500"
+            disabled={submitting}
+            className="rounded-xl bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Merge tags
+            {submitting ? 'Merging…' : 'Merge tags'}
           </button>
         </div>
       </div>

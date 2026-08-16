@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest'
 import {
-  getTags, createTag, updateTag, deleteTag, mergeTag, getTagLinksCount, toKebabCase,
+  getTags, createTag, updateTag, deleteTag, mergeTag, getMergePreview, getTagLinksCount, toKebabCase,
   getPrivateTagIds, setPrivateTagPassword, verifyPrivateTagPassword, getPrivateTagSettings,
   syncTagsByName,
 } from '@/lib/services/tags'
@@ -549,6 +549,58 @@ describe('mergeTag', () => {
     const result = await mergeTag('source', 'target')
 
     expect(result).toBe(false)
+  })
+})
+
+// ── getMergePreview ───────────────────────────────────────────────────────────
+
+describe('getMergePreview', () => {
+  function stubSelects(sourceLinkIds: string[], targetLinkIds: string[]) {
+    mockLinkTagsSelectEq.mockImplementation((field: string, tagId: string) => {
+      if (tagId === 'source') return Promise.resolve({ data: sourceLinkIds.map(link_id => ({ link_id })), error: null })
+      if (tagId === 'target') return Promise.resolve({ data: targetLinkIds.map(link_id => ({ link_id })), error: null })
+      return Promise.resolve({ data: [], error: null })
+    })
+  }
+
+  it('reports counts and a summed total when there is no overlap', async () => {
+    stubSelects(['l1', 'l2'], ['l3'])
+
+    const result = await getMergePreview('source', 'target')
+
+    expect(result).toEqual({ sourceCount: 2, targetCount: 1, totalAfterMerge: 3 })
+  })
+
+  it('dedupes the total when every source link already has the target tag', async () => {
+    stubSelects(['l1', 'l2'], ['l1', 'l2'])
+
+    const result = await getMergePreview('source', 'target')
+
+    expect(result).toEqual({ sourceCount: 2, targetCount: 2, totalAfterMerge: 2 })
+  })
+
+  it('dedupes only the overlapping links when partially shared', async () => {
+    stubSelects(['l1', 'l2'], ['l2', 'l3'])
+
+    const result = await getMergePreview('source', 'target')
+
+    expect(result).toEqual({ sourceCount: 2, targetCount: 2, totalAfterMerge: 3 })
+  })
+
+  it('returns zero counts when neither tag has links', async () => {
+    stubSelects([], [])
+
+    const result = await getMergePreview('source', 'target')
+
+    expect(result).toEqual({ sourceCount: 0, targetCount: 0, totalAfterMerge: 0 })
+  })
+
+  it('returns null without throwing when the query fails', async () => {
+    mockLinkTagsSelectEq.mockResolvedValue({ data: null, error: { message: 'DB error' } })
+
+    const result = await getMergePreview('source', 'target')
+
+    expect(result).toBeNull()
   })
 })
 
