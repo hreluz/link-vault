@@ -19,6 +19,9 @@ export function TagMergeForm({ tag }: Props) {
     const sourceCount = mergePreview ? String(mergePreview.sourceCount) : previewLoading ? '…' : null
     const targetCount = mergePreview ? String(mergePreview.targetCount) : previewLoading ? '…' : null
     const totalAfterMerge = mergePreview ? String(mergePreview.totalAfterMerge) : previewLoading ? '…' : null
+    const overlapCount = mergePreview
+      ? mergePreview.sourceCount + mergePreview.targetCount - mergePreview.totalAfterMerge
+      : null
 
     return (
       <div className="rounded-2xl bg-surface-card p-4 shadow-sm ring-1 ring-primary-200 dark:bg-surface-900 dark:ring-primary-700">
@@ -28,7 +31,7 @@ export function TagMergeForm({ tag }: Props) {
           </p>
           <p className="mt-1.5">
             {totalAfterMerge !== null
-              ? <>&ldquo;{mergeTarget.name}&rdquo; will have {totalAfterMerge} link{totalAfterMerge === '1' ? '' : 's'} after merging. This can&rsquo;t be undone.</>
+              ? <>&ldquo;{mergeTarget.name}&rdquo; will have {totalAfterMerge} link{totalAfterMerge === '1' ? '' : 's'} after merging{overlapCount !== null && overlapCount > 0 && <> ({overlapCount} already had both tags)</>}. This can&rsquo;t be undone.</>
               : <>This moves all of &ldquo;{tag.name}&rdquo;&rsquo;s links into &ldquo;{mergeTarget.name}&rdquo; and deletes &ldquo;{tag.name}&rdquo;. This can&rsquo;t be undone.</>
             }
           </p>
