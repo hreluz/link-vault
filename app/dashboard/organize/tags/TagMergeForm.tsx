@@ -72,6 +72,12 @@ export function TagMergeForm({ tag }: Props) {
           Cancel
         </button>
       </div>
+      <p className="mb-2 text-xs text-surface-500 dark:text-surface-400">
+        {tag.is_private
+          ? <>Private tags can only merge into other private tags. To merge &ldquo;{tag.name}&rdquo; into a public tag, set it to public first (Edit tag), then try again.</>
+          : <>This tag is public — it can only merge into other public tags. To merge &ldquo;{tag.name}&rdquo; into a private tag, set it to private first (Edit tag), then try again.</>
+        }
+      </p>
       <div className="relative">
         <input
           autoFocus
@@ -87,12 +93,6 @@ export function TagMergeForm({ tag }: Props) {
           if (match) selectSuggestion(match)
         }} />
       </div>
-      <p className="mt-2 text-xs text-surface-500 dark:text-surface-400">
-        {tag.is_private
-          ? <>Private tags can only merge into other private tags. To merge &ldquo;{tag.name}&rdquo; into a public tag, set it to public first (Edit tag), then try again.</>
-          : <>This tag is public — it can only merge into other public tags. To merge &ldquo;{tag.name}&rdquo; into a private tag, set it to private first (Edit tag), then try again.</>
-        }
-      </p>
       {mergeError && (
         <p className="mt-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">{mergeError}</p>
       )}
