@@ -8,59 +8,66 @@ interface Props {
   tag: TagWithCount
 }
 
-export function TagMergeForm({ tag }: Props) {
-  const {
-    mergeQuery, setMergeQuery, selectedIndex, suggestions, mergeTarget, mergeError, submitting,
-    mergePreview, previewLoading,
-    cancelMerging, selectSuggestion, cancelMerge, onKeyPress, confirmMerge,
-  } = useTagContext()
+function formatLinkCount(n: number | null, loading: boolean): string | null {
+  if (n !== null) return `${n} link${n === 1 ? '' : 's'}`
+  return loading ? '… links' : null
+}
 
-  if (mergeTarget) {
-    const sourceCount = mergePreview ? String(mergePreview.sourceCount) : previewLoading ? '…' : null
-    const targetCount = mergePreview ? String(mergePreview.targetCount) : previewLoading ? '…' : null
-    const totalAfterMerge = mergePreview ? String(mergePreview.totalAfterMerge) : previewLoading ? '…' : null
-    const overlapCount = mergePreview
-      ? mergePreview.sourceCount + mergePreview.targetCount - mergePreview.totalAfterMerge
-      : null
+function MergeError({ message }: { message: string | null }) {
+  if (!message) return null
+  return <p className="mt-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">{message}</p>
+}
 
-    return (
-      <div className="rounded-2xl bg-surface-card p-4 shadow-sm ring-1 ring-primary-200 dark:bg-surface-900 dark:ring-primary-700">
-        <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
-          <p className="font-semibold">
-            Merge &ldquo;{tag.name}&rdquo;{sourceCount !== null && ` (${sourceCount} link${sourceCount === '1' ? '' : 's'})`} into existing tag &ldquo;{mergeTarget.name}&rdquo;{targetCount !== null && ` (${targetCount} link${targetCount === '1' ? '' : 's'})`}?
-          </p>
-          <p className="mt-1.5">
-            {totalAfterMerge !== null
-              ? <>&ldquo;{mergeTarget.name}&rdquo; will have {totalAfterMerge} link{totalAfterMerge === '1' ? '' : 's'} after merging{overlapCount !== null && overlapCount > 0 && <> ({overlapCount} already had both tags)</>}. This can&rsquo;t be undone.</>
-              : <>This moves all of &ldquo;{tag.name}&rdquo;&rsquo;s links into &ldquo;{mergeTarget.name}&rdquo; and deletes &ldquo;{tag.name}&rdquo;. This can&rsquo;t be undone.</>
-            }
-          </p>
-        </div>
-        {mergeError && (
-          <p className="mt-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">{mergeError}</p>
-        )}
-        <div className="mt-3 flex gap-2">
-          <button
-            onClick={cancelMerge}
-            disabled={submitting}
-            className="rounded-xl border border-surface-200 bg-surface-card px-3 py-1.5 text-xs font-medium text-surface-600 transition hover:bg-surface-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-400 dark:hover:bg-surface-700"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={confirmMerge}
-            disabled={submitting}
-            className="rounded-xl bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {submitting ? 'Merging…' : 'Merge tags'}
-          </button>
-        </div>
-      </div>
-    )
-  }
+function MergeConfirmStep({ tag }: Props) {
+  const { mergeTarget, mergeError, submitting, mergePreview, previewLoading, cancelMerge, confirmMerge } = useTagContext()
+  if (!mergeTarget) return null
+
+  const sourceLabel = formatLinkCount(mergePreview?.sourceCount ?? null, previewLoading)
+  const targetLabel = formatLinkCount(mergePreview?.targetCount ?? null, previewLoading)
+  const totalLabel = formatLinkCount(mergePreview?.totalAfterMerge ?? null, previewLoading)
+  const overlapCount = mergePreview
+    ? mergePreview.sourceCount + mergePreview.targetCount - mergePreview.totalAfterMerge
+    : null
 
   return (
-    <div className="rounded-2xl bg-surface-card p-4 shadow-sm ring-1 ring-primary-200 dark:bg-surface-900 dark:ring-primary-700">
+    <>
+      <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
+        <p className="font-semibold">
+          Merge &ldquo;{tag.name}&rdquo;{sourceLabel && ` (${sourceLabel})`} into existing tag &ldquo;{mergeTarget.name}&rdquo;{targetLabel && ` (${targetLabel})`}?
+        </p>
+        <p className="mt-1.5">
+          {totalLabel !== null
+            ? <>&ldquo;{mergeTarget.name}&rdquo; will have {totalLabel} after merging{overlapCount !== null && overlapCount > 0 && <> ({overlapCount} already had both tags)</>}. This can&rsquo;t be undone.</>
+            : <>This moves all of &ldquo;{tag.name}&rdquo;&rsquo;s links into &ldquo;{mergeTarget.name}&rdquo; and deletes &ldquo;{tag.name}&rdquo;. This can&rsquo;t be undone.</>
+          }
+        </p>
+      </div>
+      <MergeError message={mergeError} />
+      <div className="mt-3 flex gap-2">
+        <button
+          onClick={cancelMerge}
+          disabled={submitting}
+          className="rounded-xl border border-surface-200 bg-surface-card px-3 py-1.5 text-xs font-medium text-surface-600 transition hover:bg-surface-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-400 dark:hover:bg-surface-700"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={confirmMerge}
+          disabled={submitting}
+          className="rounded-xl bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {submitting ? 'Merging…' : 'Merge tags'}
+        </button>
+      </div>
+    </>
+  )
+}
+
+function MergeSelectStep({ tag }: Props) {
+  const { mergeQuery, setMergeQuery, selectedIndex, suggestions, mergeError, cancelMerging, selectSuggestion, onKeyPress } = useTagContext()
+
+  return (
+    <>
       <div className="mb-3 flex items-center justify-between gap-2">
         <p className="text-sm font-semibold text-surface-700 dark:text-surface-300">
           Merge &ldquo;{tag.name}&rdquo; into…
@@ -93,9 +100,17 @@ export function TagMergeForm({ tag }: Props) {
           if (match) selectSuggestion(match)
         }} />
       </div>
-      {mergeError && (
-        <p className="mt-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">{mergeError}</p>
-      )}
+      <MergeError message={mergeError} />
+    </>
+  )
+}
+
+export function TagMergeForm({ tag }: Props) {
+  const { mergeTarget } = useTagContext()
+
+  return (
+    <div className="rounded-2xl bg-surface-card p-4 shadow-sm ring-1 ring-primary-200 dark:bg-surface-900 dark:ring-primary-700">
+      {mergeTarget ? <MergeConfirmStep tag={tag} /> : <MergeSelectStep tag={tag} />}
     </div>
   )
 }
