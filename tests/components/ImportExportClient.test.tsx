@@ -41,6 +41,21 @@ vi.mock('@/lib/services/categories', () => ({
   getOrCreateCategoryByName: vi.fn(),
 }))
 
+vi.mock('@/lib/services/importExport/exportVault', () => ({
+  buildVaultExport: vi.fn().mockResolvedValue({
+    data: { format: 'link-vault-export', version: 2, exportedAt: '', mode: 'links', links: [] },
+    hiddenPrivateLinksCount: 0,
+  }),
+}))
+
+vi.mock('@/lib/services/importExport/importVault', () => ({
+  importVaultExport: vi.fn(),
+}))
+
+vi.mock('@/lib/services/tags/tags', () => ({
+  getPrivateTagIds: vi.fn().mockResolvedValue([]),
+}))
+
 vi.mock('next/link', () => ({
   default: ({ href, children }: { href: string; children: React.ReactNode }) =>
     React.createElement('a', { href }, children),
@@ -49,6 +64,10 @@ vi.mock('next/link', () => ({
 const FAKE_DEK = {} as CryptoKey
 vi.mock('@/lib/context/VaultContext', () => ({
   useVault: () => ({ dek: FAKE_DEK, isUnlocked: true, unlock: vi.fn(), changePassword: vi.fn(), lock: vi.fn() }),
+}))
+
+vi.mock('@/lib/context/UnlockedTagsContext', () => ({
+  useUnlockedTags: () => ({ unlockedTagIds: new Set(), unlockTag: vi.fn(), lockTag: vi.fn(), lockAll: vi.fn() }),
 }))
 
 vi.mock('@/lib/context/TagsContext', () => ({

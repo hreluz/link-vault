@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest'
 import {
   getTags, createTag, updateTag, deleteTag, mergeTag, getMergePreview, getTagLinksCount, toKebabCase,
-  getPrivateTagIds, syncTagsByName,
+  getPrivateTagIds, syncTagsByName, syncTagDefinitions,
 } from '@/lib/services/tags/tags'
 import { generateDek, encryptJson } from '@/lib/crypto/vault'
 
@@ -656,6 +656,64 @@ describe('syncTagsByName', () => {
     const ids = await syncTagsByName([], dek)
 
     expect(ids).toEqual(['no-tag-id'])
+  })
+})
+
+// ── syncTagDefinitions ────────────────────────────────────────────────────────
+
+describe('syncTagDefinitions', () => {
+  beforeEach(() => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } })
+  })
+
+  it('resolves an existing tag by name without inserting or overwriting its color/privacy', async () => {
+    const existing = await encryptTagRowForSelect('tag-1', 'react', 'old-color', true)
+    mockTagsSelect.mockResolvedValue({ data: [existing], error: null })
+
+    const ids = await syncTagDefinitions([{ name: 'react', color: 'new-color', is_private: false }], dek)
+
+    expect(ids).toEqual(['tag-1'])
+    expect(mockInsert).not.toHaveBeenCalled()
+  })
+
+  it('creates a missing tag with the given color and privacy', async () => {
+    mockTagsSelect.mockResolvedValue({ data: [], error: null })
+    mockInsertSingle.mockResolvedValue({ data: { id: 'new-1' }, error: null })
+
+    const ids = await syncTagDefinitions([{ name: 'secret', color: '#000', is_private: true }], dek)
+
+    expect(ids).toEqual(['new-1'])
+    expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({ user_id: 'u1', is_private: true }))
+  })
+
+  it('skips a definition whose kebab-cased name is empty', async () => {
+    mockTagsSelect.mockResolvedValue({ data: [], error: null })
+
+    const ids = await syncTagDefinitions([{ name: '!!!', color: null, is_private: false }], dek)
+
+    expect(ids).toEqual([])
+    expect(mockInsert).not.toHaveBeenCalled()
+  })
+
+  it('does not create a second tag already created earlier in the same batch', async () => {
+    mockTagsSelect.mockResolvedValue({ data: [], error: null })
+    mockInsertSingle.mockResolvedValue({ data: { id: 'new-1' }, error: null })
+
+    const ids = await syncTagDefinitions(
+      [{ name: 'react', color: null, is_private: false }, { name: 'React', color: null, is_private: false }],
+      dek,
+    )
+
+    expect(ids).toEqual(['new-1', 'new-1'])
+    expect(mockInsert).toHaveBeenCalledTimes(1)
+  })
+
+  it('returns [] when the user is not authenticated', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } })
+
+    const ids = await syncTagDefinitions([{ name: 'react', color: null, is_private: false }], dek)
+
+    expect(ids).toEqual([])
   })
 })
 

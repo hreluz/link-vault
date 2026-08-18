@@ -11,7 +11,7 @@ const TAB_LABELS: Record<ImportTab, string> = {
 }
 
 export default function ImportExportClient() {
-  const { exporting, handleExport } = useLinkExport()
+  const { exporting, hasLockedPrivateTags, handleExport } = useLinkExport()
   const {
     importTab, switchTab,
     isDragging, selectedFile,
@@ -20,11 +20,15 @@ export default function ImportExportClient() {
     defaultCategoryId, setDefaultCategoryId,
     categories,
     importing, lastResult,
+    detectedVaultExport,
+    applyPreferences, setApplyPreferences,
     fileInputRef,
     hasImportContent,
     handleDragOver, handleDragLeave, handleDrop, handleFileChange,
     handleImport,
   } = useLinkImport()
+
+  const showApplyPreferences = detectedVaultExport?.mode === 'everything' && !!detectedVaultExport.preferences
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
@@ -45,32 +49,57 @@ export default function ImportExportClient() {
           </span>
           <div>
             <h2 className="font-semibold text-surface-900 dark:text-surface-50">Export</h2>
-            <p className="text-sm text-surface-500 dark:text-surface-400">Download all your links as a file</p>
+            <p className="text-sm text-surface-500 dark:text-surface-400">Download your links as a file</p>
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-3">
-          <button
-            onClick={() => handleExport('json')}
-            disabled={exporting !== null}
-            className="flex items-center gap-2 rounded-xl border border-surface-200 bg-surface-card px-5 py-2.5 text-sm font-medium text-surface-700 shadow-sm transition hover:bg-surface-50 hover:text-surface-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-300 dark:hover:bg-surface-700 dark:hover:text-surface-100"
-          >
-            <span aria-hidden="true">📄</span>
-            {exporting === 'json' ? 'Exporting…' : 'Export as JSON'}
-          </button>
-          <button
-            onClick={() => handleExport('csv')}
-            disabled={exporting !== null}
-            className="flex items-center gap-2 rounded-xl border border-surface-200 bg-surface-card px-5 py-2.5 text-sm font-medium text-surface-700 shadow-sm transition hover:bg-surface-50 hover:text-surface-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-300 dark:hover:bg-surface-700 dark:hover:text-surface-100"
-          >
-            <span aria-hidden="true">📊</span>
-            {exporting === 'csv' ? 'Exporting…' : 'Export as CSV'}
-          </button>
-        </div>
+        {hasLockedPrivateTags && (
+          <p className="mb-4 rounded-xl bg-amber-50 px-4 py-3 text-xs text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
+            🔒 Private tags are locked — links tagged private won&apos;t be included in any export. Unlock them first if you want them included.
+          </p>
+        )}
 
-        <p className="mt-4 text-xs text-surface-400 dark:text-surface-500">
-          JSON preserves all fields including tags and notes. CSV is compatible with spreadsheet apps.
-        </p>
+        <div className="space-y-4">
+          <div>
+            <p className="mb-2 text-sm font-medium text-surface-700 dark:text-surface-300">Quick — links &amp; tags</p>
+            <div className="flex flex-wrap gap-3">
+              <button
+                onClick={() => handleExport('links', 'json')}
+                disabled={exporting !== null}
+                className="flex items-center gap-2 rounded-xl border border-surface-200 bg-surface-card px-5 py-2.5 text-sm font-medium text-surface-700 shadow-sm transition hover:bg-surface-50 hover:text-surface-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-300 dark:hover:bg-surface-700 dark:hover:text-surface-100"
+              >
+                <span aria-hidden="true">📄</span>
+                {exporting?.mode === 'links' && exporting.format === 'json' ? 'Exporting…' : 'Export as JSON'}
+              </button>
+              <button
+                onClick={() => handleExport('links', 'csv')}
+                disabled={exporting !== null}
+                className="flex items-center gap-2 rounded-xl border border-surface-200 bg-surface-card px-5 py-2.5 text-sm font-medium text-surface-700 shadow-sm transition hover:bg-surface-50 hover:text-surface-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-300 dark:hover:bg-surface-700 dark:hover:text-surface-100"
+              >
+                <span aria-hidden="true">📊</span>
+                {exporting?.mode === 'links' && exporting.format === 'csv' ? 'Exporting…' : 'Export as CSV'}
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-surface-400 dark:text-surface-500">
+              Every link field (status, favorite, notes, timestamps…), its category, and its tags. JSON and CSV both work for moving to a new account.
+            </p>
+          </div>
+
+          <div className="border-t border-surface-200 pt-4 dark:border-surface-700">
+            <p className="mb-2 text-sm font-medium text-surface-700 dark:text-surface-300">Everything — full backup</p>
+            <button
+              onClick={() => handleExport('everything', 'json')}
+              disabled={exporting !== null}
+              className="flex items-center gap-2 rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <span aria-hidden="true">🗄️</span>
+              {exporting?.mode === 'everything' ? 'Exporting…' : 'Export everything as JSON'}
+            </button>
+            <p className="mt-2 text-xs text-surface-400 dark:text-surface-500">
+              Also includes category colors/emoji, domain auto-assign rules, tag colors and privacy, and appearance settings — a full clone for a new account.
+            </p>
+          </div>
+        </div>
       </section>
 
       {/* ── Import ── */}
@@ -189,6 +218,18 @@ export default function ImportExportClient() {
             </select>
           </div>
 
+          {showApplyPreferences && (
+            <label className="flex items-center gap-2 text-sm text-surface-700 dark:text-surface-300">
+              <input
+                type="checkbox"
+                checked={applyPreferences}
+                onChange={e => setApplyPreferences(e.target.checked)}
+                className="h-4 w-4 rounded border-surface-300 text-primary-600 focus:ring-primary-500/20"
+              />
+              Also apply appearance settings (theme, accent color) from this file
+            </label>
+          )}
+
           {lastResult && (
             <div className={`rounded-xl px-4 py-3 text-sm ${lastResult.imported > 0 ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400' : 'bg-surface-50 text-surface-600 dark:bg-surface-800 dark:text-surface-400'}`}>
               {lastResult.imported > 0
@@ -196,6 +237,9 @@ export default function ImportExportClient() {
                 : '⚠️ No links imported'}
               {lastResult.duplicates > 0 && ` · ${lastResult.duplicates} already existed`}
               {lastResult.skipped > 0 && ` · ${lastResult.skipped} invalid`}
+              {!!lastResult.categoriesCreated && ` · ${lastResult.categoriesCreated} categories`}
+              {!!lastResult.tagsCreated && ` · ${lastResult.tagsCreated} tags`}
+              {!!lastResult.domainsCreated && ` · ${lastResult.domainsCreated} domain rules`}
             </div>
           )}
 

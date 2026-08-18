@@ -4,12 +4,37 @@ import { useState, useRef, useEffect } from 'react'
 import { toast } from 'sonner'
 import { importLinks, type ImportLinkInput } from '@/lib/services/links'
 import { getOrCreateCategoryByName } from '@/lib/services/categories'
+import { importVaultExport, type VaultImportResult } from '@/lib/services/importExport/importVault'
+import { isVaultExportV2, type VaultExportV2 } from '@/lib/types/importExport'
 import { useVault } from '@/lib/context/VaultContext'
 import { useTagsContext } from '@/lib/context/TagsContext'
 import { useCategoryList } from '@/lib/hooks/categories/useCategoryList'
 import { parseCSV } from '@/lib/utils/linksCsv'
 
 export type ImportTab = 'urls' | 'json' | 'file'
+
+type LastResult = { imported: number; skipped: number; duplicates: number } & Partial<
+  Pick<VaultImportResult, 'categoriesCreated' | 'domainsCreated' | 'tagsCreated'>
+>
+
+async function readFileText(file: File): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = e => resolve(e.target?.result as string)
+    reader.onerror = reject
+    reader.readAsText(file)
+  })
+}
+
+/** Sniffs whether the given JSON text is a full v2 vault export, for a live "everything" file. */
+function tryDetectVaultExport(text: string): VaultExportV2 | null {
+  try {
+    const parsed = JSON.parse(text)
+    return isVaultExportV2(parsed) ? parsed : null
+  } catch {
+    return null
+  }
+}
 
 export function useLinkImport() {
   const { dek } = useVault()
@@ -23,7 +48,9 @@ export function useLinkImport() {
   const [defaultCategoryId, setDefaultCategoryId] = useState<string>('')
   const defaultCategorySet = useRef(false)
   const [importing, setImporting] = useState(false)
-  const [lastResult, setLastResult] = useState<{ imported: number; skipped: number; duplicates: number } | null>(null)
+  const [lastResult, setLastResult] = useState<LastResult | null>(null)
+  const [detectedVaultExport, setDetectedVaultExport] = useState<VaultExportV2 | null>(null)
+  const [applyPreferences, setApplyPreferences] = useState(true)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -33,6 +60,28 @@ export function useLinkImport() {
       defaultCategorySet.current = true
     }
   }, [categories])
+
+  // Live-detect a full-vault (v2) export so the UI can offer the "apply appearance" choice
+  // before the user commits to importing -- covers both the JSON textarea and a .json upload.
+  useEffect(() => {
+    let cancelled = false
+
+    async function detect() {
+      if (importTab === 'json') {
+        if (!cancelled) setDetectedVaultExport(tryDetectVaultExport(jsonText))
+        return
+      }
+      if (importTab === 'file' && selectedFile && selectedFile.name.endsWith('.json')) {
+        const text = await readFileText(selectedFile)
+        if (!cancelled) setDetectedVaultExport(tryDetectVaultExport(text))
+        return
+      }
+      if (!cancelled) setDetectedVaultExport(null)
+    }
+
+    detect()
+    return () => { cancelled = true }
+  }, [importTab, jsonText, selectedFile])
 
   function switchTab(tab: ImportTab) {
     setImportTab(tab)
@@ -59,6 +108,16 @@ export function useLinkImport() {
     : importTab === 'json' ? jsonText.trim().length > 0
     : !!selectedFile
 
+  function successToast(result: LastResult) {
+    const dupSuffix = result.duplicates > 0 ? ` (${result.duplicates} already existed)` : ''
+    const extras: string[] = []
+    if (result.categoriesCreated) extras.push(`${result.categoriesCreated} categories`)
+    if (result.tagsCreated) extras.push(`${result.tagsCreated} tags`)
+    if (result.domainsCreated) extras.push(`${result.domainsCreated} domain rules`)
+    const extrasSuffix = extras.length > 0 ? `, plus ${extras.join(', ')}` : ''
+    toast.success(`Imported ${result.imported} link${result.imported !== 1 ? 's' : ''}${dupSuffix}${extrasSuffix}`)
+  }
+
   async function handleImport() {
     if (!dek) return
     setImporting(true)
@@ -66,6 +125,28 @@ export function useLinkImport() {
     const catId = defaultCategoryId || null
 
     try {
+      // ── full-vault (v2) export detected on the json/file tab ──────────
+      if (detectedVaultExport) {
+        const result = await importVaultExport(
+          detectedVaultExport,
+          { defaultCategoryId: catId, applyPreferences },
+          dek,
+        )
+        setLastResult(result)
+        if (result.imported > 0) {
+          setJsonText('')
+          setSelectedFile(null)
+          refetchTags()
+          successToast(result)
+        } else {
+          const parts: string[] = []
+          if (result.duplicates > 0) parts.push(`${result.duplicates} already existed`)
+          if (result.skipped > 0) parts.push(`${result.skipped} invalid`)
+          toast.warning(`No links imported${parts.length > 0 ? ` — ${parts.join(', ')}` : ''}`)
+        }
+        return
+      }
+
       let inputs: ImportLinkInput[] = []
 
       if (importTab === 'urls') {
@@ -80,12 +161,7 @@ export function useLinkImport() {
         if (!Array.isArray(parsed)) { toast.error('JSON must be an array'); return }
         inputs = (parsed as ImportLinkInput[]).filter(item => typeof item?.url === 'string')
       } else if (importTab === 'file' && selectedFile) {
-        const text = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader()
-          reader.onload = e => resolve(e.target?.result as string)
-          reader.onerror = reject
-          reader.readAsText(selectedFile)
-        })
+        const text = await readFileText(selectedFile)
         if (selectedFile.name.endsWith('.csv')) {
           const parsed = parseCSV(text)
           const uniqueNames = [...new Set(
@@ -140,6 +216,8 @@ export function useLinkImport() {
     defaultCategoryId, setDefaultCategoryId,
     categories,
     importing, lastResult,
+    detectedVaultExport,
+    applyPreferences, setApplyPreferences,
     fileInputRef,
     hasImportContent,
     handleDragOver, handleDragLeave, handleDrop, handleFileChange,

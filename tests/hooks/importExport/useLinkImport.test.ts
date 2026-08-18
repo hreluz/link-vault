@@ -3,6 +3,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { useLinkImport } from '@/lib/hooks/importExport/useLinkImport'
+import type { VaultExportV2 } from '@/lib/types/importExport'
 
 const MOCK_CATEGORIES = [
   { id: 'cat-0', user_id: 'u1', name: 'Not defined', emoticon: '🔖', color: null, description: null, created_at: '', updated_at: '' },
@@ -11,12 +12,13 @@ const MOCK_CATEGORIES = [
 ]
 
 const {
-  mockImportLinks, mockUseCategoryList, mockGetOrCreateCategoryByName,
+  mockImportLinks, mockUseCategoryList, mockGetOrCreateCategoryByName, mockImportVaultExport,
   mockToastSuccess, mockToastError, mockToastWarning, mockRefetchTags,
 } = vi.hoisted(() => ({
   mockImportLinks: vi.fn(),
   mockUseCategoryList: vi.fn(),
   mockGetOrCreateCategoryByName: vi.fn(),
+  mockImportVaultExport: vi.fn(),
   mockToastSuccess: vi.fn(),
   mockToastError: vi.fn(),
   mockToastWarning: vi.fn(),
@@ -33,6 +35,10 @@ vi.mock('@/lib/services/links', () => ({
 
 vi.mock('@/lib/services/categories', () => ({
   getOrCreateCategoryByName: mockGetOrCreateCategoryByName,
+}))
+
+vi.mock('@/lib/services/importExport/importVault', () => ({
+  importVaultExport: mockImportVaultExport,
 }))
 
 vi.mock('@/lib/hooks/categories/useCategoryList', () => ({
@@ -53,6 +59,9 @@ beforeEach(() => {
   mockUseCategoryList.mockReturnValue({ categories: MOCK_CATEGORIES, loading: false })
   mockImportLinks.mockResolvedValue({ imported: 2, skipped: 0, duplicates: 0 })
   mockGetOrCreateCategoryByName.mockResolvedValue('cat-resolved')
+  mockImportVaultExport.mockResolvedValue({
+    imported: 2, skipped: 0, duplicates: 0, categoriesCreated: 0, domainsCreated: 0, tagsCreated: 0,
+  })
 })
 
 function fileChangeEvent(file: File) {
@@ -63,6 +72,24 @@ async function renderWithDefaultCategory() {
   const utils = renderHook(() => useLinkImport())
   await waitFor(() => expect(utils.result.current.defaultCategoryId).toBe('cat-0'))
   return utils
+}
+
+const VAULT_EXPORT: VaultExportV2 = {
+  format: 'link-vault-export',
+  version: 2,
+  exportedAt: '2026-01-01T00:00:00Z',
+  mode: 'everything',
+  links: [{
+    url: 'https://example.com', title: 'Example', description: null, site_name: 'example.com',
+    image_url: null, duration: null, notes: null, status: 'unread', is_favorite: false,
+    created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', category: null, tags: [],
+  }],
+  categories: [{ name: 'Article', description: null, color: '#3B82F6', emoticon: '📄' }],
+  tags: [{ name: 'react', color: '#61dafb', is_private: false }],
+  preferences: {
+    theme_mode: 'dark', accent_color_light: 'indigo', accent_color_dark: 'violet',
+    surface_family: 'slate', auto_fetch_enabled: true,
+  },
 }
 
 describe('useLinkImport', () => {
@@ -349,8 +376,8 @@ describe('useLinkImport', () => {
 
   describe('CSV file import', () => {
     const CSV = [
-      'url,title,site_name,category,status,is_favorite,notes,tags,created_at',
-      'https://example.com,,example.com,Article,unread,false,,react,2026-01-01',
+      'url,title,description,site_name,image_url,duration,category,status,is_favorite,notes,tags,created_at,updated_at',
+      'https://example.com,,,example.com,,,Article,unread,false,,react,2026-01-01,2026-01-01',
     ].join('\n')
 
     it('resolves category name to an id via getOrCreateCategoryByName', async () => {
@@ -383,8 +410,8 @@ describe('useLinkImport', () => {
 
     it('sets category_id to null when the category column is blank', async () => {
       const csvNoCategory = [
-        'url,title,site_name,category,status,is_favorite,notes,tags,created_at',
-        'https://example.com,,,,,false,,,2026-01-01',
+        'url,title,description,site_name,image_url,duration,category,status,is_favorite,notes,tags,created_at,updated_at',
+        'https://example.com,,,,,,,,false,,,2026-01-01,2026-01-01',
       ].join('\n')
       const { result } = await renderWithDefaultCategory()
       const file = new File([csvNoCategory], 'links.csv', { type: 'text/csv' })
@@ -401,6 +428,121 @@ describe('useLinkImport', () => {
         FAKE_DEK,
       )
       expect(mockGetOrCreateCategoryByName).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('full-vault (v2) import', () => {
+    it('detects a v2 export pasted into the JSON tab and does not fall back to importLinks', async () => {
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.switchTab('json'))
+      act(() => result.current.setJsonText(JSON.stringify(VAULT_EXPORT)))
+
+      await waitFor(() => expect(result.current.detectedVaultExport).not.toBeNull())
+      await act(async () => { await result.current.handleImport() })
+
+      expect(mockImportVaultExport).toHaveBeenCalledWith(
+        VAULT_EXPORT,
+        { defaultCategoryId: 'cat-0', applyPreferences: true },
+        FAKE_DEK,
+      )
+      expect(mockImportLinks).not.toHaveBeenCalled()
+    })
+
+    it('detects a v2 export uploaded as a .json file', async () => {
+      const { result } = await renderWithDefaultCategory()
+      const file = new File([JSON.stringify(VAULT_EXPORT)], 'vault.json', { type: 'application/json' })
+      act(() => result.current.switchTab('file'))
+      act(() => result.current.handleFileChange(fileChangeEvent(file)))
+
+      await waitFor(() => expect(result.current.detectedVaultExport).not.toBeNull())
+      await act(async () => { await result.current.handleImport() })
+
+      expect(mockImportVaultExport).toHaveBeenCalledWith(
+        VAULT_EXPORT,
+        { defaultCategoryId: 'cat-0', applyPreferences: true },
+        FAKE_DEK,
+      )
+    })
+
+    it('does not detect a v2 export from a legacy bare-array JSON payload', async () => {
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.switchTab('json'))
+      act(() => result.current.setJsonText('[{"url":"https://example.com"}]'))
+
+      await waitFor(() => expect(mockImportLinks).not.toHaveBeenCalled)
+      expect(result.current.detectedVaultExport).toBeNull()
+    })
+
+    it('respects applyPreferences when set to false', async () => {
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.switchTab('json'))
+      act(() => result.current.setJsonText(JSON.stringify(VAULT_EXPORT)))
+      await waitFor(() => expect(result.current.detectedVaultExport).not.toBeNull())
+
+      act(() => result.current.setApplyPreferences(false))
+      await act(async () => { await result.current.handleImport() })
+
+      expect(mockImportVaultExport).toHaveBeenCalledWith(
+        VAULT_EXPORT,
+        { defaultCategoryId: 'cat-0', applyPreferences: false },
+        FAKE_DEK,
+      )
+    })
+
+    it('shows a success toast including categories/tags created', async () => {
+      mockImportVaultExport.mockResolvedValue({
+        imported: 1, skipped: 0, duplicates: 0, categoriesCreated: 1, domainsCreated: 0, tagsCreated: 1,
+      })
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.switchTab('json'))
+      act(() => result.current.setJsonText(JSON.stringify(VAULT_EXPORT)))
+      await waitFor(() => expect(result.current.detectedVaultExport).not.toBeNull())
+
+      await act(async () => { await result.current.handleImport() })
+
+      expect(mockToastSuccess).toHaveBeenCalledWith(expect.stringContaining('1 categories'))
+      expect(mockToastSuccess).toHaveBeenCalledWith(expect.stringContaining('1 tags'))
+    })
+
+    it('sets lastResult with the extended vault-import counts', async () => {
+      mockImportVaultExport.mockResolvedValue({
+        imported: 1, skipped: 0, duplicates: 0, categoriesCreated: 2, domainsCreated: 1, tagsCreated: 3,
+      })
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.switchTab('json'))
+      act(() => result.current.setJsonText(JSON.stringify(VAULT_EXPORT)))
+      await waitFor(() => expect(result.current.detectedVaultExport).not.toBeNull())
+
+      await act(async () => { await result.current.handleImport() })
+
+      expect(result.current.lastResult).toEqual({
+        imported: 1, skipped: 0, duplicates: 0, categoriesCreated: 2, domainsCreated: 1, tagsCreated: 3,
+      })
+    })
+
+    it('clears the JSON text and selected file after a successful v2 import', async () => {
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.switchTab('json'))
+      act(() => result.current.setJsonText(JSON.stringify(VAULT_EXPORT)))
+      await waitFor(() => expect(result.current.detectedVaultExport).not.toBeNull())
+
+      await act(async () => { await result.current.handleImport() })
+
+      expect(result.current.jsonText).toBe('')
+    })
+
+    it('shows a warning toast when nothing is imported from a v2 export', async () => {
+      mockImportVaultExport.mockResolvedValue({
+        imported: 0, skipped: 0, duplicates: 1, categoriesCreated: 0, domainsCreated: 0, tagsCreated: 0,
+      })
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.switchTab('json'))
+      act(() => result.current.setJsonText(JSON.stringify(VAULT_EXPORT)))
+      await waitFor(() => expect(result.current.detectedVaultExport).not.toBeNull())
+
+      await act(async () => { await result.current.handleImport() })
+
+      expect(mockToastWarning).toHaveBeenCalledWith('No links imported — 1 already existed')
     })
   })
 })

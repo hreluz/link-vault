@@ -370,7 +370,14 @@ export async function findLinkIdByUrl(url: string, dek: CryptoKey): Promise<stri
 export type ImportLinkInput = {
   url: string
   title?: string | null
+  description?: string | null
+  site_name?: string | null
+  image_url?: string | null
+  duration?: string | null
   notes?: string | null
+  status?: LinkStatus
+  is_favorite?: boolean
+  created_at?: string
   tags?: string[]
   category_id?: string | null
 }
@@ -409,10 +416,10 @@ export async function importLinks(
     const content: LinkContent = {
       url: trimmedUrl,
       title: input.title ?? null,
-      description: null,
-      site_name: new URL(trimmedUrl).hostname,
-      image_url: null,
-      duration: null,
+      description: input.description ?? null,
+      site_name: input.site_name ?? new URL(trimmedUrl).hostname,
+      image_url: input.image_url ?? null,
+      duration: input.duration ?? null,
       notes: input.notes ?? null,
     }
     const encoded = await toEncryptedColumns<LinkContent>(content, dek)
@@ -424,7 +431,10 @@ export async function importLinks(
         ...encoded,
         url_fingerprint,
         category_id,
-        status: 'unread',
+        status: input.status ?? 'unread',
+        is_favorite: input.is_favorite ?? false,
+        // Only an explicit "everything" restore sets this; normal imports keep the DB's now() default.
+        ...(input.created_at ? { created_at: input.created_at } : {}),
       })
       .select()
       .single()

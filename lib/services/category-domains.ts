@@ -58,6 +58,17 @@ export async function getCategoryDomains(categoryId: string, dek: CryptoKey): Pr
   return domains.sort((a, b) => a.domain.localeCompare(b.domain))
 }
 
+/** All of the current user's domain rules, across every category. Used by full-vault export. */
+export async function getAllCategoryDomains(dek: CryptoKey): Promise<CategoryDomain[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase.from('category_domains').select('*')
+
+  if (error || !data) return []
+
+  const domains = await Promise.all(data.map(row => decryptRow(row, dek)))
+  return domains.sort((a, b) => a.domain.localeCompare(b.domain))
+}
+
 export async function addCategoryDomain(
   categoryId: string,
   rawDomain: string,

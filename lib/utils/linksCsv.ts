@@ -1,13 +1,17 @@
-import type { LinkWithTags, ImportLinkInput } from '@/lib/services/links'
+import type { ImportLinkInput } from '@/lib/services/links'
+import type { ExportedLink } from '@/lib/types/importExport'
+import type { LinkStatus } from '@/lib/types/database'
 
 export type ParsedRow = ImportLinkInput & { categoryName?: string }
 
-export function linksToCSV(
-  links: LinkWithTags[],
-  categoryMap: Map<string, string>,
-  tagNameById: Map<string, string>,
-): string {
-  const header = 'url,title,site_name,category,status,is_favorite,notes,tags,created_at'
+const LINK_STATUSES: LinkStatus[] = ['unread', 'watching', 'read', 'archived']
+function isLinkStatus(value: string): value is LinkStatus {
+  return (LINK_STATUSES as string[]).includes(value)
+}
+
+const CSV_HEADER = 'url,title,description,site_name,image_url,duration,category,status,is_favorite,notes,tags,created_at,updated_at'
+
+export function linksToCSV(links: ExportedLink[]): string {
   const escape = (val: string | null | undefined) => {
     if (val == null) return ''
     const s = String(val)
@@ -19,16 +23,20 @@ export function linksToCSV(
     [
       escape(l.url),
       escape(l.title),
+      escape(l.description),
       escape(l.site_name),
-      escape(l.category_id ? (categoryMap.get(l.category_id) ?? '') : ''),
+      escape(l.image_url),
+      escape(l.duration),
+      escape(l.category),
       escape(l.status),
       l.is_favorite ? 'true' : 'false',
       escape(l.notes),
-      escape(l.tags.map(id => tagNameById.get(id) ?? id).join('|')),
+      escape(l.tags.join('|')),
       escape(l.created_at),
+      escape(l.updated_at),
     ].join(','),
   )
-  return [header, ...rows].join('\n')
+  return [CSV_HEADER, ...rows].join('\n')
 }
 
 function splitCSVLine(line: string): string[] {
@@ -59,21 +67,37 @@ export function parseCSV(text: string): ParsedRow[] {
   const lines = text.trim().split('\n')
   if (lines.length < 2) return []
   const headers = splitCSVLine(lines[0])
-  const urlIdx = headers.indexOf('url')
-  const titleIdx = headers.indexOf('title')
-  const notesIdx = headers.indexOf('notes')
-  const tagsIdx = headers.indexOf('tags')
-  const categoryIdx = headers.indexOf('category')
+  const col = (name: string) => headers.indexOf(name)
+  const urlIdx = col('url')
   if (urlIdx === -1) return []
+  const titleIdx = col('title')
+  const descriptionIdx = col('description')
+  const siteNameIdx = col('site_name')
+  const imageUrlIdx = col('image_url')
+  const durationIdx = col('duration')
+  const notesIdx = col('notes')
+  const tagsIdx = col('tags')
+  const categoryIdx = col('category')
+  const statusIdx = col('status')
+  const favoriteIdx = col('is_favorite')
+  const createdAtIdx = col('created_at')
 
   return lines.slice(1).map(line => {
     const cols = splitCSVLine(line)
+    const status = statusIdx !== -1 ? cols[statusIdx] : undefined
     return {
       url: cols[urlIdx] ?? '',
       title: titleIdx !== -1 ? cols[titleIdx] || null : null,
+      description: descriptionIdx !== -1 ? cols[descriptionIdx] || null : null,
+      site_name: siteNameIdx !== -1 ? cols[siteNameIdx] || null : null,
+      image_url: imageUrlIdx !== -1 ? cols[imageUrlIdx] || null : null,
+      duration: durationIdx !== -1 ? cols[durationIdx] || null : null,
       notes: notesIdx !== -1 ? cols[notesIdx] || null : null,
       tags: tagsIdx !== -1 ? (cols[tagsIdx]?.split('|').filter(Boolean) ?? []) : [],
       categoryName: categoryIdx !== -1 ? cols[categoryIdx] || undefined : undefined,
+      status: status && isLinkStatus(status) ? status : undefined,
+      is_favorite: favoriteIdx !== -1 ? cols[favoriteIdx] === 'true' : undefined,
+      created_at: createdAtIdx !== -1 && cols[createdAtIdx] ? cols[createdAtIdx] : undefined,
     }
   }).filter(r => r.url)
 }

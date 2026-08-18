@@ -3,23 +3,26 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useLinkExport } from '@/lib/hooks/importExport/useLinkExport'
-import type { LinkWithTags } from '@/lib/services/links'
+import type { ExportedLink } from '@/lib/types/importExport'
 
-const { mockToastSuccess, mockToastError } = vi.hoisted(() => ({
+const { mockToastSuccess, mockToastError, mockToastWarning, mockBuildVaultExport, mockGetPrivateTagIds } = vi.hoisted(() => ({
   mockToastSuccess: vi.fn(),
   mockToastError: vi.fn(),
+  mockToastWarning: vi.fn(),
+  mockBuildVaultExport: vi.fn(),
+  mockGetPrivateTagIds: vi.fn(),
 }))
 
 vi.mock('sonner', () => ({
-  toast: { success: mockToastSuccess, error: mockToastError },
+  toast: { success: mockToastSuccess, error: mockToastError, warning: mockToastWarning },
 }))
 
-vi.mock('@/lib/services/links', () => ({
-  getLinks: vi.fn(),
+vi.mock('@/lib/services/importExport/exportVault', () => ({
+  buildVaultExport: mockBuildVaultExport,
 }))
 
-vi.mock('@/lib/services/categories', () => ({
-  getCategories: vi.fn(),
+vi.mock('@/lib/services/tags/tags', () => ({
+  getPrivateTagIds: mockGetPrivateTagIds,
 }))
 
 const FAKE_DEK = {} as CryptoKey
@@ -27,31 +30,27 @@ vi.mock('@/lib/context/VaultContext', () => ({
   useVault: () => ({ dek: FAKE_DEK, isUnlocked: true, unlock: vi.fn(), changePassword: vi.fn(), lock: vi.fn() }),
 }))
 
-vi.mock('@/lib/context/TagsContext', () => ({
-  useTagsContext: () => ({
-    tags: [{ id: 'react', name: 'react', color: null, is_private: false, created_at: '', link_count: 0 }],
-    loading: false,
-    refetchTags: vi.fn(),
-  }),
+let unlockedTagIds = new Set<string>()
+vi.mock('@/lib/context/UnlockedTagsContext', () => ({
+  useUnlockedTags: () => ({ unlockedTagIds, unlockTag: vi.fn(), lockTag: vi.fn(), lockAll: vi.fn() }),
 }))
 
-import { getLinks } from '@/lib/services/links'
-import { getCategories } from '@/lib/services/categories'
-const mockGetLinks = vi.mocked(getLinks)
-const mockGetCategories = vi.mocked(getCategories)
-
-const MOCK_LINK: LinkWithTags = {
-  id: '1', user_id: 'u1', url: 'https://example.com', title: 'Example',
-  description: null, site_name: 'example.com', category_id: null,
-  status: 'unread', is_favorite: false, notes: null, image_url: null, duration: null,
-  created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', deleted_at: null,
-  tags: ['react'],
+const MOCK_LINK: ExportedLink = {
+  url: 'https://example.com', title: 'Example',
+  description: null, site_name: 'example.com', image_url: null, duration: null, notes: null,
+  status: 'unread', is_favorite: false,
+  created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+  category: null, tags: ['react'],
 }
 
 beforeEach(() => {
   vi.clearAllMocks()
-  mockGetLinks.mockResolvedValue([MOCK_LINK])
-  mockGetCategories.mockResolvedValue([])
+  unlockedTagIds = new Set()
+  mockGetPrivateTagIds.mockResolvedValue([])
+  mockBuildVaultExport.mockResolvedValue({
+    data: { format: 'link-vault-export', version: 2, exportedAt: '2026-01-01T00:00:00Z', mode: 'links', links: [MOCK_LINK] },
+    hiddenPrivateLinksCount: 0,
+  })
   Object.defineProperty(globalThis.URL, 'createObjectURL', {
     value: vi.fn(() => 'blob:mock-url'),
     writable: true,
@@ -65,26 +64,26 @@ beforeEach(() => {
 })
 
 describe('useLinkExport', () => {
-  it('calls getLinks when exporting as JSON', async () => {
+  it('calls buildVaultExport with the requested mode when exporting as JSON', async () => {
     const { result } = renderHook(() => useLinkExport())
 
-    await act(async () => { await result.current.handleExport('json') })
+    await act(async () => { await result.current.handleExport('links', 'json') })
 
-    expect(mockGetLinks).toHaveBeenCalledWith(FAKE_DEK)
+    expect(mockBuildVaultExport).toHaveBeenCalledWith('links', FAKE_DEK, unlockedTagIds, new Set())
   })
 
-  it('calls getLinks when exporting as CSV', async () => {
+  it('calls buildVaultExport with mode "everything"', async () => {
     const { result } = renderHook(() => useLinkExport())
 
-    await act(async () => { await result.current.handleExport('csv') })
+    await act(async () => { await result.current.handleExport('everything', 'json') })
 
-    expect(mockGetLinks).toHaveBeenCalledWith(FAKE_DEK)
+    expect(mockBuildVaultExport).toHaveBeenCalledWith('everything', FAKE_DEK, unlockedTagIds, new Set())
   })
 
   it('shows a success toast after JSON export', async () => {
     const { result } = renderHook(() => useLinkExport())
 
-    await act(async () => { await result.current.handleExport('json') })
+    await act(async () => { await result.current.handleExport('links', 'json') })
 
     expect(mockToastSuccess).toHaveBeenCalledWith('Exported 1 links as JSON')
   })
@@ -92,7 +91,7 @@ describe('useLinkExport', () => {
   it('shows a success toast after CSV export', async () => {
     const { result } = renderHook(() => useLinkExport())
 
-    await act(async () => { await result.current.handleExport('csv') })
+    await act(async () => { await result.current.handleExport('links', 'csv') })
 
     expect(mockToastSuccess).toHaveBeenCalledWith('Exported 1 links as CSV')
   })
@@ -100,41 +99,94 @@ describe('useLinkExport', () => {
   it('triggers a download via URL.createObjectURL', async () => {
     const { result } = renderHook(() => useLinkExport())
 
-    await act(async () => { await result.current.handleExport('json') })
+    await act(async () => { await result.current.handleExport('links', 'json') })
 
     expect(globalThis.URL.createObjectURL).toHaveBeenCalled()
-  })
-
-  it('calls getCategories when exporting as CSV', async () => {
-    const { result } = renderHook(() => useLinkExport())
-
-    await act(async () => { await result.current.handleExport('csv') })
-
-    expect(mockGetCategories).toHaveBeenCalledWith(FAKE_DEK)
-  })
-
-  it('does not call getCategories when exporting as JSON', async () => {
-    const { result } = renderHook(() => useLinkExport())
-
-    await act(async () => { await result.current.handleExport('json') })
-
-    expect(mockGetCategories).not.toHaveBeenCalled()
   })
 
   it('clears exporting back to null after completion', async () => {
     const { result } = renderHook(() => useLinkExport())
 
-    await act(async () => { await result.current.handleExport('json') })
+    await act(async () => { await result.current.handleExport('links', 'json') })
 
     expect(result.current.exporting).toBeNull()
   })
 
-  it('toasts an error when the export throws', async () => {
-    mockGetLinks.mockRejectedValue(new Error('boom'))
+  it('sets exporting to the in-flight mode/format while running', async () => {
+    let resolveExport: (v: unknown) => void = () => {}
+    mockBuildVaultExport.mockReturnValue(new Promise(resolve => { resolveExport = resolve }))
     const { result } = renderHook(() => useLinkExport())
 
-    await act(async () => { await result.current.handleExport('json') })
+    let exportPromise!: Promise<void>
+    act(() => { exportPromise = result.current.handleExport('everything', 'json') })
+
+    expect(result.current.exporting).toEqual({ mode: 'everything', format: 'json' })
+
+    await act(async () => {
+      resolveExport({ data: { links: [] }, hiddenPrivateLinksCount: 0 })
+      await exportPromise
+    })
+  })
+
+  it('toasts an error when the export throws', async () => {
+    mockBuildVaultExport.mockRejectedValue(new Error('boom'))
+    const { result } = renderHook(() => useLinkExport())
+
+    await act(async () => { await result.current.handleExport('links', 'json') })
 
     expect(mockToastError).toHaveBeenCalledWith('Export failed')
+  })
+
+  describe('hasLockedPrivateTags', () => {
+    it('is false when there are no private tags', async () => {
+      mockGetPrivateTagIds.mockResolvedValue([])
+      const { result } = renderHook(() => useLinkExport())
+
+      await act(async () => {})
+
+      expect(result.current.hasLockedPrivateTags).toBe(false)
+    })
+
+    it('is true when a private tag exists and is not unlocked', async () => {
+      mockGetPrivateTagIds.mockResolvedValue(['secret-tag'])
+      unlockedTagIds = new Set()
+      const { result } = renderHook(() => useLinkExport())
+
+      await act(async () => {})
+
+      expect(result.current.hasLockedPrivateTags).toBe(true)
+    })
+
+    it('is false once the private tag is unlocked', async () => {
+      mockGetPrivateTagIds.mockResolvedValue(['secret-tag'])
+      unlockedTagIds = new Set(['secret-tag'])
+      const { result } = renderHook(() => useLinkExport())
+
+      await act(async () => {})
+
+      expect(result.current.hasLockedPrivateTags).toBe(false)
+    })
+  })
+
+  describe('locked private tag warning toast', () => {
+    it('shows a warning toast when links were hidden behind locked private tags', async () => {
+      mockBuildVaultExport.mockResolvedValue({
+        data: { format: 'link-vault-export', version: 2, exportedAt: '', mode: 'links', links: [] },
+        hiddenPrivateLinksCount: 2,
+      })
+      const { result } = renderHook(() => useLinkExport())
+
+      await act(async () => { await result.current.handleExport('links', 'json') })
+
+      expect(mockToastWarning).toHaveBeenCalledWith(expect.stringContaining('2 links behind locked private tags'))
+    })
+
+    it('does not show a warning toast when nothing was hidden', async () => {
+      const { result } = renderHook(() => useLinkExport())
+
+      await act(async () => { await result.current.handleExport('links', 'json') })
+
+      expect(mockToastWarning).not.toHaveBeenCalled()
+    })
   })
 })
