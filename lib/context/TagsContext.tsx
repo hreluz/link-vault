@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
-import { getTags, type TagWithCount } from '@/lib/services/tags'
+import { getTags, type TagWithCount } from '@/lib/services/tags/tags'
 import { useVault } from '@/lib/context/VaultContext'
 
 type TagsContextType = {

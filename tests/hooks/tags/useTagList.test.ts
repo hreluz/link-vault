@@ -7,10 +7,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { useTagList } from '@/lib/hooks/tags/useTagList'
-import type { TagWithCount } from '@/lib/services/tags'
+import type { TagWithCount } from '@/lib/services/tags/tags'
 
-vi.mock('@/lib/services/tags', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/services/tags')>()
+vi.mock('@/lib/services/tags/tags', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/services/tags/tags')>()
   return {
     ...actual,
     getTags: vi.fn(),
@@ -29,7 +29,7 @@ vi.mock('@/lib/context/TagsContext', () => ({
   useTagsContext: () => ({ tags: [], loading: false, refetchTags: vi.fn() }),
 }))
 
-import { getTags } from '@/lib/services/tags'
+import { getTags } from '@/lib/services/tags/tags'
 
 const MOCK_TAG: TagWithCount = {
   id: '1', user_id: 'u1', name: 'react', color: 'indigo',
@@ -89,5 +89,36 @@ describe('useTagList cross-flow coordination', () => {
     expect(result.current.deletingId).toBe(MOCK_TAG.id)
     expect(result.current.adding).toBe(false)
     expect(result.current.editingId).toBeNull()
+  })
+
+  it('startMerge sets mergingTag and closes the add/edit/delete forms', async () => {
+    const { result } = await renderLoaded()
+
+    act(() => {
+      result.current.openAdd()
+      result.current.startEdit(MOCK_TAG_2)
+    })
+    act(() => { result.current.startMerge(MOCK_TAG) })
+
+    expect(result.current.mergingTag).toEqual(MOCK_TAG)
+    expect(result.current.adding).toBe(false)
+    expect(result.current.editingId).toBeNull()
+  })
+
+  it('opening add/edit/delete each close an in-progress merge', async () => {
+    const { result: r1 } = await renderLoaded()
+    act(() => { r1.current.startMerge(MOCK_TAG) })
+    act(() => { r1.current.openAdd() })
+    expect(r1.current.mergingTag).toBeNull()
+
+    const { result: r2 } = await renderLoaded()
+    act(() => { r2.current.startMerge(MOCK_TAG) })
+    act(() => { r2.current.startEdit(MOCK_TAG_2) })
+    expect(r2.current.mergingTag).toBeNull()
+
+    const { result: r3 } = await renderLoaded()
+    act(() => { r3.current.startMerge(MOCK_TAG) })
+    act(() => { r3.current.confirmDelete(MOCK_TAG_2.id) })
+    expect(r3.current.mergingTag).toBeNull()
   })
 })

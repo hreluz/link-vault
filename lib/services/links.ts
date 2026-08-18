@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/client'
 import { hmacFingerprint } from '@/lib/crypto/vault'
 import { toEncryptedColumns, fromEncryptedColumns } from '@/lib/crypto/encryptedRow'
-import { syncTagsByName } from '@/lib/services/tags'
+import { syncTagsByName } from '@/lib/services/tags/tags'
 import type { LinkStatus } from '@/lib/types/database'
 import type { SortBy } from '@/app/dashboard/link/FilterSheet'
 

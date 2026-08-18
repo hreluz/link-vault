@@ -4,10 +4,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
 import React from 'react'
 import { TagsProvider, useTagsContext } from '@/lib/context/TagsContext'
-import type { TagWithCount } from '@/lib/services/tags'
+import type { TagWithCount } from '@/lib/services/tags/tags'
 
 const mockGetTags = vi.fn()
-vi.mock('@/lib/services/tags', () => ({ getTags: (dek: CryptoKey) => mockGetTags(dek) }))
+vi.mock('@/lib/services/tags/tags', () => ({ getTags: (dek: CryptoKey) => mockGetTags(dek) }))
 
 const FAKE_DEK = {} as CryptoKey
 vi.mock('@/lib/context/VaultContext', () => ({

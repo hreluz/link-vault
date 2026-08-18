@@ -3,7 +3,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import { useAvailableTags, useAvailableTagsWithIds } from '@/lib/hooks/tags/useAvailableTags'
-import type { TagWithCount } from '@/lib/services/tags'
+import type { TagWithCount } from '@/lib/services/tags/tags'
 
 const mockUseTagsContext = vi.fn()
 vi.mock('@/lib/context/TagsContext', () => ({
@@ -80,7 +80,7 @@ describe('useAvailableTagsWithIds', () => {
 
     const { result } = renderHook(() => useAvailableTagsWithIds())
 
-    expect(result.current).toEqual([{ id: '1', name: 'react' }])
+    expect(result.current).toEqual([{ id: '1', name: 'react', is_private: false }])
   })
 
   it('includes a private tag once unlocked, keyed by id', () => {
@@ -92,6 +92,6 @@ describe('useAvailableTagsWithIds', () => {
 
     const { result } = renderHook(() => useAvailableTagsWithIds())
 
-    expect(result.current).toEqual([{ id: '2', name: 'secret' }])
+    expect(result.current).toEqual([{ id: '2', name: 'secret', is_private: true }])
   })
 })

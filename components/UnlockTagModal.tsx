@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { verifyPrivateTagPassword, getPrivateTagSettings } from '@/lib/services/tags'
+import { verifyPrivateTagPassword, getPrivateTagSettings } from '@/lib/services/tags/privateTagSecurity'
 import { createClient } from '@/lib/supabase/client'
 
 interface Props {

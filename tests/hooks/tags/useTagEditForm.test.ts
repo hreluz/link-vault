@@ -5,14 +5,14 @@ import { renderHook, act } from '@testing-library/react'
 import { useState } from 'react'
 import { useTagEditForm } from '@/lib/hooks/tags/useTagEditForm'
 import { COLORS } from '@/components/ColorPicker'
-import type { TagWithCount } from '@/lib/services/tags'
+import type { TagWithCount } from '@/lib/services/tags/tags'
 
-vi.mock('@/lib/services/tags', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/services/tags')>()
+vi.mock('@/lib/services/tags/tags', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/services/tags/tags')>()
   return { ...actual, updateTag: vi.fn() }
 })
 
-import { updateTag } from '@/lib/services/tags'
+import { updateTag } from '@/lib/services/tags/tags'
 const mockUpdateTag = vi.mocked(updateTag)
 const mockRefetchTags = vi.fn()
 
@@ -139,5 +139,15 @@ describe('useTagEditForm', () => {
 
     expect(result.current.editError).toBeTruthy()
     expect(result.current.editingId).toBe(MOCK_TAG.id)
+  })
+
+  it('hints at the Merge to action in the name_taken error message', async () => {
+    mockUpdateTag.mockResolvedValue({ data: null, error: 'name_taken' })
+    const { result } = renderHook(() => useHarness())
+
+    act(() => { result.current.startEdit(MOCK_TAG); result.current.setEditName('typescript') })
+    await act(async () => result.current.saveEdit())
+
+    expect(result.current.editError).toBe('A tag with that name already exists. Use Merge to combine them.')
   })
 })

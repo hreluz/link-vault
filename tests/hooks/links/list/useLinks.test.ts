@@ -58,7 +58,7 @@ vi.mock('@/lib/services/links', () => ({
   bulkAddTags: vi.fn(),
 }))
 
-vi.mock('@/lib/services/tags', () => ({
+vi.mock('@/lib/services/tags/tags', () => ({
   getPrivateTagIds: vi.fn(),
   isTagVisible: (isPrivate: boolean, id: string, unlockedTagIds: Set<string>) =>
     !isPrivate || unlockedTagIds.has(id),
@@ -78,7 +78,7 @@ vi.mock('@/lib/context/VaultContext', () => ({
 }))
 
 import { getLinksPage, bulkUpdateStatus } from '@/lib/services/links'
-import { getPrivateTagIds } from '@/lib/services/tags'
+import { getPrivateTagIds } from '@/lib/services/tags/tags'
 const mockGetLinksPage = vi.mocked(getLinksPage)
 const mockGetPrivateTagIds = vi.mocked(getPrivateTagIds)
 const mockBulkUpdateStatus = vi.mocked(bulkUpdateStatus)

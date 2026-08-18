@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { getTags, type TagWithCount } from '@/lib/services/tags'
+import { getTags, type TagWithCount } from '@/lib/services/tags/tags'
 
 export function useTagListState(dek: CryptoKey | null) {
   const [tags, setTags] = useState<TagWithCount[]>([])

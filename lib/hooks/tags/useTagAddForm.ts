@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { COLORS } from '@/components/ColorPicker'
-import { createTag, toKebabCase, type TagWithCount } from '@/lib/services/tags'
+import { createTag, toKebabCase, type TagWithCount } from '@/lib/services/tags/tags'
 
 export function useTagAddForm(
   setTags: React.Dispatch<React.SetStateAction<TagWithCount[]>>,
