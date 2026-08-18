@@ -1,6 +1,6 @@
 'use client'
 
-import { type TagWithCount } from '@/lib/services/tags'
+import { type TagWithCount } from '@/lib/services/tags/tags'
 import { useTagsContext } from '@/lib/context/TagsContext'
 import { useVault } from '@/lib/context/VaultContext'
 import { useAvailableTagsWithIds } from './useAvailableTags'

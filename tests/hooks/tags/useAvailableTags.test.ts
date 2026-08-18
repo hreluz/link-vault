@@ -3,7 +3,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import { useAvailableTags, useAvailableTagsWithIds } from '@/lib/hooks/tags/useAvailableTags'
-import type { TagWithCount } from '@/lib/services/tags'
+import type { TagWithCount } from '@/lib/services/tags/tags'
 
 const mockUseTagsContext = vi.fn()
 vi.mock('@/lib/context/TagsContext', () => ({

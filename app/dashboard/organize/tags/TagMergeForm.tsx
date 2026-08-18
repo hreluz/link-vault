@@ -2,7 +2,7 @@
 
 import { useTagContext } from './TagContext'
 import TagSuggestionsDropdown from '@/components/TagSuggestionsDropdown'
-import type { TagWithCount } from '@/lib/services/tags'
+import type { TagWithCount } from '@/lib/services/tags/tags'
 
 interface Props {
   tag: TagWithCount

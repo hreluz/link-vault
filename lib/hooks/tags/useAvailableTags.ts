@@ -3,7 +3,7 @@
 import { useMemo } from 'react'
 import { useTagsContext } from '@/lib/context/TagsContext'
 import { useUnlockedTags } from '@/lib/context/UnlockedTagsContext'
-import { isTagVisible } from '@/lib/services/tags'
+import { isTagVisible } from '@/lib/services/tags/tags'
 
 /** Visible tag names, for typing/autocomplete contexts (tag input, search box hashtags). */
 export function useAvailableTags(): string[] {

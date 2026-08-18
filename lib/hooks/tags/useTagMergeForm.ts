@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect } from 'react'
-import { mergeTag, getTagLinksCount, getMergePreview, type TagWithCount, type MergePreview } from '@/lib/services/tags'
+import { mergeTag, getTagLinksCount, getMergePreview, type TagWithCount, type MergePreview } from '@/lib/services/tags/tags'
 
 const MAX_SUGGESTIONS = 8
 

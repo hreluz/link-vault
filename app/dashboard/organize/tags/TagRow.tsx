@@ -4,7 +4,7 @@ import { useTagContext } from './TagContext'
 import { TagForm } from './TagForm'
 import { TagMergeForm } from './TagMergeForm'
 import { colorFor } from '@/components/ColorPicker'
-import type { TagWithCount } from '@/lib/services/tags'
+import type { TagWithCount } from '@/lib/services/tags/tags'
 
 export function TagRow({ tag }: { tag: TagWithCount }) {
   const { editingId, deletingId, mergingTag, deleteError, startEdit, confirmDelete, deleteTag, setDeletingId, setDeleteError, startMerge } = useTagContext()

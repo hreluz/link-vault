@@ -7,10 +7,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { useTagList } from '@/lib/hooks/tags/useTagList'
-import type { TagWithCount } from '@/lib/services/tags'
+import type { TagWithCount } from '@/lib/services/tags/tags'
 
-vi.mock('@/lib/services/tags', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/services/tags')>()
+vi.mock('@/lib/services/tags/tags', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/services/tags/tags')>()
   return {
     ...actual,
     getTags: vi.fn(),
@@ -29,7 +29,7 @@ vi.mock('@/lib/context/TagsContext', () => ({
   useTagsContext: () => ({ tags: [], loading: false, refetchTags: vi.fn() }),
 }))
 
-import { getTags } from '@/lib/services/tags'
+import { getTags } from '@/lib/services/tags/tags'
 
 const MOCK_TAG: TagWithCount = {
   id: '1', user_id: 'u1', name: 'react', color: 'indigo',

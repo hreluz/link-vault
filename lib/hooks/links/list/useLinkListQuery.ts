@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getLinksPage, getMatchingLinkIds, getLinksByIds, type LinkWithTags, type LinkFilterParams } from '@/lib/services/links'
-import { getPrivateTagIds, isTagVisible } from '@/lib/services/tags'
+import { getPrivateTagIds, isTagVisible } from '@/lib/services/tags/tags'
 import { useTagNameLookup } from '@/lib/hooks/tags/useTagNameLookup'
 import { useUnlockedTags } from '@/lib/context/UnlockedTagsContext'
 import { usePaginatedQuery } from '@/lib/hooks/shared/usePaginatedQuery'

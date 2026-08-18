@@ -4,14 +4,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useState } from 'react'
 import { useTagMergeForm } from '@/lib/hooks/tags/useTagMergeForm'
-import type { TagWithCount } from '@/lib/services/tags'
+import type { TagWithCount } from '@/lib/services/tags/tags'
 
-vi.mock('@/lib/services/tags', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/services/tags')>()
+vi.mock('@/lib/services/tags/tags', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/services/tags/tags')>()
   return { ...actual, mergeTag: vi.fn(), getTagLinksCount: vi.fn(), getMergePreview: vi.fn() }
 })
 
-import { mergeTag, getTagLinksCount, getMergePreview } from '@/lib/services/tags'
+import { mergeTag, getTagLinksCount, getMergePreview } from '@/lib/services/tags/tags'
 const mockMergeTag = vi.mocked(mergeTag)
 const mockGetTagLinksCount = vi.mocked(getTagLinksCount)
 const mockGetMergePreview = vi.mocked(getMergePreview)

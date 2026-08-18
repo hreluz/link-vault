@@ -5,14 +5,14 @@ import { renderHook, act } from '@testing-library/react'
 import { useState } from 'react'
 import { useTagAddForm } from '@/lib/hooks/tags/useTagAddForm'
 import { COLORS } from '@/components/ColorPicker'
-import type { TagWithCount } from '@/lib/services/tags'
+import type { TagWithCount } from '@/lib/services/tags/tags'
 
-vi.mock('@/lib/services/tags', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/services/tags')>()
+vi.mock('@/lib/services/tags/tags', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/services/tags/tags')>()
   return { ...actual, createTag: vi.fn() }
 })
 
-import { createTag } from '@/lib/services/tags'
+import { createTag } from '@/lib/services/tags/tags'
 const mockCreateTag = vi.mocked(createTag)
 const mockRefetchTags = vi.fn()
 

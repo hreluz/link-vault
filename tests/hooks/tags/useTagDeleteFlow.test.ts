@@ -4,14 +4,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useState } from 'react'
 import { useTagDeleteFlow } from '@/lib/hooks/tags/useTagDeleteFlow'
-import type { TagWithCount } from '@/lib/services/tags'
+import type { TagWithCount } from '@/lib/services/tags/tags'
 
-vi.mock('@/lib/services/tags', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/services/tags')>()
+vi.mock('@/lib/services/tags/tags', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/services/tags/tags')>()
   return { ...actual, deleteTag: vi.fn(), getTagLinksCount: vi.fn() }
 })
 
-import { deleteTag, getTagLinksCount } from '@/lib/services/tags'
+import { deleteTag, getTagLinksCount } from '@/lib/services/tags/tags'
 const mockDeleteTag = vi.mocked(deleteTag)
 const mockGetTagLinksCount = vi.mocked(getTagLinksCount)
 const mockRefetchTags = vi.fn()

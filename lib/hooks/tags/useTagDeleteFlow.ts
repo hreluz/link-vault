@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { deleteTag as deleteTagService, getTagLinksCount, type TagWithCount } from '@/lib/services/tags'
+import { deleteTag as deleteTagService, getTagLinksCount, type TagWithCount } from '@/lib/services/tags/tags'
 
 export function useTagDeleteFlow(
   setTags: React.Dispatch<React.SetStateAction<TagWithCount[]>>,

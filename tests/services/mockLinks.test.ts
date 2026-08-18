@@ -32,7 +32,7 @@ vi.mock('@/lib/supabase/client', () => ({
   }),
 }))
 
-vi.mock('@/lib/services/tags', () => ({ syncTagsByName: mockSyncTagsByName }))
+vi.mock('@/lib/services/tags/tags', () => ({ syncTagsByName: mockSyncTagsByName }))
 vi.mock('@/lib/services/categories', () => ({ getCategories: mockGetCategories }))
 
 const MOCK_CATEGORY_NAMES = [

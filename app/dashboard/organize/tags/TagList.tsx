@@ -8,7 +8,7 @@ import { PrivateTagPasswordSection } from './PrivateTagPasswordSection'
 import UnlockTagModal from '@/components/UnlockTagModal'
 import ListSearchInput from '@/components/ListSearchInput'
 import { useUnlockedTags } from '@/lib/context/UnlockedTagsContext'
-import { getPrivateTagIds, isTagVisible } from '@/lib/services/tags'
+import { getPrivateTagIds, isTagVisible } from '@/lib/services/tags/tags'
 
 function TagListContent() {
   const { tags, search, setSearch, adding, openAdd } = useTagContext()
