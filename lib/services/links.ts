@@ -378,6 +378,7 @@ export type ImportLinkInput = {
   status?: LinkStatus
   is_favorite?: boolean
   created_at?: string
+  updated_at?: string
   tags?: string[]
   category_id?: string | null
 }
@@ -433,8 +434,9 @@ export async function importLinks(
         category_id,
         status: input.status ?? 'unread',
         is_favorite: input.is_favorite ?? false,
-        // Only an explicit "everything" restore sets this; normal imports keep the DB's now() default.
+        // Only an explicit "everything" restore sets these; normal imports keep the DB's now() defaults.
         ...(input.created_at ? { created_at: input.created_at } : {}),
+        ...(input.updated_at ? { updated_at: input.updated_at } : {}),
       })
       .select()
       .single()

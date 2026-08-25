@@ -81,6 +81,16 @@ describe('importVaultExport', () => {
     expect(result.imported).toBe(1)
   })
 
+  it('passes each link\'s created_at and updated_at through to importLinks', async () => {
+    await importVaultExport(makeExport(), { defaultCategoryId: null, applyPreferences: false }, FAKE_DEK)
+
+    expect(mockImportLinks).toHaveBeenCalledWith(
+      [expect.objectContaining({ created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' })],
+      null,
+      FAKE_DEK,
+    )
+  })
+
   describe('categories', () => {
     it('creates a category from the categories section with its style', async () => {
       await importVaultExport(

@@ -81,6 +81,7 @@ export function parseCSV(text: string): ParsedRow[] {
   const statusIdx = col('status')
   const favoriteIdx = col('is_favorite')
   const createdAtIdx = col('created_at')
+  const updatedAtIdx = col('updated_at')
 
   return lines.slice(1).map(line => {
     const cols = splitCSVLine(line)
@@ -98,6 +99,7 @@ export function parseCSV(text: string): ParsedRow[] {
       status: status && isLinkStatus(status) ? status : undefined,
       is_favorite: favoriteIdx !== -1 ? cols[favoriteIdx] === 'true' : undefined,
       created_at: createdAtIdx !== -1 && cols[createdAtIdx] ? cols[createdAtIdx] : undefined,
+      updated_at: updatedAtIdx !== -1 && cols[updatedAtIdx] ? cols[updatedAtIdx] : undefined,
     }
   }).filter(r => r.url)
 }

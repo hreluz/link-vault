@@ -730,6 +730,24 @@ describe('importLinks', () => {
     expect(mockLinksInsert.mock.calls[0][0]).not.toHaveProperty('created_at')
   })
 
+  it('passes updated_at through when given, for a full-vault restore', async () => {
+    const row = await encryptLinkRow('1')
+    mockLinksSingle.mockResolvedValue({ data: row, error: null })
+
+    await importLinks([{ url: 'https://example.com', updated_at: '2020-05-02T00:00:00Z' }], null, dek)
+
+    expect(mockLinksInsert).toHaveBeenCalledWith(expect.objectContaining({ updated_at: '2020-05-02T00:00:00Z' }))
+  })
+
+  it('omits updated_at from the insert payload when not given, keeping the DB default', async () => {
+    const row = await encryptLinkRow('1')
+    mockLinksSingle.mockResolvedValue({ data: row, error: null })
+
+    await importLinks([{ url: 'https://example.com' }], null, dek)
+
+    expect(mockLinksInsert.mock.calls[0][0]).not.toHaveProperty('updated_at')
+  })
+
   it('counts duplicates, imported, and skipped correctly in a mixed batch', async () => {
     mockDupCheck
       .mockResolvedValueOnce({ data: [] })

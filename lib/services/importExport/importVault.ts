@@ -80,6 +80,7 @@ export async function importVaultExport(
     status: l.status,
     is_favorite: l.is_favorite,
     created_at: l.created_at,
+    updated_at: l.updated_at,
     tags: l.tags,
     category_id: l.category ? categoryIdByName.get(l.category) : undefined,
   }))

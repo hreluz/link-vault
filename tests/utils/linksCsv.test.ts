@@ -90,6 +90,7 @@ describe('parseCSV', () => {
       status: 'read',
       is_favorite: true,
       created_at: '2026-01-01',
+      updated_at: '2026-01-02',
     })
   })
 
@@ -145,5 +146,13 @@ describe('parseCSV', () => {
     const [row] = parseCSV(csv)
 
     expect(row.created_at).toBeUndefined()
+  })
+
+  it('parses updated_at when given, and leaves it undefined when the column is blank', () => {
+    const withValue = [HEADER, 'https://example.com,,,,,,,,false,,,,2026-01-02'].join('\n')
+    expect(parseCSV(withValue)[0].updated_at).toBe('2026-01-02')
+
+    const blank = [HEADER, 'https://example.com,,,,,,,,false,,,,'].join('\n')
+    expect(parseCSV(blank)[0].updated_at).toBeUndefined()
   })
 })
