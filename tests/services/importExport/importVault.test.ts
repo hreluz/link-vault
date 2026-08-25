@@ -71,6 +71,10 @@ beforeEach(() => {
   mockAddCategoryDomain.mockResolvedValue({ data: { id: 'd1', category_id: 'cat-1', user_id: 'u1', domain: 'x.com', created_at: '' }, error: null })
   mockSyncTagDefinitions.mockResolvedValue(['t1'])
   mockImportLinks.mockResolvedValue({ imported: 1, skipped: 0, duplicates: 0 })
+  mockSetThemeMode.mockResolvedValue({ success: true })
+  mockSetAccentColor.mockResolvedValue({ success: true })
+  mockSetSurfaceFamily.mockResolvedValue({ success: true })
+  mockSetAutoFetchPreference.mockResolvedValue({ success: true })
 })
 
 describe('importVaultExport', () => {
@@ -196,6 +200,24 @@ describe('importVaultExport', () => {
       )
 
       expect(result.domainsCreated).toBe(0)
+      expect(result.domainsFailed).toBe(0)
+    })
+
+    it('counts a real domain rule failure separately from an idempotent skip', async () => {
+      mockGetOrCreateCategoryByName.mockResolvedValue('cat-1')
+      mockAddCategoryDomain.mockResolvedValue({ data: null, error: 'invalid_domain' })
+
+      const result = await importVaultExport(
+        makeExport({
+          categories: [{ name: 'Article', description: null, color: null, emoticon: null }],
+          categoryDomains: [{ domain: 'not a domain', category: 'Article' }],
+        }),
+        { defaultCategoryId: null, applyPreferences: false },
+        FAKE_DEK,
+      )
+
+      expect(result.domainsCreated).toBe(0)
+      expect(result.domainsFailed).toBe(1)
     })
   })
 
@@ -245,6 +267,30 @@ describe('importVaultExport', () => {
       expect(mockSetAccentColor).toHaveBeenCalledWith(expect.anything(), 'dark', 'violet')
       expect(mockSetSurfaceFamily).toHaveBeenCalledWith(expect.anything(), 'slate')
       expect(mockSetAutoFetchPreference).toHaveBeenCalledWith(expect.anything(), true)
+    })
+
+    it('reports failed preferences by label without failing the whole import', async () => {
+      mockSetThemeMode.mockResolvedValue({ success: false, error: 'Invalid theme mode' })
+      mockSetAccentColor.mockResolvedValueOnce({ success: false, error: 'Invalid accent color' }).mockResolvedValue({ success: true })
+
+      const result = await importVaultExport(
+        makeExport({ mode: 'everything', preferences: PREFS }),
+        { defaultCategoryId: null, applyPreferences: true },
+        FAKE_DEK,
+      )
+
+      expect(result.preferencesFailed).toEqual(expect.arrayContaining(['theme', 'accent (light)']))
+      expect(result.preferencesFailed).toHaveLength(2)
+    })
+
+    it('reports no failed preferences when all setters succeed', async () => {
+      const result = await importVaultExport(
+        makeExport({ mode: 'everything', preferences: PREFS }),
+        { defaultCategoryId: null, applyPreferences: true },
+        FAKE_DEK,
+      )
+
+      expect(result.preferencesFailed).toEqual([])
     })
 
     it('does not apply preferences when not opted in', async () => {

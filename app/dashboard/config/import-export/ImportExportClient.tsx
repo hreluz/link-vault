@@ -255,6 +255,14 @@ export default function ImportExportClient() {
               {!!lastResult.categoriesCreated && ` · ${lastResult.categoriesCreated} categories`}
               {!!lastResult.tagsCreated && ` · ${lastResult.tagsCreated} tags`}
               {!!lastResult.domainsCreated && ` · ${lastResult.domainsCreated} domain rules`}
+              {(!!lastResult.domainsFailed || !!lastResult.preferencesFailed?.length) && (
+                <div className="mt-1 text-red-600 dark:text-red-400">
+                  ⚠ {[
+                    lastResult.domainsFailed ? `${lastResult.domainsFailed} domain rule${lastResult.domainsFailed !== 1 ? 's' : ''}` : null,
+                    lastResult.preferencesFailed?.length ? `${lastResult.preferencesFailed.length} preference${lastResult.preferencesFailed.length !== 1 ? 's' : ''}` : null,
+                  ].filter(Boolean).join(', ')} failed to import — see console for details
+                </div>
+              )}
             </div>
           )}
 

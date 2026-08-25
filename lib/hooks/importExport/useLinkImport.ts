@@ -14,7 +14,7 @@ import { parseCSV } from '@/lib/utils/linksCsv'
 export type ImportTab = 'urls' | 'json' | 'file'
 
 type LastResult = { imported: number; skipped: number; duplicates: number } & Partial<
-  Pick<VaultImportResult, 'categoriesCreated' | 'domainsCreated' | 'tagsCreated'>
+  Pick<VaultImportResult, 'categoriesCreated' | 'domainsCreated' | 'domainsFailed' | 'tagsCreated' | 'preferencesFailed'>
 >
 
 async function readFileText(file: File): Promise<string> {
@@ -132,6 +132,13 @@ export function useLinkImport() {
     toast.success(`Imported ${result.imported} link${result.imported !== 1 ? 's' : ''}${dupSuffix}${extrasSuffix}`)
   }
 
+  function partialFailureToast(result: LastResult) {
+    const parts: string[] = []
+    if (result.domainsFailed) parts.push(`${result.domainsFailed} domain rule${result.domainsFailed !== 1 ? 's' : ''}`)
+    if (result.preferencesFailed?.length) parts.push(`${result.preferencesFailed.length} preference${result.preferencesFailed.length !== 1 ? 's' : ''}`)
+    if (parts.length > 0) toast.warning(`Failed to import ${parts.join(' and ')} — see console for details`)
+  }
+
   async function handleImport() {
     if (!dek) return
     if (vaultExportError) { toast.error(vaultExportError); return }
@@ -160,6 +167,7 @@ export function useLinkImport() {
           if (result.skipped > 0) parts.push(`${result.skipped} invalid`)
           toast.warning(`No links imported${parts.length > 0 ? ` — ${parts.join(', ')}` : ''}`)
         }
+        partialFailureToast(result)
         return
       }
 

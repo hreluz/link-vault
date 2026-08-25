@@ -4,12 +4,15 @@ import { getCategories, getOrCreateCategoryByName } from '@/lib/services/categor
 import { addCategoryDomain } from '@/lib/services/category-domains'
 import { getTags, syncTagDefinitions, toKebabCase } from '@/lib/services/tags/tags'
 import { setThemeMode, setAccentColor, setSurfaceFamily, setAutoFetchPreference } from '@/lib/services/userPreferences'
+import type { ToggleResult } from '@/lib/hooks/shared/useAsyncToggle'
 import { getVaultExportValidationError, type VaultExportV2 } from '@/lib/types/importExport'
 
 export type VaultImportResult = ImportResult & {
   categoriesCreated: number
   domainsCreated: number
+  domainsFailed: number
   tagsCreated: number
+  preferencesFailed: string[]
 }
 
 export type VaultImportPhase = 'categories' | 'domains' | 'tags' | 'links' | 'preferences'
@@ -64,13 +67,19 @@ export async function importVaultExport(
 
   // ── domain auto-assign rules ("everything" only) ───────────────────────
   let domainsCreated = 0
+  let domainsFailed = 0
   const domainEntries = data.categoryDomains ?? []
   let domainsDone = 0
   await Promise.all(domainEntries.map(async d => {
     const categoryId = categoryIdByName.get(d.category)
     if (categoryId) {
       const result = await addCategoryDomain(categoryId, d.domain, dek)
-      if (result.data) domainsCreated++
+      if (result.data) {
+        domainsCreated++
+      } else if (result.error !== 'domain_taken') {
+        domainsFailed++
+        console.error(`[importVaultExport] domain rule failed for "${d.domain}": ${result.error}`)
+      }
     }
     options.onProgress?.({ phase: 'domains', done: ++domainsDone, total: domainEntries.length })
   }))
@@ -117,19 +126,27 @@ export async function importVaultExport(
   )
 
   // ── preferences ("everything" only, opt-in) ─────────────────────────────
+  const preferencesFailed: string[] = []
   if (options.applyPreferences && data.mode === 'everything' && data.preferences) {
     options.onProgress?.({ phase: 'preferences', done: 0, total: 1 })
     const supabase = createClient()
     const prefs = data.preferences
-    await Promise.all([
-      setThemeMode(supabase, prefs.theme_mode),
-      setAccentColor(supabase, 'light', prefs.accent_color_light),
-      setAccentColor(supabase, 'dark', prefs.accent_color_dark),
-      setSurfaceFamily(supabase, prefs.surface_family),
-      setAutoFetchPreference(supabase, prefs.auto_fetch_enabled),
-    ])
+    const entries: Array<[string, Promise<ToggleResult>]> = [
+      ['theme', setThemeMode(supabase, prefs.theme_mode)],
+      ['accent (light)', setAccentColor(supabase, 'light', prefs.accent_color_light)],
+      ['accent (dark)', setAccentColor(supabase, 'dark', prefs.accent_color_dark)],
+      ['surface', setSurfaceFamily(supabase, prefs.surface_family)],
+      ['auto-fetch', setAutoFetchPreference(supabase, prefs.auto_fetch_enabled)],
+    ]
+    const results = await Promise.all(entries.map(async ([label, promise]) => [label, await promise] as const))
+    for (const [label, result] of results) {
+      if (!result.success) {
+        preferencesFailed.push(label)
+        console.error(`[importVaultExport] preference "${label}" failed: ${result.error}`)
+      }
+    }
     options.onProgress?.({ phase: 'preferences', done: 1, total: 1 })
   }
 
-  return { ...linkResult, categoriesCreated, domainsCreated, tagsCreated }
+  return { ...linkResult, categoriesCreated, domainsCreated, domainsFailed, tagsCreated, preferencesFailed }
 }
