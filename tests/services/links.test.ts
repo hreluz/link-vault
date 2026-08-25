@@ -763,6 +763,45 @@ describe('importLinks', () => {
 
     expect(result).toEqual({ imported: 1, skipped: 1, duplicates: 1 })
   })
+
+  describe('onProgress', () => {
+    it('calls onProgress once per input with the running done/total, regardless of outcome', async () => {
+      mockDupCheck
+        .mockResolvedValueOnce({ data: [] })
+        .mockResolvedValueOnce({ data: [{ id: 'existing-id' }] })
+      const row = await encryptLinkRow('1')
+      mockLinksSingle.mockResolvedValue({ data: row, error: null })
+      const onProgress = vi.fn()
+
+      await importLinks([
+        { url: 'https://example.com' },
+        { url: 'not-a-url' },
+        { url: 'https://github.com' },
+      ], null, dek, onProgress)
+
+      expect(onProgress).toHaveBeenCalledTimes(3)
+      expect(onProgress).toHaveBeenNthCalledWith(1, 1, 3)
+      expect(onProgress).toHaveBeenNthCalledWith(2, 2, 3)
+      expect(onProgress).toHaveBeenNthCalledWith(3, 3, 3)
+    })
+
+    it('reaches done === total even when every input is skipped', async () => {
+      const onProgress = vi.fn()
+
+      await importLinks([{ url: 'not-a-url' }, { url: 'also not a url' }], null, dek, onProgress)
+
+      expect(onProgress).toHaveBeenCalledTimes(2)
+      expect(onProgress).toHaveBeenLastCalledWith(2, 2)
+    })
+
+    it('does not throw when onProgress is omitted', async () => {
+      const row = await encryptLinkRow('1')
+      mockLinksSingle.mockResolvedValue({ data: row, error: null })
+
+      await expect(importLinks([{ url: 'https://example.com' }], null, dek))
+        .resolves.toEqual({ imported: 1, skipped: 0, duplicates: 0 })
+    })
+  })
 })
 
 // ── toggleLinkFavorite ────────────────────────────────────────────────────────

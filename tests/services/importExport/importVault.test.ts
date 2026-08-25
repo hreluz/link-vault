@@ -77,7 +77,7 @@ describe('importVaultExport', () => {
   it('delegates link insertion to importLinks with the resolved default category', async () => {
     const result = await importVaultExport(makeExport(), { defaultCategoryId: 'cat-default', applyPreferences: false }, FAKE_DEK)
 
-    expect(mockImportLinks).toHaveBeenCalledWith(expect.any(Array), 'cat-default', FAKE_DEK)
+    expect(mockImportLinks).toHaveBeenCalledWith(expect.any(Array), 'cat-default', FAKE_DEK, expect.any(Function))
     expect(result.imported).toBe(1)
   })
 
@@ -99,6 +99,7 @@ describe('importVaultExport', () => {
       [expect.objectContaining({ created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' })],
       null,
       FAKE_DEK,
+      expect.any(Function),
     )
   })
 
@@ -148,6 +149,7 @@ describe('importVaultExport', () => {
         [expect.objectContaining({ category_id: 'cat-resolved' })],
         null,
         FAKE_DEK,
+        expect.any(Function),
       )
     })
   })
@@ -272,6 +274,96 @@ describe('importVaultExport', () => {
         FAKE_DEK,
       )).resolves.toBeDefined()
       expect(mockSetThemeMode).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('progress reporting', () => {
+    type Event = { phase: string; done: number; total: number }
+
+    it('reports categories, domains, tags, and links phases in that order', async () => {
+      mockGetOrCreateCategoryByName.mockResolvedValue('cat-1')
+      mockImportLinks.mockImplementation(async (
+        _inputs: unknown, _catId: unknown, _dek: unknown, onProgress?: (done: number, total: number) => void,
+      ) => {
+        onProgress?.(1, 1)
+        return { imported: 1, skipped: 0, duplicates: 0 }
+      })
+      const events: Event[] = []
+
+      await importVaultExport(
+        makeExport({
+          categories: [{ name: 'Article', description: null, color: null, emoticon: null }],
+          categoryDomains: [{ domain: 'example.com', category: 'Article' }],
+          tags: [{ name: 'react', color: null, is_private: false }],
+        }),
+        { defaultCategoryId: null, applyPreferences: false, onProgress: p => events.push(p) },
+        FAKE_DEK,
+      )
+
+      expect(events.map(e => e.phase)).toEqual(['categories', 'domains', 'tags', 'tags', 'links'])
+    })
+
+    it('reports done incrementing up to total across concurrent category creation', async () => {
+      const events: Event[] = []
+
+      await importVaultExport(
+        makeExport({
+          categories: [
+            { name: 'A', description: null, color: null, emoticon: null },
+            { name: 'B', description: null, color: null, emoticon: null },
+          ],
+        }),
+        { defaultCategoryId: null, applyPreferences: false, onProgress: p => events.push(p) },
+        FAKE_DEK,
+      )
+
+      const categoryEvents = events.filter(e => e.phase === 'categories')
+      expect(categoryEvents).toHaveLength(2)
+      expect(categoryEvents.every(e => e.total === 2)).toBe(true)
+      expect(categoryEvents.map(e => e.done).sort()).toEqual([1, 2])
+    })
+
+    it('reports the links phase via importLinks\'s own onProgress callback', async () => {
+      mockImportLinks.mockImplementation(async (
+        _inputs: unknown, _catId: unknown, _dek: unknown, onProgress?: (done: number, total: number) => void,
+      ) => {
+        onProgress?.(1, 1)
+        return { imported: 1, skipped: 0, duplicates: 0 }
+      })
+      const events: Event[] = []
+
+      await importVaultExport(
+        makeExport(),
+        { defaultCategoryId: null, applyPreferences: false, onProgress: p => events.push(p) },
+        FAKE_DEK,
+      )
+
+      expect(events).toContainEqual({ phase: 'links', done: 1, total: 1 })
+    })
+
+    it('reports the preferences phase start and end when applying preferences', async () => {
+      const events: Event[] = []
+
+      await importVaultExport(
+        makeExport({
+          mode: 'everything',
+          preferences: {
+            theme_mode: 'dark', accent_color_light: 'indigo', accent_color_dark: 'violet',
+            surface_family: 'slate', auto_fetch_enabled: true,
+          },
+        }),
+        { defaultCategoryId: null, applyPreferences: true, onProgress: p => events.push(p) },
+        FAKE_DEK,
+      )
+
+      expect(events).toContainEqual({ phase: 'preferences', done: 0, total: 1 })
+      expect(events).toContainEqual({ phase: 'preferences', done: 1, total: 1 })
+    })
+
+    it('does not throw when onProgress is omitted', async () => {
+      await expect(
+        importVaultExport(makeExport(), { defaultCategoryId: null, applyPreferences: false }, FAKE_DEK),
+      ).resolves.toBeDefined()
     })
   })
 })

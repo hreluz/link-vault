@@ -212,4 +212,24 @@ describe('ImportExportClient', () => {
       expect(btn('Import links').disabled).toBe(true)
     })
   })
+
+  describe('progress label', () => {
+    it('shows the in-flight progress phase/count in the Import links button while importing', async () => {
+      let resolveImport: (v: unknown) => void = () => {}
+      mockImportLinks.mockImplementation((
+        _inputs: unknown, _cat: unknown, _dek: unknown, onProgress?: (done: number, total: number) => void,
+      ) => {
+        onProgress?.(1, 2)
+        return new Promise(resolve => { resolveImport = resolve })
+      })
+      render(<ImportExportClient />)
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: 'https://example.com\nhttps://github.com' } })
+      fireEvent.click(btn('Import links'))
+
+      await waitFor(() => expect(screen.getByText('Importing… links (1/2)')).toBeTruthy())
+
+      resolveImport({ imported: 2, skipped: 0, duplicates: 0 })
+      await waitFor(() => expect(screen.getByText('Import links')).toBeTruthy())
+    })
+  })
 })

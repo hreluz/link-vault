@@ -3,11 +3,20 @@
 import Link from 'next/link'
 import { useLinkExport } from '@/lib/hooks/importExport/useLinkExport'
 import { useLinkImport, type ImportTab } from '@/lib/hooks/importExport/useLinkImport'
+import type { VaultImportPhase } from '@/lib/services/importExport/importVault'
 
 const TAB_LABELS: Record<ImportTab, string> = {
   urls: '🔗 Paste URLs',
   json: '📋 Paste JSON',
   file: '📁 Upload file',
+}
+
+const PHASE_LABELS: Record<VaultImportPhase, string> = {
+  categories: 'categories',
+  domains: 'domain rules',
+  tags: 'tags',
+  links: 'links',
+  preferences: 'appearance settings',
 }
 
 export default function ImportExportClient() {
@@ -19,7 +28,7 @@ export default function ImportExportClient() {
     jsonText, setJsonText,
     defaultCategoryId, setDefaultCategoryId,
     categories,
-    importing, lastResult,
+    importing, lastResult, progress,
     detectedVaultExport, vaultExportError,
     applyPreferences, setApplyPreferences,
     fileInputRef,
@@ -254,7 +263,11 @@ export default function ImportExportClient() {
             disabled={!hasImportContent || importing || !!vaultExportError}
             className="w-full rounded-xl bg-primary-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {importing ? 'Importing…' : 'Import links'}
+            {importing
+              ? progress
+                ? `Importing… ${PHASE_LABELS[progress.phase]} (${progress.done}/${progress.total})`
+                : 'Importing…'
+              : 'Import links'}
           </button>
         </div>
 

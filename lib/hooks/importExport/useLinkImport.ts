@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { toast } from 'sonner'
 import { importLinks, type ImportLinkInput } from '@/lib/services/links'
 import { getOrCreateCategoryByName } from '@/lib/services/categories'
-import { importVaultExport, type VaultImportResult } from '@/lib/services/importExport/importVault'
+import { importVaultExport, type VaultImportResult, type VaultImportProgress } from '@/lib/services/importExport/importVault'
 import { isVaultExportV2, getVaultExportValidationError, type VaultExportV2 } from '@/lib/types/importExport'
 import { useVault } from '@/lib/context/VaultContext'
 import { useTagsContext } from '@/lib/context/TagsContext'
@@ -58,6 +58,7 @@ export function useLinkImport() {
   const [detectedVaultExport, setDetectedVaultExport] = useState<VaultExportV2 | null>(null)
   const [vaultExportError, setVaultExportError] = useState<string | null>(null)
   const [applyPreferences, setApplyPreferences] = useState(true)
+  const [progress, setProgress] = useState<VaultImportProgress | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -136,6 +137,7 @@ export function useLinkImport() {
     if (vaultExportError) { toast.error(vaultExportError); return }
     setImporting(true)
     setLastResult(null)
+    setProgress(null)
     const catId = defaultCategoryId || null
 
     try {
@@ -143,7 +145,7 @@ export function useLinkImport() {
       if (detectedVaultExport) {
         const result = await importVaultExport(
           detectedVaultExport,
-          { defaultCategoryId: catId, applyPreferences },
+          { defaultCategoryId: catId, applyPreferences, onProgress: setProgress },
           dek,
         )
         setLastResult(result)
@@ -200,7 +202,10 @@ export function useLinkImport() {
 
       if (inputs.length === 0) { toast.error('No valid links found'); return }
 
-      const result = await importLinks(inputs, catId, dek)
+      const result = await importLinks(
+        inputs, catId, dek,
+        (done, total) => setProgress({ phase: 'links', done, total }),
+      )
       setLastResult(result)
       if (result.imported > 0) {
         setUrlsText('')
@@ -219,6 +224,7 @@ export function useLinkImport() {
       toast.error(err instanceof Error ? err.message : 'Import failed')
     } finally {
       setImporting(false)
+      setProgress(null)
     }
   }
 
@@ -229,7 +235,7 @@ export function useLinkImport() {
     jsonText, setJsonText,
     defaultCategoryId, setDefaultCategoryId,
     categories,
-    importing, lastResult,
+    importing, lastResult, progress,
     detectedVaultExport, vaultExportError,
     applyPreferences, setApplyPreferences,
     fileInputRef,

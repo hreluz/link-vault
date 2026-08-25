@@ -113,7 +113,7 @@ describe('useLinkImport', () => {
       })
       await act(async () => { await result.current.handleImport() })
 
-      expect(mockImportLinks).toHaveBeenCalledWith(expect.any(Array), 'cat-2', FAKE_DEK)
+      expect(mockImportLinks).toHaveBeenCalledWith(expect.any(Array), 'cat-2', FAKE_DEK, expect.any(Function))
     })
   })
 
@@ -177,6 +177,7 @@ describe('useLinkImport', () => {
         [{ url: 'https://example.com', tags: [] }, { url: 'https://github.com', tags: [] }],
         'cat-0',
         FAKE_DEK,
+        expect.any(Function),
       )
     })
 
@@ -190,6 +191,7 @@ describe('useLinkImport', () => {
         [{ url: 'https://example.com', tags: [] }],
         expect.anything(),
         FAKE_DEK,
+        expect.any(Function),
       )
     })
 
@@ -287,6 +289,7 @@ describe('useLinkImport', () => {
         [{ url: 'https://example.com', tags: ['react'] }],
         expect.anything(),
         FAKE_DEK,
+        expect.any(Function),
       )
     })
 
@@ -318,6 +321,7 @@ describe('useLinkImport', () => {
         [{ url: 'https://example.com' }],
         expect.anything(),
         FAKE_DEK,
+        expect.any(Function),
       )
     })
   })
@@ -348,6 +352,7 @@ describe('useLinkImport', () => {
         [{ url: 'https://example.com', tags: ['test'] }],
         expect.anything(),
         FAKE_DEK,
+        expect.any(Function),
       )
     })
 
@@ -405,6 +410,7 @@ describe('useLinkImport', () => {
         ]),
         expect.anything(),
         FAKE_DEK,
+        expect.any(Function),
       )
     })
 
@@ -426,6 +432,7 @@ describe('useLinkImport', () => {
         ]),
         expect.anything(),
         FAKE_DEK,
+        expect.any(Function),
       )
       expect(mockGetOrCreateCategoryByName).not.toHaveBeenCalled()
     })
@@ -442,7 +449,7 @@ describe('useLinkImport', () => {
 
       expect(mockImportVaultExport).toHaveBeenCalledWith(
         VAULT_EXPORT,
-        { defaultCategoryId: 'cat-0', applyPreferences: true },
+        { defaultCategoryId: 'cat-0', applyPreferences: true, onProgress: expect.any(Function) },
         FAKE_DEK,
       )
       expect(mockImportLinks).not.toHaveBeenCalled()
@@ -459,7 +466,7 @@ describe('useLinkImport', () => {
 
       expect(mockImportVaultExport).toHaveBeenCalledWith(
         VAULT_EXPORT,
-        { defaultCategoryId: 'cat-0', applyPreferences: true },
+        { defaultCategoryId: 'cat-0', applyPreferences: true, onProgress: expect.any(Function) },
         FAKE_DEK,
       )
     })
@@ -484,7 +491,7 @@ describe('useLinkImport', () => {
 
       expect(mockImportVaultExport).toHaveBeenCalledWith(
         VAULT_EXPORT,
-        { defaultCategoryId: 'cat-0', applyPreferences: false },
+        { defaultCategoryId: 'cat-0', applyPreferences: false, onProgress: expect.any(Function) },
         FAKE_DEK,
       )
     })
@@ -591,6 +598,69 @@ describe('useLinkImport', () => {
       await act(async () => { await result.current.handleImport() })
 
       expect(mockToastError).toHaveBeenCalledWith('boom: something specific went wrong')
+    })
+  })
+
+  describe('progress', () => {
+    it('updates progress while importVaultExport is in flight, then clears it on completion', async () => {
+      let resolveImport: (v: unknown) => void = () => {}
+      mockImportVaultExport.mockImplementation((_data: unknown, options: { onProgress?: (p: unknown) => void }) => {
+        options.onProgress?.({ phase: 'categories', done: 1, total: 3 })
+        return new Promise(resolve => { resolveImport = resolve })
+      })
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.switchTab('json'))
+      act(() => result.current.setJsonText(JSON.stringify(VAULT_EXPORT)))
+      await waitFor(() => expect(result.current.detectedVaultExport).not.toBeNull())
+
+      let importPromise!: Promise<void>
+      act(() => { importPromise = result.current.handleImport() })
+
+      await waitFor(() => expect(result.current.progress).toEqual({ phase: 'categories', done: 1, total: 3 }))
+
+      await act(async () => {
+        resolveImport({ imported: 1, skipped: 0, duplicates: 0, categoriesCreated: 0, domainsCreated: 0, tagsCreated: 0 })
+        await importPromise
+      })
+
+      expect(result.current.progress).toBeNull()
+    })
+
+    it('clears progress after a failed import too', async () => {
+      mockImportVaultExport.mockImplementation((_data: unknown, options: { onProgress?: (p: unknown) => void }) => {
+        options.onProgress?.({ phase: 'categories', done: 1, total: 1 })
+        return Promise.reject(new Error('boom'))
+      })
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.switchTab('json'))
+      act(() => result.current.setJsonText(JSON.stringify(VAULT_EXPORT)))
+      await waitFor(() => expect(result.current.detectedVaultExport).not.toBeNull())
+
+      await act(async () => { await result.current.handleImport() })
+
+      expect(result.current.progress).toBeNull()
+    })
+
+    it('updates progress via the legacy importLinks path for a plain URL paste', async () => {
+      let resolveImport: (v: unknown) => void = () => {}
+      mockImportLinks.mockImplementation((
+        _inputs: unknown, _cat: unknown, _dek: unknown, onProgress?: (done: number, total: number) => void,
+      ) => {
+        onProgress?.(1, 1)
+        return new Promise(resolve => { resolveImport = resolve })
+      })
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.setUrlsText('https://example.com'))
+
+      let importPromise!: Promise<void>
+      act(() => { importPromise = result.current.handleImport() })
+
+      await waitFor(() => expect(result.current.progress).toEqual({ phase: 'links', done: 1, total: 1 }))
+
+      await act(async () => {
+        resolveImport({ imported: 1, skipped: 0, duplicates: 0 })
+        await importPromise
+      })
     })
   })
 })

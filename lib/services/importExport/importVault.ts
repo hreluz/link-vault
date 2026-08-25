@@ -12,10 +12,14 @@ export type VaultImportResult = ImportResult & {
   tagsCreated: number
 }
 
+export type VaultImportPhase = 'categories' | 'domains' | 'tags' | 'links' | 'preferences'
+export type VaultImportProgress = { phase: VaultImportPhase; done: number; total: number }
+
 export type VaultImportOptions = {
   defaultCategoryId: string | null
   /** Only meaningful when `data.mode === 'everything'` and `data.preferences` is present. */
   applyPreferences: boolean
+  onProgress?: (progress: VaultImportProgress) => void
 }
 
 /** Imports a full v2 vault export: categories (styled) -> domain rules -> tags (colored/private) -> links -> preferences.
@@ -42,29 +46,44 @@ export async function importVaultExport(
   for (const c of data.categories ?? []) categoryNames.add(c.name)
   for (const l of data.links) if (l.category) categoryNames.add(l.category)
 
+  // Each name/domain below is already deduped (Set, or a validated export's own unique
+  // rows), so no two concurrent iterations ever target the same one -- safe to run in
+  // parallel, unlike the tag-sync loops further down (see their own comments).
   const categoryIdByName = new Map<string, string>()
   let categoriesCreated = 0
-  for (const name of categoryNames) {
+  const categoryEntries = [...categoryNames]
+  let categoriesDone = 0
+  await Promise.all(categoryEntries.map(async name => {
     const id = await getOrCreateCategoryByName(name, dek, categoryStyleByName.get(name))
     if (id) {
       categoryIdByName.set(name, id)
       if (!existingCategoryNames.has(name.toLowerCase())) categoriesCreated++
     }
-  }
+    options.onProgress?.({ phase: 'categories', done: ++categoriesDone, total: categoryEntries.length })
+  }))
 
   // ── domain auto-assign rules ("everything" only) ───────────────────────
   let domainsCreated = 0
-  for (const d of data.categoryDomains ?? []) {
+  const domainEntries = data.categoryDomains ?? []
+  let domainsDone = 0
+  await Promise.all(domainEntries.map(async d => {
     const categoryId = categoryIdByName.get(d.category)
-    if (!categoryId) continue
-    const result = await addCategoryDomain(categoryId, d.domain, dek)
-    if (result.data) domainsCreated++
-  }
+    if (categoryId) {
+      const result = await addCategoryDomain(categoryId, d.domain, dek)
+      if (result.data) domainsCreated++
+    }
+    options.onProgress?.({ phase: 'domains', done: ++domainsDone, total: domainEntries.length })
+  }))
 
   // ── tags ("everything" only) -- pre-create with color/privacy so the
-  //    per-link tag sync below (name-matched, inside importLinks) reuses them ──
+  //    per-link tag sync below (name-matched, inside importLinks) reuses them.
+  //    syncTagDefinitions stays a single sequential call/loop (not parallelized): it
+  //    mutates a local "existing tags" accumulator as it creates new ones, so a later
+  //    entry sharing a not-yet-existing name resolves to the tag just created instead of
+  //    racing to create a duplicate -- see its own doc comment in tags.ts.
   let tagsCreated = 0
   if (data.tags && data.tags.length > 0) {
+    options.onProgress?.({ phase: 'tags', done: 0, total: data.tags.length })
     const existingTags = await getTags(dek)
     const existingTagNames = new Set(existingTags.map(t => t.name.toLowerCase()))
     await syncTagDefinitions(data.tags, dek)
@@ -72,6 +91,7 @@ export async function importVaultExport(
       const kebab = toKebabCase(def.name)
       if (kebab && !existingTagNames.has(kebab)) tagsCreated++
     }
+    options.onProgress?.({ phase: 'tags', done: data.tags.length, total: data.tags.length })
   }
 
   // ── links ───────────────────────────────────────────────────────────────
@@ -91,10 +111,14 @@ export async function importVaultExport(
     category_id: l.category ? categoryIdByName.get(l.category) : undefined,
   }))
 
-  const linkResult = await importLinks(inputs, options.defaultCategoryId, dek)
+  const linkResult = await importLinks(
+    inputs, options.defaultCategoryId, dek,
+    (done, total) => options.onProgress?.({ phase: 'links', done, total }),
+  )
 
   // ── preferences ("everything" only, opt-in) ─────────────────────────────
   if (options.applyPreferences && data.mode === 'everything' && data.preferences) {
+    options.onProgress?.({ phase: 'preferences', done: 0, total: 1 })
     const supabase = createClient()
     const prefs = data.preferences
     await Promise.all([
@@ -104,6 +128,7 @@ export async function importVaultExport(
       setSurfaceFamily(supabase, prefs.surface_family),
       setAutoFetchPreference(supabase, prefs.auto_fetch_enabled),
     ])
+    options.onProgress?.({ phase: 'preferences', done: 1, total: 1 })
   }
 
   return { ...linkResult, categoriesCreated, domainsCreated, tagsCreated }
