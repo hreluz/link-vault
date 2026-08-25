@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { importLinks, type ImportLinkInput } from '@/lib/services/links'
 import { getOrCreateCategoryByName } from '@/lib/services/categories'
 import { importVaultExport, type VaultImportResult } from '@/lib/services/importExport/importVault'
-import { isVaultExportV2, type VaultExportV2 } from '@/lib/types/importExport'
+import { isVaultExportV2, getVaultExportValidationError, type VaultExportV2 } from '@/lib/types/importExport'
 import { useVault } from '@/lib/context/VaultContext'
 import { useTagsContext } from '@/lib/context/TagsContext'
 import { useCategoryList } from '@/lib/hooks/categories/useCategoryList'
@@ -26,13 +26,19 @@ async function readFileText(file: File): Promise<string> {
   })
 }
 
-/** Sniffs whether the given JSON text is a full v2 vault export, for a live "everything" file. */
-function tryDetectVaultExport(text: string): VaultExportV2 | null {
+type VaultExportDetection = { data: VaultExportV2 | null; error: string | null }
+
+/** Sniffs whether the given JSON text is a full v2 vault export, for a live "everything" file.
+ *  A v2-shaped-but-invalid file comes back as `{ data: null, error: <reason> }`, distinct from
+ *  `{ data: null, error: null }` for text that isn't meant to be a v2 export at all (legacy/plain). */
+function tryDetectVaultExport(text: string): VaultExportDetection {
   try {
     const parsed = JSON.parse(text)
-    return isVaultExportV2(parsed) ? parsed : null
+    if (!isVaultExportV2(parsed)) return { data: null, error: null }
+    const error = getVaultExportValidationError(parsed)
+    return error ? { data: null, error } : { data: parsed, error: null }
   } catch {
-    return null
+    return { data: null, error: null }
   }
 }
 
@@ -50,6 +56,7 @@ export function useLinkImport() {
   const [importing, setImporting] = useState(false)
   const [lastResult, setLastResult] = useState<LastResult | null>(null)
   const [detectedVaultExport, setDetectedVaultExport] = useState<VaultExportV2 | null>(null)
+  const [vaultExportError, setVaultExportError] = useState<string | null>(null)
   const [applyPreferences, setApplyPreferences] = useState(true)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -66,17 +73,23 @@ export function useLinkImport() {
   useEffect(() => {
     let cancelled = false
 
+    function apply(detection: VaultExportDetection) {
+      if (cancelled) return
+      setDetectedVaultExport(detection.data)
+      setVaultExportError(detection.error)
+    }
+
     async function detect() {
       if (importTab === 'json') {
-        if (!cancelled) setDetectedVaultExport(tryDetectVaultExport(jsonText))
+        apply(tryDetectVaultExport(jsonText))
         return
       }
       if (importTab === 'file' && selectedFile && selectedFile.name.endsWith('.json')) {
         const text = await readFileText(selectedFile)
-        if (!cancelled) setDetectedVaultExport(tryDetectVaultExport(text))
+        apply(tryDetectVaultExport(text))
         return
       }
-      if (!cancelled) setDetectedVaultExport(null)
+      apply({ data: null, error: null })
     }
 
     detect()
@@ -120,6 +133,7 @@ export function useLinkImport() {
 
   async function handleImport() {
     if (!dek) return
+    if (vaultExportError) { toast.error(vaultExportError); return }
     setImporting(true)
     setLastResult(null)
     const catId = defaultCategoryId || null
@@ -201,8 +215,8 @@ export function useLinkImport() {
         if (result.skipped > 0) parts.push(`${result.skipped} invalid`)
         toast.warning(`No links imported${parts.length > 0 ? ` — ${parts.join(', ')}` : ''}`)
       }
-    } catch {
-      toast.error('Import failed')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Import failed')
     } finally {
       setImporting(false)
     }
@@ -216,7 +230,7 @@ export function useLinkImport() {
     defaultCategoryId, setDefaultCategoryId,
     categories,
     importing, lastResult,
-    detectedVaultExport,
+    detectedVaultExport, vaultExportError,
     applyPreferences, setApplyPreferences,
     fileInputRef,
     hasImportContent,

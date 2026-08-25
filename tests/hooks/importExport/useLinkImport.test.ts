@@ -544,5 +544,53 @@ describe('useLinkImport', () => {
 
       expect(mockToastWarning).toHaveBeenCalledWith('No links imported — 1 already existed')
     })
+
+    it('sets vaultExportError and leaves detectedVaultExport null for a structurally-invalid v2 file', async () => {
+      const invalid = { ...VAULT_EXPORT, categories: 'oops' }
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.switchTab('json'))
+      act(() => result.current.setJsonText(JSON.stringify(invalid)))
+
+      await waitFor(() => expect(result.current.vaultExportError).not.toBeNull())
+      expect(result.current.detectedVaultExport).toBeNull()
+    })
+
+    it('shows the validation error toast and never calls importVaultExport for an invalid v2 file', async () => {
+      const invalid = { ...VAULT_EXPORT, categories: 'oops' }
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.switchTab('json'))
+      act(() => result.current.setJsonText(JSON.stringify(invalid)))
+      await waitFor(() => expect(result.current.vaultExportError).not.toBeNull())
+
+      await act(async () => { await result.current.handleImport() })
+
+      expect(mockToastError).toHaveBeenCalledWith(result.current.vaultExportError)
+      expect(mockImportVaultExport).not.toHaveBeenCalled()
+    })
+
+    it('clears a stale vaultExportError once the text is fixed into a valid v2 export', async () => {
+      const invalid = { ...VAULT_EXPORT, categories: 'oops' }
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.switchTab('json'))
+      act(() => result.current.setJsonText(JSON.stringify(invalid)))
+      await waitFor(() => expect(result.current.vaultExportError).not.toBeNull())
+
+      act(() => result.current.setJsonText(JSON.stringify(VAULT_EXPORT)))
+
+      await waitFor(() => expect(result.current.vaultExportError).toBeNull())
+      expect(result.current.detectedVaultExport).not.toBeNull()
+    })
+
+    it('surfaces a thrown error\'s message instead of the generic "Import failed" text', async () => {
+      mockImportVaultExport.mockRejectedValue(new Error('boom: something specific went wrong'))
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.switchTab('json'))
+      act(() => result.current.setJsonText(JSON.stringify(VAULT_EXPORT)))
+      await waitFor(() => expect(result.current.detectedVaultExport).not.toBeNull())
+
+      await act(async () => { await result.current.handleImport() })
+
+      expect(mockToastError).toHaveBeenCalledWith('boom: something specific went wrong')
+    })
   })
 })

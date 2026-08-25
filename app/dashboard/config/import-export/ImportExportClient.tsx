@@ -20,7 +20,7 @@ export default function ImportExportClient() {
     defaultCategoryId, setDefaultCategoryId,
     categories,
     importing, lastResult,
-    detectedVaultExport,
+    detectedVaultExport, vaultExportError,
     applyPreferences, setApplyPreferences,
     fileInputRef,
     hasImportContent,
@@ -199,6 +199,12 @@ export default function ImportExportClient() {
           </div>
         )}
 
+        {vaultExportError && (
+          <p className="mt-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
+            {vaultExportError}
+          </p>
+        )}
+
         {/* Category selector + import button */}
         <div className="mt-5 space-y-4">
           <div>
@@ -245,7 +251,7 @@ export default function ImportExportClient() {
 
           <button
             onClick={handleImport}
-            disabled={!hasImportContent || importing}
+            disabled={!hasImportContent || importing || !!vaultExportError}
             className="w-full rounded-xl bg-primary-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {importing ? 'Importing…' : 'Import links'}

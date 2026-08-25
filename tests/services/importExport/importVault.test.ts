@@ -81,6 +81,17 @@ describe('importVaultExport', () => {
     expect(result.imported).toBe(1)
   })
 
+  it('throws a descriptive error and never touches the DB when the export is malformed', async () => {
+    // Cast through unknown: the whole point is testing a runtime shape TS wouldn't allow.
+    const malformed = makeExport({ categories: 'oops' as unknown as never })
+
+    await expect(
+      importVaultExport(malformed, { defaultCategoryId: null, applyPreferences: false }, FAKE_DEK),
+    ).rejects.toThrow(/"categories"/)
+    expect(mockGetCategories).not.toHaveBeenCalled()
+    expect(mockImportLinks).not.toHaveBeenCalled()
+  })
+
   it('passes each link\'s created_at and updated_at through to importLinks', async () => {
     await importVaultExport(makeExport(), { defaultCategoryId: null, applyPreferences: false }, FAKE_DEK)
 

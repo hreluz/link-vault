@@ -4,7 +4,7 @@ import { getCategories, getOrCreateCategoryByName } from '@/lib/services/categor
 import { addCategoryDomain } from '@/lib/services/category-domains'
 import { getTags, syncTagDefinitions, toKebabCase } from '@/lib/services/tags/tags'
 import { setThemeMode, setAccentColor, setSurfaceFamily, setAutoFetchPreference } from '@/lib/services/userPreferences'
-import type { VaultExportV2 } from '@/lib/types/importExport'
+import { getVaultExportValidationError, type VaultExportV2 } from '@/lib/types/importExport'
 
 export type VaultImportResult = ImportResult & {
   categoriesCreated: number
@@ -25,6 +25,12 @@ export async function importVaultExport(
   options: VaultImportOptions,
   dek: CryptoKey,
 ): Promise<VaultImportResult> {
+  // Defense in depth: the UI validates before ever setting detectedVaultExport, but this
+  // function is also callable directly, so a malformed export still fails here with an
+  // actionable message instead of throwing deep inside the loops below.
+  const validationError = getVaultExportValidationError(data)
+  if (validationError) throw new Error(validationError)
+
   // ── categories ──────────────────────────────────────────────────────────
   const existingCategories = await getCategories(dek)
   const existingCategoryNames = new Set(existingCategories.map(c => c.name.toLowerCase()))

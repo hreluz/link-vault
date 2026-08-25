@@ -188,4 +188,28 @@ describe('ImportExportClient', () => {
       expect(screen.getByText('links.json')).toBeTruthy()
     })
   })
+
+  describe('malformed v2 export', () => {
+    const INVALID_V2_JSON = JSON.stringify({
+      format: 'link-vault-export', version: 2, exportedAt: '', mode: 'everything',
+      links: [], categories: 'oops',
+    })
+
+    it('shows an inline error banner instead of the appearance checkbox', async () => {
+      render(<ImportExportClient />)
+      fireEvent.click(screen.getByText('📋 Paste JSON'))
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: INVALID_V2_JSON } })
+
+      await waitFor(() => expect(screen.getByText(/Invalid export file/)).toBeTruthy())
+    })
+
+    it('disables the Import links button while the detected v2 export is invalid', async () => {
+      render(<ImportExportClient />)
+      fireEvent.click(screen.getByText('📋 Paste JSON'))
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: INVALID_V2_JSON } })
+
+      await waitFor(() => expect(screen.getByText(/Invalid export file/)).toBeTruthy())
+      expect(btn('Import links').disabled).toBe(true)
+    })
+  })
 })
