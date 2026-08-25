@@ -224,6 +224,44 @@ export async function mergeTag(sourceId: string, targetId: string): Promise<bool
   return deleteTag(sourceId)
 }
 
+export type TagDefinition = { name: string; color: string | null; is_private: boolean }
+
+/** Gets or creates tags from full definitions (name + color + privacy), returning their ids.
+ *  Used by full-vault import so restored tags keep their color/privacy -- an existing name match
+ *  is left as-is (never overwritten) so a destination account's own customization isn't clobbered. */
+export async function syncTagDefinitions(defs: TagDefinition[], dek: CryptoKey): Promise<string[]> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const existing = await getTags(dek)
+
+  const ids: string[] = []
+  for (const def of defs) {
+    const name = toKebabCase(def.name)
+    if (!name) continue
+    const match = existing.find(t => t.name.toLowerCase() === name.toLowerCase())
+    if (match) {
+      ids.push(match.id)
+      continue
+    }
+    const encoded = await toEncryptedColumns<TagPayload>({ name, color: def.color }, dek)
+    const { data } = await supabase
+      .from('tags')
+      .insert({ user_id: user.id, ...encoded, is_private: def.is_private })
+      .select('id')
+      .single()
+    if (data) {
+      existing.push({
+        id: data.id, user_id: user.id, name, color: def.color, is_private: def.is_private,
+        created_at: new Date().toISOString(), link_count: 0,
+      })
+      ids.push(data.id)
+    }
+  }
+  return ids
+}
+
 /** Gets or creates tags by name, returning their ids. Used when saving/editing a link's tags. */
 export async function syncTagsByName(names: string[], dek: CryptoKey): Promise<string[]> {
   const supabase = createClient()

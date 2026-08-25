@@ -678,6 +678,76 @@ describe('importLinks', () => {
     expect(mockDupCheckEqFingerprint).toHaveBeenCalledWith('url_fingerprint', expect.any(String))
   })
 
+  it('preserves description, site_name, image_url, and duration when given', async () => {
+    const row = await encryptLinkRow('1')
+    mockLinksSingle.mockResolvedValue({ data: row, error: null })
+
+    await importLinks([{
+      url: 'https://example.com', description: 'A desc', site_name: 'custom.example', image_url: 'https://img/x.png', duration: '4:33',
+    }], null, dek)
+
+    const call = mockLinksInsert.mock.calls[0][0]
+    const decrypted = await decryptJson<LinkContent>(call.enc_payload, call.enc_iv, dek)
+    expect(decrypted).toEqual(expect.objectContaining({
+      description: 'A desc', site_name: 'custom.example', image_url: 'https://img/x.png', duration: '4:33',
+    }))
+  })
+
+  it('preserves the given status instead of always defaulting to unread', async () => {
+    const row = await encryptLinkRow('1')
+    mockLinksSingle.mockResolvedValue({ data: row, error: null })
+
+    await importLinks([{ url: 'https://example.com', status: 'read' }], null, dek)
+
+    expect(mockLinksInsert).toHaveBeenCalledWith(expect.objectContaining({ status: 'read' }))
+  })
+
+  it('preserves is_favorite when given, defaulting to false otherwise', async () => {
+    const row = await encryptLinkRow('1')
+    mockLinksSingle.mockResolvedValue({ data: row, error: null })
+
+    await importLinks([{ url: 'https://a.com', is_favorite: true }, { url: 'https://b.com' }], null, dek)
+
+    expect(mockLinksInsert).toHaveBeenNthCalledWith(1, expect.objectContaining({ is_favorite: true }))
+    expect(mockLinksInsert).toHaveBeenNthCalledWith(2, expect.objectContaining({ is_favorite: false }))
+  })
+
+  it('passes created_at through when given, for a full-vault restore', async () => {
+    const row = await encryptLinkRow('1')
+    mockLinksSingle.mockResolvedValue({ data: row, error: null })
+
+    await importLinks([{ url: 'https://example.com', created_at: '2020-05-01T00:00:00Z' }], null, dek)
+
+    expect(mockLinksInsert).toHaveBeenCalledWith(expect.objectContaining({ created_at: '2020-05-01T00:00:00Z' }))
+  })
+
+  it('omits created_at from the insert payload when not given, keeping the DB default', async () => {
+    const row = await encryptLinkRow('1')
+    mockLinksSingle.mockResolvedValue({ data: row, error: null })
+
+    await importLinks([{ url: 'https://example.com' }], null, dek)
+
+    expect(mockLinksInsert.mock.calls[0][0]).not.toHaveProperty('created_at')
+  })
+
+  it('passes updated_at through when given, for a full-vault restore', async () => {
+    const row = await encryptLinkRow('1')
+    mockLinksSingle.mockResolvedValue({ data: row, error: null })
+
+    await importLinks([{ url: 'https://example.com', updated_at: '2020-05-02T00:00:00Z' }], null, dek)
+
+    expect(mockLinksInsert).toHaveBeenCalledWith(expect.objectContaining({ updated_at: '2020-05-02T00:00:00Z' }))
+  })
+
+  it('omits updated_at from the insert payload when not given, keeping the DB default', async () => {
+    const row = await encryptLinkRow('1')
+    mockLinksSingle.mockResolvedValue({ data: row, error: null })
+
+    await importLinks([{ url: 'https://example.com' }], null, dek)
+
+    expect(mockLinksInsert.mock.calls[0][0]).not.toHaveProperty('updated_at')
+  })
+
   it('counts duplicates, imported, and skipped correctly in a mixed batch', async () => {
     mockDupCheck
       .mockResolvedValueOnce({ data: [] })
@@ -692,6 +762,45 @@ describe('importLinks', () => {
     ], null, dek)
 
     expect(result).toEqual({ imported: 1, skipped: 1, duplicates: 1 })
+  })
+
+  describe('onProgress', () => {
+    it('calls onProgress once per input with the running done/total, regardless of outcome', async () => {
+      mockDupCheck
+        .mockResolvedValueOnce({ data: [] })
+        .mockResolvedValueOnce({ data: [{ id: 'existing-id' }] })
+      const row = await encryptLinkRow('1')
+      mockLinksSingle.mockResolvedValue({ data: row, error: null })
+      const onProgress = vi.fn()
+
+      await importLinks([
+        { url: 'https://example.com' },
+        { url: 'not-a-url' },
+        { url: 'https://github.com' },
+      ], null, dek, onProgress)
+
+      expect(onProgress).toHaveBeenCalledTimes(3)
+      expect(onProgress).toHaveBeenNthCalledWith(1, 1, 3)
+      expect(onProgress).toHaveBeenNthCalledWith(2, 2, 3)
+      expect(onProgress).toHaveBeenNthCalledWith(3, 3, 3)
+    })
+
+    it('reaches done === total even when every input is skipped', async () => {
+      const onProgress = vi.fn()
+
+      await importLinks([{ url: 'not-a-url' }, { url: 'also not a url' }], null, dek, onProgress)
+
+      expect(onProgress).toHaveBeenCalledTimes(2)
+      expect(onProgress).toHaveBeenLastCalledWith(2, 2)
+    })
+
+    it('does not throw when onProgress is omitted', async () => {
+      const row = await encryptLinkRow('1')
+      mockLinksSingle.mockResolvedValue({ data: row, error: null })
+
+      await expect(importLinks([{ url: 'https://example.com' }], null, dek))
+        .resolves.toEqual({ imported: 1, skipped: 0, duplicates: 0 })
+    })
   })
 })
 

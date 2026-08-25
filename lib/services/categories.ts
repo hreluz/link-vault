@@ -167,7 +167,15 @@ export async function deleteCategory(id: string): Promise<boolean> {
   return !error
 }
 
-export async function getOrCreateCategoryByName(name: string, dek: CryptoKey): Promise<string | null> {
+export type CategoryStyle = { description?: string | null; color?: string | null; emoticon?: string | null }
+
+/** Looks up a category by name, creating it (with the given style, if any) only when no match exists.
+ *  An existing category's own style is never overwritten by a name match. */
+export async function getOrCreateCategoryByName(
+  name: string,
+  dek: CryptoKey,
+  style?: CategoryStyle,
+): Promise<string | null> {
   const trimmedName = name.trim()
   if (!trimmedName) return null
 
@@ -180,7 +188,12 @@ export async function getOrCreateCategoryByName(name: string, dek: CryptoKey): P
   if (match) return match.id
 
   const encoded = await toEncryptedColumns<CategoryPayload>(
-    { name: trimmedName, description: null, color: null, emoticon: null },
+    {
+      name: trimmedName,
+      description: style?.description ?? null,
+      color: style?.color ?? null,
+      emoticon: style?.emoticon ?? null,
+    },
     dek,
   )
 

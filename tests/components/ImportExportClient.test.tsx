@@ -41,6 +41,21 @@ vi.mock('@/lib/services/categories', () => ({
   getOrCreateCategoryByName: vi.fn(),
 }))
 
+vi.mock('@/lib/services/importExport/exportVault', () => ({
+  buildVaultExport: vi.fn().mockResolvedValue({
+    data: { format: 'link-vault-export', version: 2, exportedAt: '', mode: 'links', links: [] },
+    hiddenPrivateLinksCount: 0,
+  }),
+}))
+
+vi.mock('@/lib/services/importExport/importVault', () => ({
+  importVaultExport: vi.fn(),
+}))
+
+vi.mock('@/lib/services/tags/tags', () => ({
+  getPrivateTagIds: vi.fn().mockResolvedValue([]),
+}))
+
 vi.mock('next/link', () => ({
   default: ({ href, children }: { href: string; children: React.ReactNode }) =>
     React.createElement('a', { href }, children),
@@ -49,6 +64,10 @@ vi.mock('next/link', () => ({
 const FAKE_DEK = {} as CryptoKey
 vi.mock('@/lib/context/VaultContext', () => ({
   useVault: () => ({ dek: FAKE_DEK, isUnlocked: true, unlock: vi.fn(), changePassword: vi.fn(), lock: vi.fn() }),
+}))
+
+vi.mock('@/lib/context/UnlockedTagsContext', () => ({
+  useUnlockedTags: () => ({ unlockedTagIds: new Set(), unlockTag: vi.fn(), lockTag: vi.fn(), lockAll: vi.fn() }),
 }))
 
 vi.mock('@/lib/context/TagsContext', () => ({
@@ -167,6 +186,50 @@ describe('ImportExportClient', () => {
       fireEvent.change(input)
 
       expect(screen.getByText('links.json')).toBeTruthy()
+    })
+  })
+
+  describe('malformed v2 export', () => {
+    const INVALID_V2_JSON = JSON.stringify({
+      format: 'link-vault-export', version: 2, exportedAt: '', mode: 'everything',
+      links: [], categories: 'oops',
+    })
+
+    it('shows an inline error banner instead of the appearance checkbox', async () => {
+      render(<ImportExportClient />)
+      fireEvent.click(screen.getByText('📋 Paste JSON'))
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: INVALID_V2_JSON } })
+
+      await waitFor(() => expect(screen.getByText(/Invalid export file/)).toBeTruthy())
+    })
+
+    it('disables the Import links button while the detected v2 export is invalid', async () => {
+      render(<ImportExportClient />)
+      fireEvent.click(screen.getByText('📋 Paste JSON'))
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: INVALID_V2_JSON } })
+
+      await waitFor(() => expect(screen.getByText(/Invalid export file/)).toBeTruthy())
+      expect(btn('Import links').disabled).toBe(true)
+    })
+  })
+
+  describe('progress label', () => {
+    it('shows the in-flight progress phase/count in the Import links button while importing', async () => {
+      let resolveImport: (v: unknown) => void = () => {}
+      mockImportLinks.mockImplementation((
+        _inputs: unknown, _cat: unknown, _dek: unknown, onProgress?: (done: number, total: number) => void,
+      ) => {
+        onProgress?.(1, 2)
+        return new Promise(resolve => { resolveImport = resolve })
+      })
+      render(<ImportExportClient />)
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: 'https://example.com\nhttps://github.com' } })
+      fireEvent.click(btn('Import links'))
+
+      await waitFor(() => expect(screen.getByText('Importing… links (1/2)')).toBeTruthy())
+
+      resolveImport({ imported: 2, skipped: 0, duplicates: 0 })
+      await waitFor(() => expect(screen.getByText('Import links')).toBeTruthy())
     })
   })
 })

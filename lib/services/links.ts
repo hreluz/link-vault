@@ -370,7 +370,15 @@ export async function findLinkIdByUrl(url: string, dek: CryptoKey): Promise<stri
 export type ImportLinkInput = {
   url: string
   title?: string | null
+  description?: string | null
+  site_name?: string | null
+  image_url?: string | null
+  duration?: string | null
   notes?: string | null
+  status?: LinkStatus
+  is_favorite?: boolean
+  created_at?: string
+  updated_at?: string
   tags?: string[]
   category_id?: string | null
 }
@@ -381,6 +389,7 @@ export async function importLinks(
   inputs: ImportLinkInput[],
   defaultCategoryId: string | null,
   dek: CryptoKey,
+  onProgress?: (done: number, total: number) => void,
 ): Promise<ImportResult> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -389,54 +398,65 @@ export async function importLinks(
   let imported = 0
   let skipped = 0
   let duplicates = 0
+  let processed = 0
 
   for (const input of inputs) {
-    if (!input.url.trim() || !isValidUrl(input.url)) {
-      skipped++
-      continue
+    // `finally` still runs on every `continue` below, so progress always reaches
+    // `inputs.length` regardless of which outcome (skip/duplicate/error/success) hit.
+    try {
+      if (!input.url.trim() || !isValidUrl(input.url)) {
+        skipped++
+        continue
+      }
+
+      const trimmedUrl = input.url.trim()
+      const url_fingerprint = await hmacFingerprint(trimmedUrl, dek)
+
+      const existingId = await findLinkIdByUrl(trimmedUrl, dek)
+      if (existingId) {
+        duplicates++
+        continue
+      }
+
+      const category_id = input.category_id ?? defaultCategoryId
+      const content: LinkContent = {
+        url: trimmedUrl,
+        title: input.title ?? null,
+        description: input.description ?? null,
+        site_name: input.site_name ?? new URL(trimmedUrl).hostname,
+        image_url: input.image_url ?? null,
+        duration: input.duration ?? null,
+        notes: input.notes ?? null,
+      }
+      const encoded = await toEncryptedColumns<LinkContent>(content, dek)
+
+      const { data: link, error } = await supabase
+        .from('links')
+        .insert({
+          user_id: user.id,
+          ...encoded,
+          url_fingerprint,
+          category_id,
+          status: input.status ?? 'unread',
+          is_favorite: input.is_favorite ?? false,
+          // Only an explicit "everything" restore sets these; normal imports keep the DB's now() defaults.
+          ...(input.created_at ? { created_at: input.created_at } : {}),
+          ...(input.updated_at ? { updated_at: input.updated_at } : {}),
+        })
+        .select()
+        .single()
+
+      if (error || !link) {
+        skipped++
+        continue
+      }
+
+      const tagIds = await syncTagsByName(input.tags?.filter(Boolean) ?? [], dek)
+      await insertLinkTags(link.id, tagIds)
+      imported++
+    } finally {
+      onProgress?.(++processed, inputs.length)
     }
-
-    const trimmedUrl = input.url.trim()
-    const url_fingerprint = await hmacFingerprint(trimmedUrl, dek)
-
-    const existingId = await findLinkIdByUrl(trimmedUrl, dek)
-    if (existingId) {
-      duplicates++
-      continue
-    }
-
-    const category_id = input.category_id ?? defaultCategoryId
-    const content: LinkContent = {
-      url: trimmedUrl,
-      title: input.title ?? null,
-      description: null,
-      site_name: new URL(trimmedUrl).hostname,
-      image_url: null,
-      duration: null,
-      notes: input.notes ?? null,
-    }
-    const encoded = await toEncryptedColumns<LinkContent>(content, dek)
-
-    const { data: link, error } = await supabase
-      .from('links')
-      .insert({
-        user_id: user.id,
-        ...encoded,
-        url_fingerprint,
-        category_id,
-        status: 'unread',
-      })
-      .select()
-      .single()
-
-    if (error || !link) {
-      skipped++
-      continue
-    }
-
-    const tagIds = await syncTagsByName(input.tags?.filter(Boolean) ?? [], dek)
-    await insertLinkTags(link.id, tagIds)
-    imported++
   }
 
   return { imported, skipped, duplicates }

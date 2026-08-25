@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest'
 import { getOrCreateCategoryByName } from '@/lib/services/categories'
-import { generateDek, encryptJson } from '@/lib/crypto/vault'
+import { generateDek, encryptJson, decryptJson } from '@/lib/crypto/vault'
 
 const {
   mockGetUser,
@@ -95,5 +95,43 @@ describe('getOrCreateCategoryByName', () => {
     const id = await getOrCreateCategoryByName('  Article  ', dek)
 
     expect(id).toBe('new-cat')
+  })
+
+  describe('style', () => {
+    it('encrypts the given style into the insert payload when creating', async () => {
+      const row = await encryptCategoryRow('new-cat', 'Article')
+      mockInsertSingle.mockResolvedValue({ data: row, error: null })
+
+      await getOrCreateCategoryByName('Article', dek, { description: 'Blog posts', color: '#3B82F6', emoticon: '📄' })
+
+      const call = mockInsert.mock.calls[0][0]
+      const decrypted = await decryptJson<{ name: string; description: string | null; color: string | null; emoticon: string | null }>(
+        call.enc_payload, call.enc_iv, dek,
+      )
+      expect(decrypted).toEqual({ name: 'Article', description: 'Blog posts', color: '#3B82F6', emoticon: '📄' })
+    })
+
+    it('falls back to null style fields when no style is given', async () => {
+      const row = await encryptCategoryRow('new-cat', 'NewCat')
+      mockInsertSingle.mockResolvedValue({ data: row, error: null })
+
+      await getOrCreateCategoryByName('NewCat', dek)
+
+      const call = mockInsert.mock.calls[0][0]
+      const decrypted = await decryptJson<{ description: string | null; color: string | null; emoticon: string | null }>(
+        call.enc_payload, call.enc_iv, dek,
+      )
+      expect(decrypted).toEqual(expect.objectContaining({ description: null, color: null, emoticon: null }))
+    })
+
+    it('does not apply the given style when the category already exists', async () => {
+      const existing = await encryptCategoryRow('cat-99', 'Article')
+      mockCategoriesSelect.mockResolvedValue({ data: [existing], error: null })
+
+      const id = await getOrCreateCategoryByName('Article', dek, { color: '#000000' })
+
+      expect(id).toBe('cat-99')
+      expect(mockInsert).not.toHaveBeenCalled()
+    })
   })
 })
