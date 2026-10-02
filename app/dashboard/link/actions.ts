@@ -9,6 +9,23 @@ export type LinkMeta = {
 
 const NULL_META: LinkMeta = { title: null, description: null, image: null, duration: null }
 
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: '&', quot: '"', apos: "'", lt: '<', gt: '>', nbsp: ' ',
+}
+
+// Attribute values come straight out of raw HTML, so entities like &quot; or
+// &#x1f64b; (Instagram encodes quotes/emoji this way) must be decoded. A single
+// pass means double-encoded text (&amp;quot;) decodes once, not twice.
+function decodeHtmlEntities(s: string): string {
+  return s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (match, body: string) => {
+    if (body[0] === '#') {
+      const code = body[1].toLowerCase() === 'x' ? parseInt(body.slice(2), 16) : parseInt(body.slice(1), 10)
+      try { return String.fromCodePoint(code) } catch { return match }
+    }
+    return NAMED_ENTITIES[body.toLowerCase()] ?? match
+  })
+}
+
 function extractMeta(html: string, baseUrl: string): LinkMeta {
   const attr = (tag: string, prop: string) => {
     const re = new RegExp(
@@ -16,7 +33,8 @@ function extractMeta(html: string, baseUrl: string): LinkMeta {
       'i',
     )
     const m = html.match(re)
-    return m ? (m[1] ?? m[2] ?? null) : null
+    const raw = m ? (m[1] ?? m[2] ?? null) : null
+    return raw ? decodeHtmlEntities(raw) : null
   }
 
   const ogTitle = attr('', 'property=["\']og:title["\']')
@@ -26,7 +44,7 @@ function extractMeta(html: string, baseUrl: string): LinkMeta {
   let title = ogTitle
   if (!title) {
     const m = html.match(/<title[^>]*>([^<]+)<\/title>/i)
-    title = m ? m[1].trim() : null
+    title = m ? decodeHtmlEntities(m[1].trim()) : null
   }
 
   let image: string | null = null
