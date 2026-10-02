@@ -31,7 +31,7 @@ export default function LinkGrid() {
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <div className="mb-4 text-4xl" aria-hidden="true">⭐</div>
           <p className="text-surface-500">
-            {hasActiveFilters ? 'No favorites match your search.' : 'No favorites yet. Star a link to see it here.'}
+            {hasActiveFilters ? 'No favorites match your search.' : 'No favorites yet. Star a link to see it here — favorited links are also protected from deletion.'}
           </p>
           {hasActiveFilters && (
             <button

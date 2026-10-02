@@ -20,8 +20,8 @@ const {
   mockLinksUpdate, mockLinksUpdateEq, mockLinksUpdateSingle,
   // toggleLinkFavorite – from('links').update().eq()
   mockFavoriteToggleEq,
-  // deleteLink – from('links').update({ deleted_at }).eq()
-  mockLinksDeleteEq,
+  // deleteLink – from('links').update({ deleted_at }).eq('id', id).eq('is_favorite', false).select('id')
+  mockLinksDeleteEq, mockLinksDeleteEq2, mockLinksDeleteSelect,
   // tags select (getTags, used internally by syncTagsByName)
   mockTagsGetAll,
   // tags insert (syncTagsByName creating a missing tag): insert().select('id').single()
@@ -54,7 +54,9 @@ const {
   const mockLinksUpdateSelect = vi.fn(() => ({ single: mockLinksUpdateSingle }))
   const mockLinksUpdateEq = vi.fn(() => ({ select: mockLinksUpdateSelect }))
   const mockFavoriteToggleEq = vi.fn()
-  const mockLinksDeleteEq = vi.fn()
+  const mockLinksDeleteSelect = vi.fn()
+  const mockLinksDeleteEq2 = vi.fn(() => ({ select: mockLinksDeleteSelect }))
+  const mockLinksDeleteEq = vi.fn(() => ({ eq: mockLinksDeleteEq2 }))
   const mockLinksUpdate = vi.fn((args: Record<string, unknown>) => {
     if (args && 'is_favorite' in args) return { eq: mockFavoriteToggleEq }
     if (args && 'deleted_at' in args) return { eq: mockLinksDeleteEq }
@@ -84,7 +86,7 @@ const {
     mockLinksInsert, mockLinksSingle,
     mockLinksUpdate, mockLinksUpdateEq, mockLinksUpdateSingle,
     mockFavoriteToggleEq,
-    mockLinksDeleteEq,
+    mockLinksDeleteEq, mockLinksDeleteEq2, mockLinksDeleteSelect,
     mockTagsGetAll, mockTagsInsertSingle, mockTagsInsert: mockTagsInsert,
     mockLinkTagsInsert, mockLinkTagsDelete, mockLinkTagsDeleteEq,
     mockDupCheck, mockDupCheckEqFingerprint, mockDupCheckEqUser,
@@ -448,28 +450,35 @@ describe('updateLink', () => {
 // ── deleteLink ────────────────────────────────────────────────────────────────
 
 describe('deleteLink', () => {
-  it('returns true when the soft-delete succeeds', async () => {
-    mockLinksDeleteEq.mockResolvedValue({ error: null })
+  it('returns "deleted" when the soft-delete succeeds', async () => {
+    mockLinksDeleteSelect.mockResolvedValue({ data: [{ id: 'link-1' }], error: null })
 
-    expect(await deleteLink('link-1')).toBe(true)
+    expect(await deleteLink('link-1')).toBe('deleted')
   })
 
-  it('returns false on DB error', async () => {
-    mockLinksDeleteEq.mockResolvedValue({ error: { message: 'DB error' } })
+  it('returns "blocked" when the link is favorited (no rows updated)', async () => {
+    mockLinksDeleteSelect.mockResolvedValue({ data: [], error: null })
 
-    expect(await deleteLink('link-1')).toBe(false)
+    expect(await deleteLink('link-1')).toBe('blocked')
   })
 
-  it('targets the correct link id', async () => {
-    mockLinksDeleteEq.mockResolvedValue({ error: null })
+  it('returns "error" on DB error', async () => {
+    mockLinksDeleteSelect.mockResolvedValue({ data: null, error: { message: 'DB error' } })
+
+    expect(await deleteLink('link-1')).toBe('error')
+  })
+
+  it('targets the correct link id and excludes favorited links', async () => {
+    mockLinksDeleteSelect.mockResolvedValue({ data: [{ id: 'link-42' }], error: null })
 
     await deleteLink('link-42')
 
     expect(mockLinksDeleteEq).toHaveBeenCalledWith('id', 'link-42')
+    expect(mockLinksDeleteEq2).toHaveBeenCalledWith('is_favorite', false)
   })
 
   it('sets deleted_at to a non-null ISO timestamp', async () => {
-    mockLinksDeleteEq.mockResolvedValue({ error: null })
+    mockLinksDeleteSelect.mockResolvedValue({ data: [{ id: 'link-1' }], error: null })
 
     await deleteLink('link-1')
 

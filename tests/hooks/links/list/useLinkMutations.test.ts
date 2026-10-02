@@ -57,7 +57,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   mockAddToast.mockReturnValue('toast-id')
   mockToggleFavorite.mockResolvedValue(true)
-  mockDeleteLink.mockResolvedValue(true)
+  mockDeleteLink.mockResolvedValue('deleted')
 })
 
 describe('useLinkMutations', () => {
@@ -169,7 +169,7 @@ describe('useLinkMutations', () => {
     })
 
     it('rolls back the optimistic removal on service failure', async () => {
-      mockDeleteLink.mockResolvedValue(false)
+      mockDeleteLink.mockResolvedValue('error')
       const { result } = setupWithFakeTimers()
       act(() => result.current.handleDelete('1'))
       await act(async () => { await vi.advanceTimersByTimeAsync(2000) })
@@ -177,7 +177,7 @@ describe('useLinkMutations', () => {
     })
 
     it('toasts an error on service failure', async () => {
-      mockDeleteLink.mockResolvedValue(false)
+      mockDeleteLink.mockResolvedValue('error')
       const { result } = setupWithFakeTimers()
       act(() => result.current.handleDelete('1'))
       await act(async () => { await vi.advanceTimersByTimeAsync(2000) })
@@ -199,6 +199,29 @@ describe('useLinkMutations', () => {
       const { onClick } = mockAddToast.mock.calls[0][2]
       act(() => onClick())
       expect(result.current.rawLinks.find(l => l.id === '1')).toBeDefined()
+    })
+
+    it('refuses to delete a favorited link immediately, without starting the undo timer', () => {
+      const { result } = setupWithFakeTimers()
+      act(() => result.current.handleDelete('2'))
+      expect(result.current.rawLinks.some(l => l.id === '2')).toBe(true)
+      expect(mockAddToast).toHaveBeenCalledWith('Unfavorite to delete', 'destructive')
+      expect(mockDeleteLink).not.toHaveBeenCalled()
+    })
+
+    it('does not show the undo toast for a favorited link', () => {
+      const { result } = setupWithFakeTimers()
+      act(() => result.current.handleDelete('2'))
+      expect(mockAddToast).not.toHaveBeenCalledWith('Link deleted, tap to undo', expect.anything(), expect.anything())
+    })
+
+    it('restores the card and toasts when the deferred delete resolves "blocked"', async () => {
+      mockDeleteLink.mockResolvedValue('blocked')
+      const { result } = setupWithFakeTimers()
+      act(() => result.current.handleDelete('1'))
+      await act(async () => { await vi.advanceTimersByTimeAsync(2000) })
+      expect(result.current.rawLinks.some(l => l.id === '1')).toBe(true)
+      expect(mockAddToast).toHaveBeenCalledWith('Unfavorite to delete', 'destructive')
     })
   })
 

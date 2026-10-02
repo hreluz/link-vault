@@ -7,7 +7,10 @@ interface Props {
 }
 
 export default function BulkDeleteModal({ onClose }: Props) {
-  const { selectedCount, handleBulkDeleteSelected } = useLinkListContext()
+  const { selectedCount, selectedIds, links, handleBulkDeleteSelected } = useLinkListContext()
+  // Best-effort: only reflects favorited status of ids already loaded/decrypted client-side.
+  // The authoritative skipped-count is reported via toast once the delete actually runs.
+  const favoritedCount = links.filter(l => selectedIds.has(l.id) && l.is_favorite).length
 
   function handleConfirm() {
     handleBulkDeleteSelected()
@@ -32,6 +35,11 @@ export default function BulkDeleteModal({ onClose }: Props) {
           <p className="mt-1.5 text-sm text-surface-500 dark:text-surface-400">
             These links will be moved to trash. You can restore them from the Organize section.
           </p>
+          {favoritedCount > 0 && (
+            <p className="mt-2 text-sm text-amber-600 dark:text-amber-400">
+              {`${favoritedCount} favorited link${favoritedCount !== 1 ? 's' : ''} won't be deleted.`}
+            </p>
+          )}
 
           <div className="mt-6 flex gap-3">
             <button

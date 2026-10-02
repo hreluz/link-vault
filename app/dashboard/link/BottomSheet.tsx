@@ -78,6 +78,7 @@ export default function BottomSheet({ link, onStatusChange, onFavoriteToggle, on
           </button>
           <button
             onClick={() => { onFavoriteToggle(); handleClose() }}
+            title={link.is_favorite ? 'Favorite (delete-protected) — click to remove' : 'Favorite — also protects from deletion'}
             className={`flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-sm font-medium transition ${
               link.is_favorite
                 ? 'border-amber-200 bg-amber-50 text-amber-600 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
@@ -117,7 +118,11 @@ export default function BottomSheet({ link, onStatusChange, onFavoriteToggle, on
 
         {/* delete */}
         <div className="border-t border-surface-100 p-4 dark:border-surface-800">
-          {confirmingDelete ? (
+          {link.is_favorite ? (
+            <p className="flex w-full cursor-not-allowed items-center justify-center gap-2 py-2.5 text-sm font-medium text-surface-400 dark:text-surface-600">
+              <span aria-hidden="true">🔒</span> Unfavorite to delete
+            </p>
+          ) : confirmingDelete ? (
             <div className="flex items-center gap-3">
               <p className="flex-1 text-sm text-surface-600 dark:text-surface-400">Delete this link?</p>
               <button
