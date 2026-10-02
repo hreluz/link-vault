@@ -300,13 +300,19 @@ export async function getMatchingLinkIds(params: LinkFilterParams): Promise<Matc
   }
 }
 
-export async function deleteLink(id: string): Promise<boolean> {
+export type DeleteLinkResult = 'deleted' | 'blocked' | 'error'
+
+/** Refuses to delete a favorited link -- `.eq('is_favorite', false)` makes this a real DB-enforced invariant. */
+export async function deleteLink(id: string): Promise<DeleteLinkResult> {
   const supabase = createClient()
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('links')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
-  return !error
+    .eq('is_favorite', false)
+    .select('id')
+  if (error) return 'error'
+  return (data?.length ?? 0) > 0 ? 'deleted' : 'blocked'
 }
 
 export async function bulkUpdateStatus(ids: string[], status: LinkStatus): Promise<boolean> {
@@ -316,14 +322,20 @@ export async function bulkUpdateStatus(ids: string[], status: LinkStatus): Promi
   return !error
 }
 
-export async function bulkSoftDelete(ids: string[]): Promise<boolean> {
-  if (!ids.length) return true
+export type BulkSoftDeleteResult = { deletedIds: string[] }
+
+/** Favorited links are skipped -- `.eq('is_favorite', false)` makes this a real DB-enforced invariant. */
+export async function bulkSoftDelete(ids: string[]): Promise<BulkSoftDeleteResult | null> {
+  if (!ids.length) return { deletedIds: [] }
   const supabase = createClient()
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('links')
     .update({ deleted_at: new Date().toISOString() })
     .in('id', ids)
-  return !error
+    .eq('is_favorite', false)
+    .select('id')
+  if (error) return null
+  return { deletedIds: (data ?? []).map(row => row.id) }
 }
 
 export async function bulkUpdateCategory(ids: string[], categoryId: string | null): Promise<boolean> {

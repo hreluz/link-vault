@@ -46,10 +46,10 @@ vi.mock('@/lib/services/links', () => ({
   getMatchingLinkIds: vi.fn(),
   getLinksByIds: vi.fn(),
   SELECT_ALL_MATCHING_CAP: 2000,
-  deleteLink: vi.fn().mockResolvedValue(true),
+  deleteLink: vi.fn().mockResolvedValue('deleted'),
   toggleLinkFavorite: vi.fn().mockResolvedValue(true),
   bulkUpdateStatus: vi.fn().mockResolvedValue(true),
-  bulkSoftDelete: vi.fn().mockResolvedValue(true),
+  bulkSoftDelete: vi.fn().mockResolvedValue({ deletedIds: [] }),
   bulkUpdateCategory: vi.fn().mockResolvedValue(true),
   bulkAddTags: vi.fn().mockResolvedValue([]),
 }))
@@ -241,10 +241,10 @@ describe('useLinkList (integration)', () => {
     it('leaves other links intact', async () => {
       const { result } = await renderLoaded()
 
-      act(() => result.current.handleDeleteById('2'))
+      act(() => result.current.handleDeleteById('3'))
 
       expect(result.current.links).toHaveLength(2)
-      expect(result.current.links.map(l => l.id)).toEqual(expect.arrayContaining(['1', '3']))
+      expect(result.current.links.map(l => l.id)).toEqual(expect.arrayContaining(['1', '2']))
     })
 
     it('does not clear or require activeLink', async () => {

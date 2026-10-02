@@ -8,13 +8,21 @@ const {
   mockGetUser,
   mockLinksUpdateIn,
   mockLinksUpdate,
+  // bulkSoftDelete – from('links').update({ deleted_at }).in('id', ids).eq('is_favorite', false).select('id')
+  mockBulkDeleteIn, mockBulkDeleteEq, mockBulkDeleteSelect,
   mockTagsGetAll,
   mockTagsInsert,
   mockTagsInsertSingle,
   mockLinkTagsUpsert,
 } = vi.hoisted(() => {
   const mockLinksUpdateIn = vi.fn()
-  const mockLinksUpdate = vi.fn(() => ({ in: mockLinksUpdateIn }))
+  const mockBulkDeleteSelect = vi.fn()
+  const mockBulkDeleteEq = vi.fn(() => ({ select: mockBulkDeleteSelect }))
+  const mockBulkDeleteIn = vi.fn(() => ({ eq: mockBulkDeleteEq }))
+  const mockLinksUpdate = vi.fn((args: Record<string, unknown>) => {
+    if (args && 'deleted_at' in args) return { in: mockBulkDeleteIn }
+    return { in: mockLinksUpdateIn }
+  })
 
   const mockGetUser = vi.fn()
 
@@ -28,6 +36,7 @@ const {
   return {
     mockGetUser,
     mockLinksUpdateIn, mockLinksUpdate,
+    mockBulkDeleteIn, mockBulkDeleteEq, mockBulkDeleteSelect,
     mockTagsGetAll, mockTagsInsertSingle, mockTagsInsert,
     mockLinkTagsUpsert,
   }
@@ -94,17 +103,26 @@ describe('bulkUpdateStatus', () => {
 // ── bulkSoftDelete ────────────────────────────────────────────────────────────
 
 describe('bulkSoftDelete', () => {
-  it('returns true on success', async () => {
-    expect(await bulkSoftDelete(['1', '2'])).toBe(true)
+  beforeEach(() => {
+    mockBulkDeleteSelect.mockResolvedValue({ data: [{ id: '1' }, { id: '2' }], error: null })
   })
 
-  it('returns false on DB error', async () => {
-    mockLinksUpdateIn.mockResolvedValue({ error: { message: 'DB error' } })
-    expect(await bulkSoftDelete(['1'])).toBe(false)
+  it('returns the deleted ids on success', async () => {
+    expect(await bulkSoftDelete(['1', '2'])).toEqual({ deletedIds: ['1', '2'] })
   })
 
-  it('returns true immediately when ids is empty', async () => {
-    expect(await bulkSoftDelete([])).toBe(true)
+  it('returns null on DB error', async () => {
+    mockBulkDeleteSelect.mockResolvedValue({ data: null, error: { message: 'DB error' } })
+    expect(await bulkSoftDelete(['1'])).toBeNull()
+  })
+
+  it('excludes favorited ids from deletedIds without erroring', async () => {
+    mockBulkDeleteSelect.mockResolvedValue({ data: [{ id: '1' }], error: null })
+    expect(await bulkSoftDelete(['1', '2'])).toEqual({ deletedIds: ['1'] })
+  })
+
+  it('returns an empty result immediately when ids is empty', async () => {
+    expect(await bulkSoftDelete([])).toEqual({ deletedIds: [] })
     expect(mockLinksUpdate).not.toHaveBeenCalled()
   })
 
@@ -115,9 +133,10 @@ describe('bulkSoftDelete', () => {
     )
   })
 
-  it('calls .in() with the correct ids', async () => {
+  it('calls .in() with the correct ids and excludes favorited links', async () => {
     await bulkSoftDelete(['1', '2', '3'])
-    expect(mockLinksUpdateIn).toHaveBeenCalledWith('id', ['1', '2', '3'])
+    expect(mockBulkDeleteIn).toHaveBeenCalledWith('id', ['1', '2', '3'])
+    expect(mockBulkDeleteEq).toHaveBeenCalledWith('is_favorite', false)
   })
 })
 

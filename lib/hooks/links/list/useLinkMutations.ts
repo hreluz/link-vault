@@ -35,6 +35,10 @@ export function useLinkMutations(
 
   function handleDelete(id: string) {
     const snapshot = rawLinks.find(l => l.id === id)
+    if (snapshot?.is_favorite) {
+      addToast('Unfavorite to delete', 'destructive')
+      return
+    }
     setRawLinks(prev => prev.filter(l => l.id !== id))
 
     let cancelled = false
@@ -50,8 +54,11 @@ export function useLinkMutations(
 
     setTimeout(async () => {
       if (cancelled) return
-      const ok = await deleteLink(id)
-      if (!ok) {
+      const result = await deleteLink(id)
+      if (result === 'blocked') {
+        if (snapshot) setRawLinks(prev => [snapshot, ...prev])
+        addToast('Unfavorite to delete', 'destructive')
+      } else if (result === 'error') {
         if (snapshot) setRawLinks(prev => [snapshot, ...prev])
         addToast('Failed to delete link', 'destructive')
       }

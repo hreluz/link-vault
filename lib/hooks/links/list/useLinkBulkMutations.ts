@@ -39,11 +39,28 @@ export function useLinkBulkMutations(
 
   async function handleBulkDelete(ids: string[]) {
     const snapshots = rawLinks.filter(l => ids.includes(l.id))
-    setRawLinks(prev => prev.filter(l => !ids.includes(l.id)))
-    const ok = await bulkSoftDelete(ids)
-    if (!ok) {
+    const deletableIds = ids.filter(id => !snapshots.find(s => s.id === id)?.is_favorite)
+    setRawLinks(prev => prev.filter(l => !deletableIds.includes(l.id)))
+    const result = await bulkSoftDelete(ids)
+    if (!result) {
       setRawLinks(prev => [...snapshots, ...prev])
       addToast('Failed to delete links', 'destructive')
+      return
+    }
+    const { deletedIds } = result
+    // Reconcile against the server's authoritative result: drop anything actually
+    // deleted that a race left behind, restore anything optimistically removed
+    // that turned out to be favorited/undeletable.
+    setRawLinks(prev => {
+      const withoutDeleted = prev.filter(l => !deletedIds.includes(l.id))
+      const missingSnapshots = snapshots.filter(
+        s => !deletedIds.includes(s.id) && !withoutDeleted.find(l => l.id === s.id)
+      )
+      return [...missingSnapshots, ...withoutDeleted]
+    })
+    const skipped = ids.length - deletedIds.length
+    if (skipped > 0) {
+      addToast(`${deletedIds.length} link${deletedIds.length !== 1 ? 's' : ''} deleted, ${skipped} favorited link${skipped !== 1 ? 's' : ''} skipped`)
     } else {
       addToast(`${ids.length} link${ids.length !== 1 ? 's' : ''} deleted`)
     }

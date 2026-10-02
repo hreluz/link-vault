@@ -49,7 +49,7 @@ export default function LinkCard({
   }
 
   return (
-    <SwipeableCard onSwipeDelete={isSelectionMode ? undefined : onDelete}>
+    <SwipeableCard onSwipeDelete={isSelectionMode || link.is_favorite ? undefined : onDelete}>
       <article
         className={`relative flex h-full flex-col bg-surface-card transition dark:bg-surface-900 ${
           isSelectionMode ? 'cursor-pointer select-none' : ''
@@ -109,6 +109,7 @@ export default function LinkCard({
                 <button
                   onClick={onFavoriteToggle}
                   aria-label={link.is_favorite ? 'Remove from favorites' : 'Add to favorites'}
+                  title={link.is_favorite ? 'Favorite (delete-protected) — click to remove' : 'Favorite — also protects from deletion'}
                   className={`flex h-8 w-8 items-center justify-center rounded-lg text-lg transition ${
                     link.is_favorite
                       ? 'text-amber-400 hover:text-amber-500'

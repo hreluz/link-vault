@@ -71,7 +71,8 @@ beforeEach(() => {
   vi.clearAllMocks()
   mockAddToast.mockReturnValue('toast-id')
   mockBulkUpdateStatus.mockResolvedValue(true)
-  mockBulkSoftDelete.mockResolvedValue(true)
+  // Mirrors the real service's is_favorite exclusion: LINK_B is favorited in these fixtures.
+  mockBulkSoftDelete.mockImplementation(async ids => ({ deletedIds: ids.filter(id => id !== LINK_B.id) }))
   mockBulkUpdateCategory.mockResolvedValue(true)
   mockBulkAddTags.mockImplementation(async (_ids, names) => names)
 })
@@ -125,21 +126,21 @@ describe('useLinkBulkMutations', () => {
   })
 
   describe('handleBulkDelete', () => {
-    it('removes all matching links immediately', async () => {
-      const { result } = renderHook(() => useHarness())
+    it('removes all matching (non-favorited) links immediately', async () => {
+      const { result } = renderHook(() => useHarness([LINK_A, LINK_C]))
 
-      await act(async () => { await result.current.handleBulkDelete(['1', '2']) })
+      await act(async () => { await result.current.handleBulkDelete(['1', '3']) })
 
       expect(result.current.rawLinks).toHaveLength(0)
     })
 
     it('leaves non-matching links in place', async () => {
-      const { result } = renderHook(() => useHarness())
+      const { result } = renderHook(() => useHarness([LINK_A, LINK_C]))
 
       await act(async () => { await result.current.handleBulkDelete(['1']) })
 
       expect(result.current.rawLinks).toHaveLength(1)
-      expect(result.current.rawLinks[0].id).toBe('2')
+      expect(result.current.rawLinks[0].id).toBe('3')
     })
 
     it('calls bulkSoftDelete immediately (no undo timer)', async () => {
@@ -150,10 +151,10 @@ describe('useLinkBulkMutations', () => {
       expect(mockBulkSoftDelete).toHaveBeenCalledWith(['1'])
     })
 
-    it('toasts a success message with the correct count', async () => {
-      const { result } = renderHook(() => useHarness())
+    it('toasts a success message with the correct count when none are skipped', async () => {
+      const { result } = renderHook(() => useHarness([LINK_A, LINK_C]))
 
-      await act(async () => { await result.current.handleBulkDelete(['1', '2']) })
+      await act(async () => { await result.current.handleBulkDelete(['1', '3']) })
 
       expect(mockAddToast).toHaveBeenCalledWith('2 links deleted')
     })
@@ -167,21 +168,48 @@ describe('useLinkBulkMutations', () => {
     })
 
     it('restores all links on service failure', async () => {
-      mockBulkSoftDelete.mockResolvedValue(false)
-      const { result } = renderHook(() => useHarness())
+      mockBulkSoftDelete.mockResolvedValue(null)
+      const { result } = renderHook(() => useHarness([LINK_A, LINK_C]))
 
-      await act(async () => { await result.current.handleBulkDelete(['1', '2']) })
+      await act(async () => { await result.current.handleBulkDelete(['1', '3']) })
 
       expect(result.current.rawLinks).toHaveLength(2)
     })
 
     it('toasts an error on failure', async () => {
-      mockBulkSoftDelete.mockResolvedValue(false)
+      mockBulkSoftDelete.mockResolvedValue(null)
       const { result } = renderHook(() => useHarness())
 
       await act(async () => { await result.current.handleBulkDelete(['1']) })
 
       expect(mockAddToast).toHaveBeenCalledWith('Failed to delete links', 'destructive')
+    })
+
+    it('does not optimistically remove a favorited link', async () => {
+      const { result } = renderHook(() => useHarness())
+
+      await act(async () => { await result.current.handleBulkDelete(['1', '2']) })
+
+      expect(result.current.rawLinks.find(l => l.id === '2')).toBeDefined()
+    })
+
+    it('deletes only non-favorited ids and restores favorited ones when bulkSoftDelete returns a partial deletedIds list', async () => {
+      mockBulkSoftDelete.mockImplementation(async ids => ({ deletedIds: ids.filter(id => id !== '2') }))
+      const { result } = renderHook(() => useHarness())
+
+      await act(async () => { await result.current.handleBulkDelete(['1', '2']) })
+
+      expect(result.current.rawLinks.find(l => l.id === '1')).toBeUndefined()
+      expect(result.current.rawLinks.find(l => l.id === '2')).toBeDefined()
+    })
+
+    it('shows a "N deleted, M favorited skipped" toast when some are skipped', async () => {
+      mockBulkSoftDelete.mockImplementation(async ids => ({ deletedIds: ids.filter(id => id !== '2') }))
+      const { result } = renderHook(() => useHarness())
+
+      await act(async () => { await result.current.handleBulkDelete(['1', '2']) })
+
+      expect(mockAddToast).toHaveBeenCalledWith('1 link deleted, 1 favorited link skipped')
     })
   })
 
