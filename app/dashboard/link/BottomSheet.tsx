@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import type { LinkWithTags } from '@/lib/services/links'
 import type { LinkStatus } from '@/lib/types/database'
+import { useBackdropClose } from '@/lib/hooks/shared/useBackdropClose'
 import { STATUS_CONFIG } from '../config'
 
 const STATUS_ICONS: Record<LinkStatus, string> = {
@@ -24,21 +25,20 @@ interface Props {
 export default function BottomSheet({ link, onStatusChange, onFavoriteToggle, onEdit, onDelete, onClose }: Props) {
   const [confirmingDelete, setConfirmingDelete] = useState(false)
 
-  if (!link) return null
-
   function handleClose() {
     setConfirmingDelete(false)
     onClose()
   }
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end lg:items-center lg:justify-center" onClick={handleClose}>
-      <div className="absolute inset-0 bg-black/40 lg:backdrop-blur-sm" />
+  const backdrop = useBackdropClose(handleClose)
 
-      <div
-        className="relative w-full rounded-t-2xl bg-surface-card lg:max-w-sm lg:rounded-2xl lg:shadow-2xl lg:max-h-[90vh] lg:overflow-y-auto dark:bg-surface-900"
-        onClick={e => e.stopPropagation()}
-      >
+  if (!link) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end lg:items-center lg:justify-center" {...backdrop}>
+      <div className="pointer-events-none absolute inset-0 bg-black/40 lg:backdrop-blur-sm" />
+
+      <div className="relative w-full rounded-t-2xl bg-surface-card lg:max-w-sm lg:rounded-2xl lg:shadow-2xl lg:max-h-[90vh] lg:overflow-y-auto dark:bg-surface-900">
         {/* drag handle - mobile only */}
         <div className="flex justify-center pb-1 pt-3 lg:hidden">
           <div className="h-1 w-10 rounded-full bg-surface-200 dark:bg-surface-700" />

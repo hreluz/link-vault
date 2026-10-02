@@ -3,6 +3,7 @@
 import type { LinkWithTags } from '@/lib/services/links'
 import { useEditLinkForm } from '@/lib/hooks/links'
 import { useCategoryList } from '@/lib/hooks/categories/useCategoryList'
+import { useBackdropClose } from '@/lib/hooks/shared/useBackdropClose'
 import { toast } from 'sonner'
 import { LinkFormContext } from './LinkFormContext'
 import LinkForm from './LinkForm'
@@ -16,6 +17,7 @@ interface Props {
 export default function EditLinkModal({ link, onSave, onClose }: Props) {
   const form = useEditLinkForm(link)
   const { categories } = useCategoryList()
+  const backdrop = useBackdropClose(onClose)
 
   if (!link) return null
 
@@ -28,14 +30,10 @@ export default function EditLinkModal({ link, onSave, onClose }: Props) {
     }
   }
 
-  function handleBackdropClick(e: React.MouseEvent<HTMLDivElement>) {
-    if (e.target === e.currentTarget) onClose()
-  }
-
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
-      onClick={handleBackdropClick}
+      {...backdrop}
     >
       <div className="w-full max-w-md rounded-2xl bg-surface-card shadow-xl ring-1 ring-surface-200 dark:bg-surface-900 dark:ring-surface-700">
         <div className="border-b border-surface-100 px-6 py-4 dark:border-surface-800">

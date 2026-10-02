@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { verifyPrivateTagPassword, getPrivateTagSettings } from '@/lib/services/tags/privateTagSecurity'
 import { createClient } from '@/lib/supabase/client'
+import { useBackdropClose } from '@/lib/hooks/shared/useBackdropClose'
 
 interface Props {
   onUnlock: () => void
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export default function UnlockTagModal({ onUnlock, onClose }: Props) {
+  const backdrop = useBackdropClose(onClose)
   const router = useRouter()
   const [password, setPassword] = useState('')
   const [hint, setHint] = useState<string | null>(null)
@@ -54,7 +56,7 @@ export default function UnlockTagModal({ onUnlock, onClose }: Props) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:px-4"
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+      {...backdrop}
     >
       <div className="w-full max-w-sm rounded-t-2xl bg-surface-card shadow-xl ring-1 ring-surface-200 sm:rounded-2xl dark:bg-surface-900 dark:ring-surface-700">
         <div className="flex justify-center pb-1 pt-3 sm:hidden">

@@ -5,12 +5,14 @@ import { useTagInput } from '@/lib/hooks/links/useTagInput'
 import { useAvailableTags } from '@/lib/hooks/tags/useAvailableTags'
 import { useLinkListContext } from './LinkListContext'
 import TagSuggestionsDropdown from '@/components/TagSuggestionsDropdown'
+import { useBackdropClose } from '@/lib/hooks/shared/useBackdropClose'
 
 interface Props {
   onClose: () => void
 }
 
 export default function BulkTagModal({ onClose }: Props) {
+  const backdrop = useBackdropClose(onClose)
   const { handleBulkTagSelected } = useLinkListContext()
   const [tagString, setTagString] = useState('')
   const availableTags = useAvailableTags()
@@ -35,7 +37,7 @@ export default function BulkTagModal({ onClose }: Props) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:px-4"
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+      {...backdrop}
     >
       <div className="w-full max-w-md rounded-t-2xl bg-surface-card shadow-xl ring-1 ring-surface-200 sm:rounded-2xl dark:bg-surface-900 dark:ring-surface-700">
         <div className="flex justify-center pb-1 pt-3 sm:hidden">
