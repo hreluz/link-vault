@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useDomainAutoAssign } from '@/lib/hooks/categories/useDomainAutoAssign'
 import type { Category } from '@/lib/services/categories'
+import { useBackdropClose } from '@/lib/hooks/shared/useBackdropClose'
 
 interface Props {
   category: Category
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export default function CategoryDomainsModal({ category, onClose }: Props) {
+  const backdrop = useBackdropClose(onClose)
   const { domains, loading, error, add, remove } = useDomainAutoAssign(category.id)
   const [input, setInput] = useState('')
   const [adding, setAdding] = useState(false)
@@ -35,7 +37,7 @@ export default function CategoryDomainsModal({ category, onClose }: Props) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+      {...backdrop}
     >
       <div className="w-full max-w-md rounded-2xl bg-surface-card p-6 shadow-xl ring-1 ring-surface-200 dark:bg-surface-900 dark:ring-surface-700">
         <div className="mb-5 flex items-center gap-2">
