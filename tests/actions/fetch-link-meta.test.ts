@@ -85,4 +85,37 @@ describe('fetchLinkMeta', () => {
     expect(meta.title).toBe('An article')
     expect(mockFetch).not.toHaveBeenCalledWith(expect.stringContaining('youtube.com/oembed'), expect.anything())
   })
+
+  it('decodes HTML entities in og:title, og:description and og:image', async () => {
+    const INSTAGRAM_URL = 'https://www.instagram.com/p/C0u8odWu7Pm/'
+    mockFetch.mockImplementation(async (url: string) => {
+      if (url === INSTAGRAM_URL) {
+        return htmlResponse(`<html><head>
+          <meta property="og:title" content="No Soy Normal Cerveceria on Instagram: &quot;&#x1f64b;&#x200d;&#x2642;&#xfe0f;Quien se suma #a&#xf1;onuevo&quot;" />
+          <meta property="og:description" content="Tom &amp; Jerry &#39;s &lt;3" />
+          <meta property="og:image" content="https://scontent.cdninstagram.com/v/pic.jpg?stp=a&amp;_nc_cat=104&amp;oe=6AC5" />
+        </head></html>`)
+      }
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+
+    const meta = await fetchLinkMeta(INSTAGRAM_URL)
+
+    expect(meta.title).toBe('No Soy Normal Cerveceria on Instagram: "🙋‍♂️Quien se suma #añonuevo"')
+    expect(meta.description).toBe("Tom & Jerry 's <3")
+    expect(meta.image).toBe('https://scontent.cdninstagram.com/v/pic.jpg?stp=a&_nc_cat=104&oe=6AC5')
+  })
+
+  it('decodes double-encoded entities only once', async () => {
+    mockFetch.mockImplementation(async (url: string) => {
+      if (url === ARTICLE_URL) {
+        return htmlResponse('<html><head><title>Say &amp;quot;hi&amp;quot;</title></head></html>')
+      }
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+
+    const meta = await fetchLinkMeta(ARTICLE_URL)
+
+    expect(meta.title).toBe('Say &quot;hi&quot;')
+  })
 })
