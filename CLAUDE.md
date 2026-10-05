@@ -6,7 +6,7 @@ A personal "save for later" app for bookmarking links across content types — v
 
 ## Node version
 
-Always run `nvm use v24.13.0` before executing any shell commands (dev server, tests, installs, etc.).
+The Node version (v24.13.0) is pinned in `.nvmrc` — CI reads it via `node-version-file`. Always run `nvm use` (no argument; it reads `.nvmrc`) before executing any shell commands (dev server, tests, installs, etc.).
 
 ## Switching branches locally
 
