@@ -30,6 +30,7 @@ export type LinkFormContextValue = {
   notes: string
   setNotes: (v: string) => void
   submitting: boolean
+  hasChanges?: boolean
   error: string | null
   categories: Category[]
   onSubmit: () => Promise<void>

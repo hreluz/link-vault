@@ -13,6 +13,8 @@ const LINK: LinkWithTags = {
   created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
 }
 
+type Form = ReturnType<typeof useEditLinkForm>
+
 const UPDATED_LINK: LinkWithTags = { ...LINK, title: 'Updated', tags: ['react'] }
 
 vi.mock('@/lib/services/links', () => ({
@@ -96,6 +98,52 @@ describe('useEditLinkForm', () => {
       const { result } = renderHook(() => useEditLinkForm(LINK))
       act(() => result.current.setNotes('new note'))
       expect(result.current.notes).toBe('new note')
+    })
+  })
+
+  describe('hasChanges', () => {
+    it('is false when the form first opens', () => {
+      const { result } = renderHook(() => useEditLinkForm(LINK))
+      expect(result.current.hasChanges).toBe(false)
+    })
+
+    it('is false on open for a link with null text fields', () => {
+      const { result } = renderHook(() => useEditLinkForm({ ...LINK, description: null, notes: null, title: null }))
+      expect(result.current.hasChanges).toBe(false)
+    })
+
+    it.each([
+      ['title', (r: Form) => r.setTitle('Changed')],
+      ['description', (r: Form) => r.setDescription('Changed')],
+      ['category', (r: Form) => r.setCategoryId('cat-2')],
+      ['status', (r: Form) => r.setStatus('read')],
+      ['tags', (r: Form) => r.setTags('react')],
+      ['notes', (r: Form) => r.setNotes('Changed')],
+      ['image', (r: Form) => r.setImageUrl('https://img.example.com/a.png')],
+      ['duration', (r: Form) => r.setDuration('4:33')],
+    ])('is true after changing %s', (_, change) => {
+      const { result } = renderHook(() => useEditLinkForm(LINK))
+      act(() => change(result.current))
+      expect(result.current.hasChanges).toBe(true)
+    })
+
+    it('is false again once a field is changed back', () => {
+      const { result } = renderHook(() => useEditLinkForm(LINK))
+      act(() => result.current.setTitle('Changed'))
+      act(() => result.current.setTitle('Example'))
+      expect(result.current.hasChanges).toBe(false)
+    })
+
+    it('ignores surrounding whitespace in text fields', () => {
+      const { result } = renderHook(() => useEditLinkForm(LINK))
+      act(() => result.current.setNotes('  my notes  '))
+      expect(result.current.hasChanges).toBe(false)
+    })
+
+    it('ignores tag order, extra spaces, and stray commas', () => {
+      const { result } = renderHook(() => useEditLinkForm(LINK))
+      act(() => result.current.setTags(' css ,react, '))
+      expect(result.current.hasChanges).toBe(false)
     })
   })
 

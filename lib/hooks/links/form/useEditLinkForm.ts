@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { updateLink, type LinkWithTags } from '@/lib/services/links'
 import { useVault } from '@/lib/context/VaultContext'
 import { useTagNameLookup } from '@/lib/hooks/tags/useTagNameLookup'
@@ -19,10 +20,30 @@ function toFormState(link: LinkWithTags, tagNameById: Map<string, string>) {
   }
 }
 
+type FormState = ReturnType<typeof toFormState>
+
+function tagSet(raw: string): Set<string> {
+  return new Set(raw.split(',').map(t => t.trim()).filter(Boolean))
+}
+
+// Compares the way handleSubmit saves: text fields trimmed (so '' and null match),
+// tags as a set of names (so reordering or a stray comma isn't a change).
+function differsFrom(current: FormState, initial: FormState): boolean {
+  const textFields = ['title', 'description', 'imageUrl', 'duration', 'notes'] as const
+  if (textFields.some(k => current[k].trim() !== initial[k].trim())) return true
+  if (current.categoryId !== initial.categoryId || current.status !== initial.status) return true
+  const a = tagSet(current.tags), b = tagSet(initial.tags)
+  return a.size !== b.size || [...a].some(t => !b.has(t))
+}
+
 export function useEditLinkForm(link: LinkWithTags | null) {
   const { dek } = useVault()
   const tagNameById = useTagNameLookup()
-  const form = useLinkForm(link ? toFormState(link, tagNameById) : DEFAULT_FIELDS)
+  // Captured once, like the form's own initial state, so the tag lookup resolving
+  // later can't make an untouched form look changed.
+  const [initial] = useState<FormState>(() => (link ? toFormState(link, tagNameById) : DEFAULT_FIELDS))
+  const form = useLinkForm(initial)
+  const hasChanges = differsFrom(form, initial)
 
   async function handleSubmit(): Promise<LinkWithTags | null> {
     if (!link || !dek) return null
@@ -45,5 +66,5 @@ export function useEditLinkForm(link: LinkWithTags | null) {
     )
   }
 
-  return { ...form, handleSubmit }
+  return { ...form, handleSubmit, hasChanges }
 }

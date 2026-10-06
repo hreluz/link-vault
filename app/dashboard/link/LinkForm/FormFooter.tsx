@@ -7,7 +7,7 @@ interface Props {
 }
 
 export default function FormFooter({ className = 'mt-6 flex gap-3' }: Props) {
-  const { url, submitting, onSubmit, onCancel, submitLabel } = useLinkFormContext()
+  const { url, submitting, hasChanges, onSubmit, onCancel, submitLabel } = useLinkFormContext()
 
   return (
     <div className={className}>
@@ -22,7 +22,8 @@ export default function FormFooter({ className = 'mt-6 flex gap-3' }: Props) {
       <button
         type="button"
         onClick={onSubmit}
-        disabled={submitting || !url.trim()}
+        disabled={submitting || !url.trim() || hasChanges === false}
+        title={hasChanges === false ? 'No changes to save' : undefined}
         className="flex-1 rounded-xl bg-primary-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {submitting ? 'Saving…' : submitLabel}
