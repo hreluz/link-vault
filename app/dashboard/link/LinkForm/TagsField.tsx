@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef } from 'react'
+import { useId, useRef } from 'react'
 import { useTagInput } from '@/lib/hooks/links/useTagInput'
 import { useAvailableTags } from '@/lib/hooks/tags/useAvailableTags'
 import { useLinkFormContext } from '../LinkFormContext'
@@ -15,10 +15,11 @@ export default function TagsField() {
     suggestions, selectedIndex, selectSuggestion, closeSuggestions, removeTag,
   } = useTagInput(tags, setTags, availableTags)
   const inputRef = useRef<HTMLInputElement>(null)
+  const id = useId()
 
   return (
     <div>
-      <label className={LABEL}>Tags</label>
+      <label htmlFor={id} className={LABEL}>Tags</label>
       <div className="relative">
         <div
           className="flex flex-wrap items-center gap-x-1.5 gap-y-1 w-full rounded-xl border border-surface-200 bg-surface-card px-4 py-3 text-sm transition cursor-text focus-within:border-primary-500 focus-within:ring-2 focus-within:ring-primary-500/20 dark:border-surface-700 dark:bg-surface-800"
@@ -41,6 +42,7 @@ export default function TagsField() {
             </span>
           ))}
           <input
+            id={id}
             ref={inputRef}
             type="text"
             value={currentInput}

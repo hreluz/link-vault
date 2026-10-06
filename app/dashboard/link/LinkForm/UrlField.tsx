@@ -1,5 +1,6 @@
 'use client'
 
+import { useId } from 'react'
 import { useLinkFormContext } from '../LinkFormContext'
 import { INPUT, LABEL } from './styles'
 
@@ -9,11 +10,12 @@ export default function UrlField() {
   const { mode, url, setUrl, fetchingMeta, autoFetch, toggleAutoFetch, duplicateLinkId } = useLinkFormContext()
   const showToggle = toggleAutoFetch !== undefined
   const readOnly = mode === 'edit'
+  const id = useId()
 
   return (
     <div>
       <div className="mb-1.5 flex items-center justify-between">
-        <label className={LABEL}>URL</label>
+        <label htmlFor={id} className={LABEL}>URL</label>
         {readOnly && (
           <a
             href={url}
@@ -51,6 +53,7 @@ export default function UrlField() {
 
       <div className="relative">
         <input
+          id={id}
           type="url"
           placeholder="https://..."
           className={`${INPUT} ${fetchingMeta ? 'pr-10' : ''} ${readOnly ? READ_ONLY : ''}`}
