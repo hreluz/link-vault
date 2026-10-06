@@ -5,6 +5,7 @@ import type { LinkStatus } from '@/lib/types/database'
 import type { Category } from '@/lib/services/categories'
 
 export type LinkFormContextValue = {
+  mode: 'add' | 'edit'
   url: string
   setUrl: (v: string) => void
   title: string

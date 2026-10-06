@@ -4,7 +4,7 @@ import { useLinkFormContext } from '../LinkFormContext'
 import { INPUT, LABEL } from './styles'
 
 export default function TitleField() {
-  const { title, setTitle, handleTitleChange, fetchingMeta } = useLinkFormContext()
+  const { mode, title, setTitle, handleTitleChange, fetchingMeta } = useLinkFormContext()
 
   return (
     <div>
@@ -16,7 +16,7 @@ export default function TitleField() {
       </div>
       <input
         type="text"
-        placeholder={fetchingMeta ? '' : 'Optional — leave blank to auto-fetch'}
+        placeholder={fetchingMeta ? '' : mode === 'edit' ? 'Defaults to the URL if left blank' : 'Optional — leave blank to auto-fetch'}
         className={INPUT}
         value={title}
         onChange={e => (handleTitleChange ?? setTitle)(e.target.value)}

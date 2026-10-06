@@ -39,7 +39,7 @@ export default function EditLinkModal({ link, onSave, onClose }: Props) {
         <div className="border-b border-surface-100 px-6 py-4 dark:border-surface-800">
           <h2 className="text-base font-semibold text-surface-900 dark:text-surface-50">Edit link</h2>
         </div>
-        <LinkFormContext.Provider value={{ ...form, categories, onSubmit: handleSave, onCancel: onClose, submitLabel: 'Save changes' }}>
+        <LinkFormContext.Provider value={{ ...form, mode: 'edit', categories, onSubmit: handleSave, onCancel: onClose, submitLabel: 'Save changes' }}>
           <LinkForm scrollable />
         </LinkFormContext.Provider>
       </div>

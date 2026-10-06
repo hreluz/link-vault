@@ -29,7 +29,9 @@ export function useEditLinkForm(link: LinkWithTags | null) {
     return form.wrapSubmit(
       () => updateLink({
         id: link.id,
-        url: form.url,
+        // A saved link's URL is immutable -- to point at a different URL, delete the
+        // link and save a new one.
+        url: link.url,
         title: form.resolvedTitle,
         description: form.description || null,
         image_url: form.imageUrl || null,

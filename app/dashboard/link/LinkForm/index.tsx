@@ -19,7 +19,7 @@ interface Props {
 
 export default function LinkForm({ scrollable = false, collapsible = false }: Props) {
   const [expanded, setExpanded] = useState(!collapsible)
-  const { error, imageUrl, duration } = useLinkFormContext()
+  const { error, imageUrl, setImageUrl, duration } = useLinkFormContext()
 
   const fieldsCls = scrollable
     ? 'max-h-[70vh] overflow-y-auto px-6 py-5 space-y-4'
@@ -44,6 +44,14 @@ export default function LinkForm({ scrollable = false, collapsible = false }: Pr
                 style={{ aspectRatio: '16/9' }}
                 loading="lazy"
               />
+              <button
+                type="button"
+                onClick={() => setImageUrl('')}
+                className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white transition hover:bg-black/80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
+                aria-label="Remove image"
+              >
+                <span aria-hidden="true" className="text-sm">✕</span>
+              </button>
               {duration && (
                 <span className="absolute bottom-2 right-2 rounded-md bg-black/80 px-1.5 py-0.5 text-xs font-semibold text-white">
                   {duration}
