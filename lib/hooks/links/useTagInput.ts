@@ -19,14 +19,17 @@ export function useTagInput(
   const [confirmedTags, setConfirmedTags] = useState<string[]>(() => parseTags(initialTags))
   const [currentInput, setCurrentInput] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(-1)
+  // Set by Escape so the list actually closes (it's otherwise derived from the typed
+  // text and would stay open); typing or pasting brings it back.
+  const [dismissed, setDismissed] = useState(false)
 
   const suggestions = useMemo(() => {
-    if (!currentInput.trim()) return []
+    if (dismissed || !currentInput.trim()) return []
     const lower = currentInput.toLowerCase()
     return availableTags
       .filter(t => t.toLowerCase().includes(lower) && !confirmedTags.includes(t))
       .slice(0, 8)
-  }, [currentInput, availableTags, confirmedTags])
+  }, [dismissed, currentInput, availableTags, confirmedTags])
 
   function selectSuggestion(tag: string) {
     const next = [...confirmedTags, tag]
@@ -71,6 +74,7 @@ export function useTagInput(
     if (key === 'Escape') {
       if (!suggestions.length) return false
       setSelectedIndex(-1)
+      setDismissed(true)
       return true
     }
     if ((key === 'Enter' || key === 'Tab') && selectedIndex >= 0 && suggestions[selectedIndex]) {
@@ -96,10 +100,12 @@ export function useTagInput(
     const cleaned = value.replace(/[#,]/g, '').toLowerCase()
     setCurrentInput(cleaned)
     setSelectedIndex(-1)
+    setDismissed(false)
     onChange(serialize(confirmedTags, cleaned))
   }
 
   function onPaste(text: string) {
+    setDismissed(false)
     const parts = text.split(/[,\s]+/).map(p => p.replace(/#/g, '').trim().toLowerCase()).filter(Boolean)
     if (parts.length > 1) {
       const next = [...confirmedTags, ...parts]

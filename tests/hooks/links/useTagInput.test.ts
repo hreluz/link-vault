@@ -330,6 +330,29 @@ describe('useTagInput', () => {
       expect(result.current.selectedIndex).toBe(-1)
     })
 
+    it('Escape closes the suggestion list, and a second Escape is no longer handled', () => {
+      const { result } = render('', vi.fn(), AVAILABLE)
+      act(() => result.current.onInputChange('rea'))
+      expect(result.current.suggestions.length).toBeGreaterThan(0)
+
+      let handled = false
+      act(() => { handled = result.current.onKeyPress('Escape') })
+      expect(handled).toBe(true)
+      expect(result.current.suggestions).toEqual([])
+
+      // Nothing left to close, so the key is free for whatever contains the input.
+      act(() => { handled = result.current.onKeyPress('Escape') })
+      expect(handled).toBe(false)
+    })
+
+    it('reopens suggestions after Escape once the user types again', () => {
+      const { result } = render('', vi.fn(), AVAILABLE)
+      act(() => result.current.onInputChange('rea'))
+      act(() => result.current.onKeyPress('Escape'))
+      act(() => result.current.onInputChange('reac'))
+      expect(result.current.suggestions.length).toBeGreaterThan(0)
+    })
+
     it('Enter selects highlighted suggestion when selectedIndex >= 0', () => {
       const { result } = render('', vi.fn(), ['react', 'css'])
       act(() => result.current.onInputChange('rea'))

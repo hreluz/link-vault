@@ -1,5 +1,6 @@
 'use client'
 
+import { useId } from 'react'
 import type { LinkStatus } from '@/lib/types/database'
 import { STATUS_CONFIG } from '../../config'
 import { useLinkFormContext } from '../LinkFormContext'
@@ -7,12 +8,16 @@ import { INPUT, LABEL } from './styles'
 
 export default function CategoryStatusRow() {
   const { categoryId, setCategoryId, status, setStatus, categories } = useLinkFormContext()
+  const id = useId()
+  const categoryInputId = `${id}-category`
+  const statusInputId = `${id}-status`
 
   return (
     <div className="grid grid-cols-2 gap-3">
       <div>
-        <label className={LABEL}>Category</label>
+        <label htmlFor={categoryInputId} className={LABEL}>Category</label>
         <select
+          id={categoryInputId}
           className={INPUT}
           value={categoryId ?? ''}
           onChange={e => setCategoryId(e.target.value || null)}
@@ -26,8 +31,9 @@ export default function CategoryStatusRow() {
       </div>
 
       <div>
-        <label className={LABEL}>Status</label>
+        <label htmlFor={statusInputId} className={LABEL}>Status</label>
         <select
+          id={statusInputId}
           className={INPUT}
           value={status}
           onChange={e => setStatus(e.target.value as LinkStatus)}

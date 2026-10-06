@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { useLinkFormContext } from '../LinkFormContext'
+import { canSubmitLinkForm, useLinkFormContext } from '../LinkFormContext'
 
 interface Props {
   className?: string
@@ -10,7 +10,8 @@ interface Props {
 const SECONDARY_BUTTON = 'rounded-xl border border-surface-200 bg-surface-card px-4 py-3 text-sm font-medium text-surface-600 shadow-sm transition hover:bg-surface-50 hover:text-surface-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-400 dark:hover:bg-surface-700 dark:hover:text-surface-100'
 
 export default function FormFooter({ className = 'mt-6 flex gap-3' }: Props) {
-  const { url, submitting, hasChanges, onSubmit, onCancel, submitLabel, discardPrompt } = useLinkFormContext()
+  const ctx = useLinkFormContext()
+  const { submitting, hasChanges, onCancel, submitLabel, discardPrompt } = ctx
 
   if (discardPrompt) {
     return <DiscardBar className={className} {...discardPrompt} />
@@ -27,9 +28,8 @@ export default function FormFooter({ className = 'mt-6 flex gap-3' }: Props) {
         Cancel
       </button>
       <button
-        type="button"
-        onClick={onSubmit}
-        disabled={submitting || !url.trim() || hasChanges === false}
+        type="submit"
+        disabled={!canSubmitLinkForm(ctx)}
         title={hasChanges === false ? 'No changes to save' : undefined}
         className="flex-1 rounded-xl bg-primary-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:opacity-60"
       >

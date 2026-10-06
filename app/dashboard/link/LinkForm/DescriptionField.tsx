@@ -1,10 +1,12 @@
 'use client'
 
+import { useId } from 'react'
 import { useLinkFormContext } from '../LinkFormContext'
 import { INPUT, LABEL } from './styles'
 
 export default function DescriptionField() {
   const { mode, description, setDescription, fetchingMeta } = useLinkFormContext()
+  const id = useId()
 
   // In Add the field only appears once auto-fetch has something to show; in Edit it's
   // always present so a description can be added to a link saved without one.
@@ -12,8 +14,9 @@ export default function DescriptionField() {
 
   return (
     <div>
-      <label className={LABEL}>Description</label>
+      <label htmlFor={id} className={LABEL}>Description</label>
       <textarea
+        id={id}
         placeholder={fetchingMeta ? 'Fetching…' : mode === 'edit' ? 'Short summary (optional)' : 'Auto-fetched from page — edit or clear'}
         rows={2}
         className={`${INPUT} resize-none`}
