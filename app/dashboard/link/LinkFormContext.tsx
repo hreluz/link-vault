@@ -35,6 +35,8 @@ export type LinkFormContextValue = {
   categories: Category[]
   onSubmit: () => Promise<void>
   onCancel: () => void
+  // Set only while the "discard unsaved changes?" prompt is showing (Edit only).
+  discardPrompt?: { onKeepEditing: () => void, onDiscard: () => void }
   submitLabel: string
 }
 
