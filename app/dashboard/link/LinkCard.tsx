@@ -121,6 +121,7 @@ export default function LinkCard({
                 <button
                   onClick={onMenuOpen}
                   aria-label="Link options"
+                  data-link-options={link.id}
                   className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-100 text-sm text-surface-500 transition hover:bg-surface-200 hover:text-surface-700 active:bg-surface-200 lg:h-10 lg:w-10 lg:text-xl dark:bg-surface-800 dark:text-surface-400 dark:hover:bg-surface-700 dark:hover:text-surface-200"
                 >
                   ···

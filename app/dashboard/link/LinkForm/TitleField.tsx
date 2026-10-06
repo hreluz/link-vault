@@ -18,6 +18,8 @@ export default function TitleField() {
       </div>
       <input
         id={id}
+        // URL is read-only in Edit, so Title is the first field worth landing in.
+        data-autofocus={mode === 'edit' || undefined}
         type="text"
         placeholder={fetchingMeta ? '' : mode === 'edit' ? 'Defaults to the URL if left blank' : 'Optional — leave blank to auto-fetch'}
         className={INPUT}

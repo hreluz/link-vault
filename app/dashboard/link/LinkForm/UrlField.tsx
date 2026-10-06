@@ -54,6 +54,7 @@ export default function UrlField() {
       <div className="relative">
         <input
           id={id}
+          data-autofocus={mode === 'add' || undefined}
           type="url"
           placeholder="https://..."
           className={`${INPUT} ${fetchingMeta ? 'pr-10' : ''} ${readOnly ? READ_ONLY : ''}`}
