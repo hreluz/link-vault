@@ -13,6 +13,8 @@ const LINK: LinkWithTags = {
   created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
 }
 
+type Form = ReturnType<typeof useEditLinkForm>
+
 const UPDATED_LINK: LinkWithTags = { ...LINK, title: 'Updated', tags: ['react'] }
 
 vi.mock('@/lib/services/links', () => ({
@@ -68,12 +70,6 @@ describe('useEditLinkForm', () => {
   })
 
   describe('field setters', () => {
-    it('updates url', () => {
-      const { result } = renderHook(() => useEditLinkForm(LINK))
-      act(() => result.current.setUrl('https://new.com'))
-      expect(result.current.url).toBe('https://new.com')
-    })
-
     it('updates title', () => {
       const { result } = renderHook(() => useEditLinkForm(LINK))
       act(() => result.current.setTitle('New Title'))
@@ -105,31 +101,53 @@ describe('useEditLinkForm', () => {
     })
   })
 
+  describe('hasChanges', () => {
+    it('is false when the form first opens', () => {
+      const { result } = renderHook(() => useEditLinkForm(LINK))
+      expect(result.current.hasChanges).toBe(false)
+    })
+
+    it('is false on open for a link with null text fields', () => {
+      const { result } = renderHook(() => useEditLinkForm({ ...LINK, description: null, notes: null, title: null }))
+      expect(result.current.hasChanges).toBe(false)
+    })
+
+    it.each([
+      ['title', (r: Form) => r.setTitle('Changed')],
+      ['description', (r: Form) => r.setDescription('Changed')],
+      ['category', (r: Form) => r.setCategoryId('cat-2')],
+      ['status', (r: Form) => r.setStatus('read')],
+      ['tags', (r: Form) => r.setTags('react')],
+      ['notes', (r: Form) => r.setNotes('Changed')],
+      ['image', (r: Form) => r.setImageUrl('https://img.example.com/a.png')],
+      ['duration', (r: Form) => r.setDuration('4:33')],
+    ])('is true after changing %s', (_, change) => {
+      const { result } = renderHook(() => useEditLinkForm(LINK))
+      act(() => change(result.current))
+      expect(result.current.hasChanges).toBe(true)
+    })
+
+    it('is false again once a field is changed back', () => {
+      const { result } = renderHook(() => useEditLinkForm(LINK))
+      act(() => result.current.setTitle('Changed'))
+      act(() => result.current.setTitle('Example'))
+      expect(result.current.hasChanges).toBe(false)
+    })
+
+    it('ignores surrounding whitespace in text fields', () => {
+      const { result } = renderHook(() => useEditLinkForm(LINK))
+      act(() => result.current.setNotes('  my notes  '))
+      expect(result.current.hasChanges).toBe(false)
+    })
+
+    it('ignores tag order, extra spaces, and stray commas', () => {
+      const { result } = renderHook(() => useEditLinkForm(LINK))
+      act(() => result.current.setTags(' css ,react, '))
+      expect(result.current.hasChanges).toBe(false)
+    })
+  })
+
   describe('handleSubmit', () => {
-    it('sets error and returns null when url is empty', async () => {
-      const { result } = renderHook(() => useEditLinkForm(LINK))
-
-      act(() => result.current.setUrl('  '))
-      let returned: LinkWithTags | null = UPDATED_LINK
-      await act(async () => { returned = await result.current.handleSubmit() })
-
-      expect(returned).toBeNull()
-      expect(result.current.error).toBeTruthy()
-      expect(mockUpdateLink).not.toHaveBeenCalled()
-    })
-
-    it('sets error and returns null when url is not a valid URL', async () => {
-      const { result } = renderHook(() => useEditLinkForm(LINK))
-
-      act(() => result.current.setUrl('not-a-url'))
-      let returned: LinkWithTags | null = UPDATED_LINK
-      await act(async () => { returned = await result.current.handleSubmit() })
-
-      expect(returned).toBeNull()
-      expect(result.current.error).toBeTruthy()
-      expect(mockUpdateLink).not.toHaveBeenCalled()
-    })
-
     it('sets error and returns null when categoryId is null', async () => {
       const { result } = renderHook(() => useEditLinkForm({ ...LINK, category_id: null }))
 
@@ -169,9 +187,9 @@ describe('useEditLinkForm', () => {
     })
 
     it('uses the first 30 chars of the url without protocol as title when title is empty', async () => {
-      const { result } = renderHook(() => useEditLinkForm(LINK))
+      const { result } = renderHook(() => useEditLinkForm({ ...LINK, url: 'https://example.com/some/very/long/path/here' }))
 
-      act(() => { result.current.setUrl('https://example.com/some/very/long/path/here'); result.current.setTitle('') })
+      act(() => result.current.setTitle(''))
       await act(async () => { await result.current.handleSubmit() })
 
       expect(mockUpdateLink).toHaveBeenCalledWith(expect.objectContaining({
@@ -225,6 +243,15 @@ describe('useEditLinkForm', () => {
       expect(result.current.submitting).toBe(false)
       await act(async () => { await result.current.handleSubmit() })
       expect(result.current.submitting).toBe(false)
+    })
+
+    it("always submits the link's original url, since a saved link's url is immutable", async () => {
+      const { result } = renderHook(() => useEditLinkForm(LINK))
+
+      act(() => result.current.setUrl('https://other.com'))
+      await act(async () => { await result.current.handleSubmit() })
+
+      expect(mockUpdateLink).toHaveBeenCalledWith(expect.objectContaining({ url: 'https://example.com' }), FAKE_DEK)
     })
 
     it('converts empty notes to null', async () => {

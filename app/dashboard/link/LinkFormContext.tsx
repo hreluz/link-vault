@@ -5,6 +5,7 @@ import type { LinkStatus } from '@/lib/types/database'
 import type { Category } from '@/lib/services/categories'
 
 export type LinkFormContextValue = {
+  mode: 'add' | 'edit'
   url: string
   setUrl: (v: string) => void
   title: string
@@ -29,10 +30,13 @@ export type LinkFormContextValue = {
   notes: string
   setNotes: (v: string) => void
   submitting: boolean
+  hasChanges?: boolean
   error: string | null
   categories: Category[]
   onSubmit: () => Promise<void>
   onCancel: () => void
+  // Set only while the "discard unsaved changes?" prompt is showing (Edit only).
+  discardPrompt?: { onKeepEditing: () => void, onDiscard: () => void }
   submitLabel: string
 }
 

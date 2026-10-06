@@ -3,14 +3,27 @@
 import { useLinkFormContext } from '../LinkFormContext'
 import { INPUT, LABEL } from './styles'
 
+const READ_ONLY = 'cursor-default bg-surface-50! text-surface-500! focus:border-surface-200! focus:ring-0! dark:bg-surface-900! dark:text-surface-400! dark:focus:border-surface-700!'
+
 export default function UrlField() {
-  const { url, setUrl, fetchingMeta, autoFetch, toggleAutoFetch, duplicateLinkId } = useLinkFormContext()
+  const { mode, url, setUrl, fetchingMeta, autoFetch, toggleAutoFetch, duplicateLinkId } = useLinkFormContext()
   const showToggle = toggleAutoFetch !== undefined
+  const readOnly = mode === 'edit'
 
   return (
     <div>
       <div className="mb-1.5 flex items-center justify-between">
         <label className={LABEL}>URL</label>
+        {readOnly && (
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs font-medium text-primary-600 hover:text-primary-500"
+          >
+            Open ↗
+          </a>
+        )}
         {showToggle && (
           <button
             type="button"
@@ -40,8 +53,9 @@ export default function UrlField() {
         <input
           type="url"
           placeholder="https://..."
-          className={`${INPUT} ${fetchingMeta ? 'pr-10' : ''}`}
+          className={`${INPUT} ${fetchingMeta ? 'pr-10' : ''} ${readOnly ? READ_ONLY : ''}`}
           value={url}
+          readOnly={readOnly}
           onChange={e => setUrl(e.target.value)}
         />
         {fetchingMeta && (
@@ -57,6 +71,12 @@ export default function UrlField() {
           </svg>
         )}
       </div>
+
+      {readOnly && (
+        <p className="mt-1.5 text-xs text-surface-500 dark:text-surface-400">
+          To use a different URL, delete this link and save a new one.
+        </p>
+      )}
 
       {duplicateLinkId && (
         <p className="mt-1.5 text-xs text-surface-500 dark:text-surface-400">

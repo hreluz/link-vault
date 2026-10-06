@@ -4,6 +4,7 @@ import type { LinkWithTags } from '@/lib/services/links'
 import { useEditLinkForm } from '@/lib/hooks/links'
 import { useCategoryList } from '@/lib/hooks/categories/useCategoryList'
 import { useBackdropClose } from '@/lib/hooks/shared/useBackdropClose'
+import { useDiscardGuard } from '@/lib/hooks/shared/useDiscardGuard'
 import { toast } from 'sonner'
 import { LinkFormContext } from './LinkFormContext'
 import LinkForm from './LinkForm'
@@ -17,9 +18,14 @@ interface Props {
 export default function EditLinkModal({ link, onSave, onClose }: Props) {
   const form = useEditLinkForm(link)
   const { categories } = useCategoryList()
-  const backdrop = useBackdropClose(onClose)
+  const guard = useDiscardGuard(form.hasChanges, onClose)
+  const backdrop = useBackdropClose(guard.requestClose)
 
   if (!link) return null
+
+  const discardPrompt = guard.confirming
+    ? { onKeepEditing: guard.keepEditing, onDiscard: guard.discard }
+    : undefined
 
   async function handleSave() {
     const updated = await form.handleSubmit()
@@ -39,7 +45,7 @@ export default function EditLinkModal({ link, onSave, onClose }: Props) {
         <div className="border-b border-surface-100 px-6 py-4 dark:border-surface-800">
           <h2 className="text-base font-semibold text-surface-900 dark:text-surface-50">Edit link</h2>
         </div>
-        <LinkFormContext.Provider value={{ ...form, categories, onSubmit: handleSave, onCancel: onClose, submitLabel: 'Save changes' }}>
+        <LinkFormContext.Provider value={{ ...form, mode: 'edit', categories, onSubmit: handleSave, onCancel: guard.requestClose, submitLabel: 'Save changes', discardPrompt }}>
           <LinkForm scrollable />
         </LinkFormContext.Provider>
       </div>

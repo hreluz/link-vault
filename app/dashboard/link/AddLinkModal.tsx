@@ -44,7 +44,7 @@ export default function AddLinkModal({ isOpen, initialUrl, initialTitle, autoFet
         <div className="border-b border-surface-100 px-6 py-4 dark:border-surface-800">
           <h2 className="text-base font-semibold text-surface-900 dark:text-surface-50">Add a link</h2>
         </div>
-        <LinkFormContext.Provider value={{ ...form, categories, onSubmit: handleSave, onCancel: onClose, submitLabel: 'Save link' }}>
+        <LinkFormContext.Provider value={{ ...form, mode: 'add', categories, onSubmit: handleSave, onCancel: onClose, submitLabel: 'Save link' }}>
           <LinkForm scrollable collapsible />
         </LinkFormContext.Provider>
       </div>
