@@ -40,6 +40,13 @@ export type LinkFormContextValue = {
   submitLabel: string
 }
 
+// The one rule for whether the form may submit, shared by the Save button and the
+// form's submit handler so a keyboard submit (Enter, Cmd/Ctrl+Enter) can never do
+// something a click on a disabled Save button couldn't.
+export function canSubmitLinkForm(ctx: LinkFormContextValue) {
+  return !ctx.submitting && ctx.url.trim() !== '' && ctx.hasChanges !== false && !ctx.discardPrompt
+}
+
 export const LinkFormContext = createContext<LinkFormContextValue | null>(null)
 
 export function useLinkFormContext() {
