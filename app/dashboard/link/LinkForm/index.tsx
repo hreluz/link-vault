@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { FormEvent, KeyboardEvent } from 'react'
 import { canSubmitLinkForm, useLinkFormContext } from '../LinkFormContext'
 import CategoryStatusRow from './CategoryStatusRow'
@@ -22,6 +22,13 @@ export default function LinkForm({ scrollable = false, collapsible = false }: Pr
   const [expanded, setExpanded] = useState(!collapsible)
   const ctx = useLinkFormContext()
   const { error, imageUrl, setImageUrl, duration } = ctx
+  const errorRef = useRef<HTMLParagraphElement>(null)
+
+  // The error sits below every field, so after a failed save from up in Title it can
+  // be out of view; bring it in (a no-op if it's already visible).
+  useEffect(() => {
+    if (error) errorRef.current?.scrollIntoView({ block: 'nearest' })
+  }, [error])
 
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -95,9 +102,13 @@ export default function LinkForm({ scrollable = false, collapsible = false }: Pr
           <ExpandToggle expanded={expanded} onToggle={() => setExpanded(v => !v)} />
         )}
 
-        {error && (
-          <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">{error}</p>
-        )}
+        {/* Always rendered: screen readers often miss a live region that's inserted
+            together with its text, so only the message inside it comes and goes. */}
+        <div aria-live="polite" className="empty:hidden">
+          {error && (
+            <p ref={errorRef} className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">{error}</p>
+          )}
+        </div>
       </div>
 
       <FormFooter className={footerCls} />

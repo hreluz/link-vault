@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React from 'react'
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import LinkForm from '@/app/dashboard/link/LinkForm'
 import { LinkFormContext } from '@/app/dashboard/link/LinkFormContext'
@@ -134,5 +134,46 @@ describe('LinkForm submit', () => {
     renderForm({ onSubmit, hasChanges: false })
     fireEvent.keyDown(screen.getByLabelText('Notes'), { key: 'Enter', metaKey: true })
     expect(onSubmit).not.toHaveBeenCalled()
+  })
+})
+
+describe('LinkForm error message', () => {
+  const scrollIntoView = vi.fn()
+
+  beforeEach(() => {
+    scrollIntoView.mockClear()
+    // jsdom doesn't implement scrollIntoView.
+    Element.prototype.scrollIntoView = scrollIntoView
+  })
+
+  function rerenderWith(rerender: (ui: React.ReactElement) => void, overrides: Partial<LinkFormContextValue>) {
+    rerender(
+      <LinkFormContext.Provider value={makeContext(overrides)}>
+        <LinkForm scrollable />
+      </LinkFormContext.Provider>,
+    )
+  }
+
+  it('keeps an empty live region in place before any error', () => {
+    const { container } = renderForm()
+    const region = container.querySelector('[aria-live="polite"]')
+    expect(region).not.toBeNull()
+    expect(region!.textContent).toBe('')
+  })
+
+  it('shows a new error inside the live region that was already there', () => {
+    const { container, rerender } = renderForm()
+    const region = container.querySelector('[aria-live="polite"]')
+    rerenderWith(rerender, { error: 'Failed to update link.' })
+    expect(container.querySelector('[aria-live="polite"]')).toBe(region)
+    expect(region!.textContent).toBe('Failed to update link.')
+  })
+
+  it('scrolls the error into view only once there is one', () => {
+    const { rerender } = renderForm()
+    expect(scrollIntoView).not.toHaveBeenCalled()
+    rerenderWith(rerender, { error: 'Category is required.' })
+    expect(scrollIntoView).toHaveBeenCalledTimes(1)
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' })
   })
 })

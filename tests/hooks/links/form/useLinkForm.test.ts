@@ -190,6 +190,37 @@ describe('useLinkForm', () => {
 
       expect(result.current.error).toBeNull()
     })
+
+    it('clears an invalid-URL error as soon as the URL is edited', async () => {
+      const { result } = render({ url: 'ksdfgnfdkg', categoryId: 'cat-1' })
+
+      await act(async () => { await result.current.wrapSubmit(async () => 'ok', 'fail') })
+      expect(result.current.error).toBe('Please enter a valid URL (e.g. https://example.com).')
+
+      act(() => { result.current.setUrl('https://example.com') })
+
+      expect(result.current.error).toBeNull()
+    })
+
+    it('clears a failed-save error when any other field is edited', async () => {
+      const { result } = render({ url: 'https://example.com', categoryId: 'cat-1' })
+
+      await act(async () => { await result.current.wrapSubmit(async () => null, 'Failed to save.') })
+      expect(result.current.error).toBe('Failed to save.')
+
+      act(() => { result.current.setTitle('New title') })
+
+      expect(result.current.error).toBeNull()
+    })
+
+    it('keeps the error when only submitting or fetchingMeta change', async () => {
+      const { result } = render({ url: 'https://example.com', categoryId: 'cat-1' })
+
+      await act(async () => { await result.current.wrapSubmit(async () => null, 'Failed to save.') })
+      act(() => { result.current.setSubmitting(true); result.current.setFetchingMeta(true) })
+
+      expect(result.current.error).toBe('Failed to save.')
+    })
   })
 
   // ── wrapSubmit ────────────────────────────────────────────────────────────

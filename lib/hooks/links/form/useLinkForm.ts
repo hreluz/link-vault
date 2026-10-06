@@ -36,6 +36,11 @@ export function useLinkForm(initial: Fields = DEFAULT_FIELDS) {
   const [submitting, setSubmitting] = useState(false)
   const [fetchingMeta, setFetchingMeta] = useState(false)
 
+  // Editing any field clears the error: it's one form-level message, and once the form
+  // has changed it no longer describes it (the next submit re-validates everything).
+  const setField = <K extends keyof Fields>(key: K) => (value: Fields[K]) =>
+    setForm(f => ({ ...f, [key]: value, error: null }))
+
   function validate(): boolean {
     if (!form.url.trim()) {
       setForm(f => ({ ...f, error: 'URL is required.' }))
@@ -70,15 +75,15 @@ export function useLinkForm(initial: Fields = DEFAULT_FIELDS) {
   }
 
   return {
-    url: form.url, setUrl: (url: string) => setForm(f => ({ ...f, url })),
-    title: form.title, setTitle: (title: string) => setForm(f => ({ ...f, title })),
-    description: form.description, setDescription: (description: string) => setForm(f => ({ ...f, description })),
-    imageUrl: form.imageUrl, setImageUrl: (imageUrl: string) => setForm(f => ({ ...f, imageUrl })),
-    duration: form.duration, setDuration: (duration: string) => setForm(f => ({ ...f, duration })),
-    categoryId: form.categoryId, setCategoryId: (categoryId: string | null) => setForm(f => ({ ...f, categoryId })),
-    status: form.status, setStatus: (status: LinkStatus) => setForm(f => ({ ...f, status })),
-    tags: form.tags, setTags: (tags: string) => setForm(f => ({ ...f, tags })),
-    notes: form.notes, setNotes: (notes: string) => setForm(f => ({ ...f, notes })),
+    url: form.url, setUrl: setField('url'),
+    title: form.title, setTitle: setField('title'),
+    description: form.description, setDescription: setField('description'),
+    imageUrl: form.imageUrl, setImageUrl: setField('imageUrl'),
+    duration: form.duration, setDuration: setField('duration'),
+    categoryId: form.categoryId, setCategoryId: setField('categoryId'),
+    status: form.status, setStatus: setField('status'),
+    tags: form.tags, setTags: setField('tags'),
+    notes: form.notes, setNotes: setField('notes'),
     submitting, setSubmitting,
     fetchingMeta, setFetchingMeta,
     error: form.error, setError: (error: string) => setForm(f => ({ ...f, error })),
