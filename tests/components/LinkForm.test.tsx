@@ -76,6 +76,32 @@ describe('LinkForm labels', () => {
   })
 })
 
+function comesBefore(a: HTMLElement, b: HTMLElement) {
+  return Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
+}
+
+describe('LinkForm Tags placement', () => {
+  it('shows the Tags input in the collapsed add form', () => {
+    renderForm({ mode: 'add', url: '' }, true)
+    expect(screen.getByLabelText('Tags').tagName).toBe('INPUT')
+    expect(screen.queryByLabelText('Title')).toBeNull()
+  })
+
+  it('keeps a single Tags input above Title once the add form is expanded', () => {
+    renderForm({ mode: 'add', url: '' }, true)
+    fireEvent.click(screen.getByRole('button', { name: 'More options' }))
+    expect(screen.getAllByLabelText('Tags')).toHaveLength(1)
+    expect(comesBefore(screen.getByLabelText('Tags'), screen.getByLabelText('Title'))).toBe(true)
+  })
+
+  it('places Tags between URL and Title in the edit form', () => {
+    renderForm()
+    const tags = screen.getByLabelText('Tags')
+    expect(comesBefore(screen.getByLabelText('URL'), tags)).toBe(true)
+    expect(comesBefore(tags, screen.getByLabelText('Title'))).toBe(true)
+  })
+})
+
 // jsdom doesn't turn a plain Enter keypress into a form submit the way a browser does,
 // so these tests submit the form directly; Enter itself is checked in a real browser.
 describe('LinkForm submit', () => {
