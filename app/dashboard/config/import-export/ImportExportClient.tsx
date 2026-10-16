@@ -4,12 +4,24 @@ import Link from 'next/link'
 import { useLinkExport } from '@/lib/hooks/importExport/useLinkExport'
 import { useLinkImport, type ImportTab } from '@/lib/hooks/importExport/useLinkImport'
 import type { VaultImportPhase } from '@/lib/services/importExport/importVault'
+import { buildCsvTemplate } from '@/lib/utils/linksCsv'
+import { triggerDownload } from '@/lib/utils/downloadFile'
 
 const TAB_LABELS: Record<ImportTab, string> = {
   urls: '🔗 Paste URLs',
   json: '📋 Paste JSON',
   file: '📁 Upload file',
 }
+
+const CSV_COLUMN_GUIDE: { columns: string; description: string }[] = [
+  { columns: 'url', description: 'Required. The link to save.' },
+  { columns: 'title, description, site_name, image_url, duration, notes', description: 'Optional free text.' },
+  { columns: 'category', description: 'Exactly one category name per link. Created if it doesn\'t exist; blank uses the default category below.' },
+  { columns: 'status', description: 'unread, watching, read or archived. Anything else is ignored.' },
+  { columns: 'is_favorite', description: 'true or false.' },
+  { columns: 'tags', description: 'Any number of tags per link, separated by | (e.g. react|tutorial|video).' },
+  { columns: 'created_at, updated_at', description: 'Optional ISO 8601 dates (e.g. 2026-01-15T10:00:00Z).' },
+]
 
 const PHASE_LABELS: Record<VaultImportPhase, string> = {
   categories: 'categories',
@@ -166,45 +178,72 @@ export default function ImportExportClient() {
         )}
 
         {importTab === 'file' && (
-          <div
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            onClick={() => fileInputRef.current?.click()}
-            className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-10 text-center transition ${
-              isDragging
-                ? 'border-primary-400 bg-primary-50 dark:border-primary-500 dark:bg-primary-900/20'
-                : selectedFile
-                ? 'border-emerald-300 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-900/20'
-                : 'border-surface-200 hover:border-surface-300 hover:bg-surface-50 dark:border-surface-700 dark:hover:border-surface-600 dark:hover:bg-surface-800'
-            }`}
-          >
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".json,.csv"
-              className="hidden"
-              onChange={handleFileChange}
-            />
-            {selectedFile ? (
-              <>
-                <span className="text-3xl">✅</span>
-                <div>
-                  <p className="font-medium text-emerald-700 dark:text-emerald-400">{selectedFile.name}</p>
-                  <p className="mt-0.5 text-sm text-emerald-600 dark:text-emerald-500">
-                    {(selectedFile.size / 1024).toFixed(1)} KB · click to change
-                  </p>
-                </div>
-              </>
-            ) : (
-              <>
-                <span className="text-4xl">📂</span>
-                <div>
-                  <p className="font-medium text-surface-700 dark:text-surface-300">Drop your file here</p>
-                  <p className="mt-0.5 text-sm text-surface-400 dark:text-surface-500">or click to browse — .json or .csv</p>
-                </div>
-              </>
-            )}
+          <div className="space-y-3">
+            <div
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+              className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-10 text-center transition ${
+                isDragging
+                  ? 'border-primary-400 bg-primary-50 dark:border-primary-500 dark:bg-primary-900/20'
+                  : selectedFile
+                  ? 'border-emerald-300 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-900/20'
+                  : 'border-surface-200 hover:border-surface-300 hover:bg-surface-50 dark:border-surface-700 dark:hover:border-surface-600 dark:hover:bg-surface-800'
+              }`}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json,.csv"
+                className="hidden"
+                onChange={handleFileChange}
+              />
+              {selectedFile ? (
+                <>
+                  <span className="text-3xl">✅</span>
+                  <div>
+                    <p className="font-medium text-emerald-700 dark:text-emerald-400">{selectedFile.name}</p>
+                    <p className="mt-0.5 text-sm text-emerald-600 dark:text-emerald-500">
+                      {(selectedFile.size / 1024).toFixed(1)} KB · click to change
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <span className="text-4xl">📂</span>
+                  <div>
+                    <p className="font-medium text-surface-700 dark:text-surface-300">Drop your file here</p>
+                    <p className="mt-0.5 text-sm text-surface-400 dark:text-surface-500">or click to browse — .json or .csv</p>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Outside the drop zone so clicking it doesn't open the file picker. */}
+            <button
+              type="button"
+              onClick={() => triggerDownload(buildCsvTemplate(), 'link-vault-template.csv', 'text/csv')}
+              className="flex items-center gap-2 rounded-xl border border-surface-200 bg-surface-card px-4 py-2 text-sm font-medium text-surface-600 shadow-sm transition hover:bg-surface-50 hover:text-surface-900 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-300 dark:hover:bg-surface-700 dark:hover:text-surface-100"
+            >
+              <span aria-hidden="true">📊</span>
+              Download CSV template
+            </button>
+
+            <details className="rounded-xl border border-surface-200 px-4 py-3 text-sm dark:border-surface-700">
+              <summary className="cursor-pointer font-medium text-surface-700 dark:text-surface-300">CSV format</summary>
+              <p className="mt-2 text-xs text-surface-500 dark:text-surface-400">
+                First row must be the header. Column order doesn&apos;t matter. Only <span className="font-mono">url</span> is required.
+              </p>
+              <dl className="mt-3 space-y-2 text-xs">
+                {CSV_COLUMN_GUIDE.map(({ columns, description }) => (
+                  <div key={columns}>
+                    <dt className="font-mono text-surface-700 dark:text-surface-300">{columns}</dt>
+                    <dd className="text-surface-500 dark:text-surface-400">{description}</dd>
+                  </div>
+                ))}
+              </dl>
+            </details>
           </div>
         )}
 

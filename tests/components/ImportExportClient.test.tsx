@@ -18,9 +18,14 @@ const MOCK_CATEGORIES = [
   { id: 'cat-2', user_id: 'u1', name: 'GitHub', emoticon: '💻', color: null, description: null, created_at: '', updated_at: '' },
 ]
 
-const { mockImportLinks, mockUseCategoryList } = vi.hoisted(() => ({
+const { mockImportLinks, mockUseCategoryList, mockTriggerDownload } = vi.hoisted(() => ({
   mockImportLinks: vi.fn(),
   mockUseCategoryList: vi.fn(),
+  mockTriggerDownload: vi.fn(),
+}))
+
+vi.mock('@/lib/utils/downloadFile', () => ({
+  triggerDownload: mockTriggerDownload,
 }))
 
 vi.mock('@/lib/services/links', async (importOriginal) => {
@@ -186,6 +191,43 @@ describe('ImportExportClient', () => {
       fireEvent.change(input)
 
       expect(screen.getByText('links.json')).toBeTruthy()
+    })
+  })
+
+  describe('CSV template and format guide', () => {
+    it('shows the template button and a collapsed CSV format guide on the file tab', () => {
+      render(<ImportExportClient />)
+      fireEvent.click(screen.getByText('📁 Upload file'))
+
+      expect(btn('Download CSV template')).toBeTruthy()
+      const details = screen.getByText('CSV format').closest('details') as HTMLDetailsElement
+      expect(details.open).toBe(false)
+    })
+
+    it('downloads link-vault-template.csv without opening the file picker', () => {
+      const clickSpy = vi.spyOn(HTMLInputElement.prototype, 'click')
+      render(<ImportExportClient />)
+      fireEvent.click(screen.getByText('📁 Upload file'))
+
+      fireEvent.click(btn('Download CSV template'))
+
+      expect(mockTriggerDownload).toHaveBeenCalledWith(
+        expect.stringMatching(/^url,title,/),
+        'link-vault-template.csv',
+        'text/csv',
+      )
+      expect(clickSpy).not.toHaveBeenCalled()
+      clickSpy.mockRestore()
+    })
+
+    it('does not show the template button or guide on the URLs or JSON tabs', () => {
+      render(<ImportExportClient />)
+      expect(screen.queryByRole('button', { name: 'Download CSV template' })).toBeNull()
+      expect(screen.queryByText('CSV format')).toBeNull()
+
+      fireEvent.click(screen.getByText('📋 Paste JSON'))
+      expect(screen.queryByRole('button', { name: 'Download CSV template' })).toBeNull()
+      expect(screen.queryByText('CSV format')).toBeNull()
     })
   })
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { linksToCSV, parseCSV } from '@/lib/utils/linksCsv'
+import { buildCsvTemplate, linksToCSV, parseCSV } from '@/lib/utils/linksCsv'
 import type { ExportedLink } from '@/lib/types/importExport'
 
 const LINK: ExportedLink = {
@@ -154,5 +154,63 @@ describe('parseCSV', () => {
 
     const blank = [HEADER, 'https://example.com,,,,,,,,false,,,,'].join('\n')
     expect(parseCSV(blank)[0].updated_at).toBeUndefined()
+  })
+
+  it('keeps a newline inside a quoted field as part of a single row', () => {
+    const csv = [HEADER, 'https://example.com,,,,,,,,false,"line one\nline two",,,'].join('\n')
+    const rows = parseCSV(csv)
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0].notes).toBe('line one\nline two')
+  })
+
+  it('handles CRLF line endings without a trailing \\r on the last column', () => {
+    const csv = [HEADER, 'https://example.com,,,,,,,,false,,,,2026-01-02', 'https://example.org,,,,,,,,false,,,,2026-01-03'].join('\r\n')
+    const rows = parseCSV(csv)
+
+    expect(rows).toHaveLength(2)
+    expect(rows[0].updated_at).toBe('2026-01-02')
+    expect(rows[1].updated_at).toBe('2026-01-03')
+  })
+
+  it('matches header names case-insensitively and ignores surrounding spaces', () => {
+    const csv = ['URL, Title ', 'https://example.com,Example'].join('\n')
+    const [row] = parseCSV(csv)
+
+    expect(row.url).toBe('https://example.com')
+    expect(row.title).toBe('Example')
+  })
+
+  it('round-trips a link whose notes contain a newline through linksToCSV', () => {
+    const [row] = parseCSV(linksToCSV([{ ...LINK, notes: 'first line\nsecond, with comma' }]))
+
+    expect(row.url).toBe(LINK.url)
+    expect(row.notes).toBe('first line\nsecond, with comma')
+    expect(row.tags).toEqual(['tag-1', 'tag-2'])
+  })
+})
+
+describe('buildCsvTemplate', () => {
+  it('starts with the same header as the export', () => {
+    expect(buildCsvTemplate().split('\n')[0]).toBe(linksToCSV([]))
+  })
+
+  it('parses into a full row and a minimal url/category/tags row', () => {
+    const rows = parseCSV(buildCsvTemplate())
+
+    expect(rows).toHaveLength(2)
+    expect(rows[0]).toMatchObject({
+      categoryName: 'Article',
+      tags: ['reading', 'example'],
+      status: 'read',
+      is_favorite: true,
+    })
+    expect(rows[1]).toMatchObject({
+      url: 'https://github.com/some/repo',
+      categoryName: 'GitHub',
+      tags: ['example', 'repo', 'open-source'],
+      title: null,
+    })
+    expect(rows[1].status).toBeUndefined()
   })
 })

@@ -9,16 +9,22 @@ function isLinkStatus(value: string): value is LinkStatus {
   return (LINK_STATUSES as string[]).includes(value)
 }
 
-const CSV_HEADER = 'url,title,description,site_name,image_url,duration,category,status,is_favorite,notes,tags,created_at,updated_at'
+const CSV_COLUMNS = [
+  'url', 'title', 'description', 'site_name', 'image_url', 'duration', 'category',
+  'status', 'is_favorite', 'notes', 'tags', 'created_at', 'updated_at',
+] as const
+type CsvColumn = typeof CSV_COLUMNS[number]
+const CSV_HEADER = CSV_COLUMNS.join(',')
+
+function escape(val: string | null | undefined): string {
+  if (val == null) return ''
+  const s = String(val)
+  return s.includes(',') || s.includes('"') || s.includes('\n')
+    ? `"${s.replace(/"/g, '""')}"`
+    : s
+}
 
 export function linksToCSV(links: ExportedLink[]): string {
-  const escape = (val: string | null | undefined) => {
-    if (val == null) return ''
-    const s = String(val)
-    return s.includes(',') || s.includes('"') || s.includes('\n')
-      ? `"${s.replace(/"/g, '""')}"`
-      : s
-  }
   const rows = links.map(l =>
     [
       escape(l.url),
@@ -39,34 +45,74 @@ export function linksToCSV(links: ExportedLink[]): string {
   return [CSV_HEADER, ...rows].join('\n')
 }
 
-function splitCSVLine(line: string): string[] {
-  const cols: string[] = []
-  let i = 0
-  while (i <= line.length) {
-    if (line[i] === '"') {
-      let field = ''
-      i++
-      while (i < line.length) {
-        if (line[i] === '"' && line[i + 1] === '"') { field += '"'; i += 2 }
-        else if (line[i] === '"') { i++; break }
-        else { field += line[i++] }
-      }
-      cols.push(field)
-      if (line[i] === ',') i++
-    } else {
-      const end = line.indexOf(',', i)
-      if (end === -1) { cols.push(line.slice(i)); break }
-      cols.push(line.slice(i, end))
-      i = end + 1
-    }
+const TEMPLATE_FULL_ROW: ExportedLink = {
+  url: 'https://example.com/article',
+  title: 'An example article',
+  description: 'A short summary of the article',
+  site_name: 'example.com',
+  image_url: 'https://example.com/cover.png',
+  duration: '12:34',
+  category: 'Article',
+  status: 'read',
+  is_favorite: true,
+  notes: 'Worth re-reading, especially the second half',
+  tags: ['reading', 'example'],
+  created_at: '2026-01-15T10:00:00.000Z',
+  updated_at: '2026-01-16T09:30:00.000Z',
+}
+
+// Only url/category/tags are filled, so the remaining columns read as optional. Built by
+// column name (not via linksToCSV, which always writes status/is_favorite).
+const TEMPLATE_MINIMAL_ROW: Partial<Record<CsvColumn, string>> = {
+  url: 'https://github.com/some/repo',
+  category: 'GitHub',
+  tags: 'example|repo|open-source',
+}
+
+/** Example CSV for the import UI: the export header, one fully filled row, one minimal row. */
+export function buildCsvTemplate(): string {
+  const minimal = CSV_COLUMNS.map(col => escape(TEMPLATE_MINIMAL_ROW[col])).join(',')
+  return [linksToCSV([TEMPLATE_FULL_ROW]), minimal].join('\n')
+}
+
+/** Tokenizes the whole text, so a quoted field may span lines. Records end on `\n` or `\r\n`;
+ *  blank records are skipped. A `"` only opens a quoted field at the start of a field. */
+function parseCSVRecords(text: string): string[][] {
+  const records: string[][] = []
+  let record: string[] = []
+  let field = ''
+  let inQuotes = false
+  let fieldStart = true
+
+  const endField = () => { record.push(field); field = ''; fieldStart = true }
+  const endRecord = () => {
+    endField()
+    if (record.length > 1 || record[0] !== '') records.push(record)
+    record = []
   }
-  return cols
+
+  let i = 0
+  while (i < text.length) {
+    const ch = text[i]
+    if (inQuotes) {
+      if (ch === '"' && text[i + 1] === '"') { field += '"'; i += 2 }
+      else if (ch === '"') { inQuotes = false; i++ }
+      else { field += ch; i++ }
+    } else if (ch === '"' && fieldStart) { inQuotes = true; fieldStart = false; i++ }
+    else if (ch === ',') { endField(); i++ }
+    else if (ch === '\r' && text[i + 1] === '\n') { endRecord(); i += 2 }
+    else if (ch === '\n') { endRecord(); i++ }
+    else { field += ch; fieldStart = false; i++ }
+  }
+  if (field !== '' || record.length > 0) endRecord()
+  return records
 }
 
 export function parseCSV(text: string): ParsedRow[] {
-  const lines = text.trim().split('\n')
-  if (lines.length < 2) return []
-  const headers = splitCSVLine(lines[0])
+  const records = parseCSVRecords(text)
+  if (records.length < 2) return []
+  // Forgiving header match: hand-made files often use `URL` or stray spaces.
+  const headers = records[0].map(h => h.trim().toLowerCase())
   const col = (name: string) => headers.indexOf(name)
   const urlIdx = col('url')
   if (urlIdx === -1) return []
@@ -83,8 +129,7 @@ export function parseCSV(text: string): ParsedRow[] {
   const createdAtIdx = col('created_at')
   const updatedAtIdx = col('updated_at')
 
-  return lines.slice(1).map(line => {
-    const cols = splitCSVLine(line)
+  return records.slice(1).map(cols => {
     const status = statusIdx !== -1 ? cols[statusIdx] : undefined
     return {
       url: cols[urlIdx] ?? '',
