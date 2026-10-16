@@ -10,10 +10,11 @@ import { useVault } from '@/lib/context/VaultContext'
 import { useTagsContext } from '@/lib/context/TagsContext'
 import { useCategoryList } from '@/lib/hooks/categories/useCategoryList'
 import { parseCSV } from '@/lib/utils/linksCsv'
+import { fetchLinkMeta } from '@/app/dashboard/link/actions'
 
 export type ImportTab = 'urls' | 'json' | 'file'
 
-type LastResult = { imported: number; skipped: number; duplicates: number } & Partial<
+type LastResult = { imported: number; skipped: number; duplicates: number; metaMissing?: number } & Partial<
   Pick<VaultImportResult, 'categoriesCreated' | 'domainsCreated' | 'domainsFailed' | 'tagsCreated' | 'preferencesFailed'>
 >
 
@@ -58,6 +59,8 @@ export function useLinkImport() {
   const [detectedVaultExport, setDetectedVaultExport] = useState<VaultExportV2 | null>(null)
   const [vaultExportError, setVaultExportError] = useState<string | null>(null)
   const [applyPreferences, setApplyPreferences] = useState(true)
+  // Opt-in and deliberately not persisted: fetching makes imports much slower.
+  const [autoFetchOnImport, setAutoFetchOnImport] = useState(false)
   const [progress, setProgress] = useState<VaultImportProgress | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -213,6 +216,7 @@ export function useLinkImport() {
       const result = await importLinks(
         inputs, catId, dek,
         (done, total) => setProgress({ phase: 'links', done, total }),
+        autoFetchOnImport ? fetchLinkMeta : undefined,
       )
       setLastResult(result)
       if (result.imported > 0) {
@@ -246,6 +250,7 @@ export function useLinkImport() {
     importing, lastResult, progress,
     detectedVaultExport, vaultExportError,
     applyPreferences, setApplyPreferences,
+    autoFetchOnImport, setAutoFetchOnImport,
     fileInputRef,
     hasImportContent,
     handleDragOver, handleDragLeave, handleDrop, handleFileChange,

@@ -395,13 +395,62 @@ export type ImportLinkInput = {
   category_id?: string | null
 }
 
-export type ImportResult = { imported: number; skipped: number; duplicates: number }
+export type ImportResult = {
+  imported: number
+  skipped: number
+  duplicates: number
+  /** Links whose metadata fetch threw or came back empty. Only set when a fetcher was supplied. */
+  metaMissing?: number
+}
+
+/** Structurally matches `LinkMeta` from `app/dashboard/link/actions.ts`, so `fetchLinkMeta`
+ *  can be passed straight in without this service importing from `app/`. */
+export type ImportMeta = {
+  title: string | null
+  description: string | null
+  image: string | null
+  duration: string | null
+}
+export type ImportMetaFetcher = (url: string) => Promise<ImportMeta>
+
+const isEmpty = (value: string | null | undefined) => value == null || value === ''
+
+/** Fills only the fields the import row left empty -- values supplied by the file always win.
+ *  Returns `metaMissing: true` when the fetch threw or returned nothing usable. */
+async function fillMissingMeta(
+  input: ImportLinkInput,
+  url: string,
+  fetchMeta: ImportMetaFetcher,
+): Promise<{ input: ImportLinkInput; metaMissing: boolean }> {
+  const fields = [input.title, input.description, input.image_url, input.duration]
+  if (!fields.some(isEmpty)) return { input, metaMissing: false }
+
+  let meta: ImportMeta
+  try {
+    meta = await fetchMeta(url)
+  } catch {
+    return { input, metaMissing: true }
+  }
+
+  const metaMissing = !meta.title && !meta.description && !meta.image && !meta.duration
+  return {
+    input: {
+      ...input,
+      title: isEmpty(input.title) ? (meta.title ?? input.title) : input.title,
+      description: isEmpty(input.description) ? (meta.description ?? input.description) : input.description,
+      image_url: isEmpty(input.image_url) ? (meta.image ?? input.image_url) : input.image_url,
+      duration: isEmpty(input.duration) ? (meta.duration ?? input.duration) : input.duration,
+    },
+    metaMissing,
+  }
+}
 
 export async function importLinks(
   inputs: ImportLinkInput[],
   defaultCategoryId: string | null,
   dek: CryptoKey,
   onProgress?: (done: number, total: number) => void,
+  fetchMeta?: ImportMetaFetcher,
 ): Promise<ImportResult> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -410,9 +459,11 @@ export async function importLinks(
   let imported = 0
   let skipped = 0
   let duplicates = 0
+  let metaMissing = 0
   let processed = 0
 
-  for (const input of inputs) {
+  for (const rawInput of inputs) {
+    let input = rawInput
     // `finally` still runs on every `continue` below, so progress always reaches
     // `inputs.length` regardless of which outcome (skip/duplicate/error/success) hit.
     try {
@@ -428,6 +479,13 @@ export async function importLinks(
       if (existingId) {
         duplicates++
         continue
+      }
+
+      // Sequential on purpose: one fetch in flight at a time, and only for new, valid URLs.
+      if (fetchMeta) {
+        const filled = await fillMissingMeta(input, trimmedUrl, fetchMeta)
+        input = filled.input
+        if (filled.metaMissing) metaMissing++
       }
 
       const category_id = input.category_id ?? defaultCategoryId
@@ -471,5 +529,5 @@ export async function importLinks(
     }
   }
 
-  return { imported, skipped, duplicates }
+  return fetchMeta ? { imported, skipped, duplicates, metaMissing } : { imported, skipped, duplicates }
 }

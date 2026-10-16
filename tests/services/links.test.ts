@@ -811,6 +811,109 @@ describe('importLinks', () => {
         .resolves.toEqual({ imported: 1, skipped: 0, duplicates: 0 })
     })
   })
+
+  describe('fetchMeta', () => {
+    const FULL_META = {
+      title: 'Fetched title', description: 'Fetched desc', image: 'https://img/fetched.png', duration: '4:33',
+    }
+
+    async function insertedContent(n = 1) {
+      const call = mockLinksInsert.mock.calls[n - 1][0]
+      return decryptJson<LinkContent>(call.enc_payload, call.enc_iv, dek)
+    }
+
+    beforeEach(async () => {
+      mockLinksSingle.mockResolvedValue({ data: await encryptLinkRow('1'), error: null })
+    })
+
+    it('fills empty fields from the fetched metadata', async () => {
+      const fetchMeta = vi.fn().mockResolvedValue(FULL_META)
+
+      await importLinks([{ url: 'https://example.com' }], null, dek, undefined, fetchMeta)
+
+      expect(fetchMeta).toHaveBeenCalledWith('https://example.com')
+      expect(await insertedContent()).toEqual(expect.objectContaining({
+        title: 'Fetched title', description: 'Fetched desc', image_url: 'https://img/fetched.png', duration: '4:33',
+      }))
+    })
+
+    it('does not overwrite a provided title, but fills an empty image_url', async () => {
+      const fetchMeta = vi.fn().mockResolvedValue(FULL_META)
+
+      await importLinks([{ url: 'https://example.com', title: 'My title', image_url: '' }], null, dek, undefined, fetchMeta)
+
+      const content = await insertedContent()
+      expect(content.title).toBe('My title')
+      expect(content.image_url).toBe('https://img/fetched.png')
+    })
+
+    it('is not called for invalid URLs', async () => {
+      const fetchMeta = vi.fn().mockResolvedValue(FULL_META)
+
+      await importLinks([{ url: 'not-a-url' }], null, dek, undefined, fetchMeta)
+
+      expect(fetchMeta).not.toHaveBeenCalled()
+    })
+
+    it('is not called for duplicates', async () => {
+      mockDupCheck.mockResolvedValue({ data: [{ id: 'existing-id' }] })
+      const fetchMeta = vi.fn().mockResolvedValue(FULL_META)
+
+      const result = await importLinks([{ url: 'https://example.com' }], null, dek, undefined, fetchMeta)
+
+      expect(fetchMeta).not.toHaveBeenCalled()
+      expect(result).toEqual({ imported: 0, skipped: 0, duplicates: 1, metaMissing: 0 })
+    })
+
+    it('is not called when title, description, image_url and duration are all set', async () => {
+      const fetchMeta = vi.fn().mockResolvedValue(FULL_META)
+
+      await importLinks([{
+        url: 'https://example.com', title: 'T', description: 'D', image_url: 'https://img/x.png', duration: '1:00',
+      }], null, dek, undefined, fetchMeta)
+
+      expect(fetchMeta).not.toHaveBeenCalled()
+    })
+
+    it('still imports the link and counts metaMissing when the fetcher throws', async () => {
+      const fetchMeta = vi.fn().mockRejectedValue(new Error('network'))
+
+      const result = await importLinks([{ url: 'https://example.com', title: 'Kept' }], null, dek, undefined, fetchMeta)
+
+      expect(result).toEqual({ imported: 1, skipped: 0, duplicates: 0, metaMissing: 1 })
+      expect((await insertedContent()).title).toBe('Kept')
+    })
+
+    it('counts metaMissing when the fetcher returns all-null metadata', async () => {
+      const fetchMeta = vi.fn().mockResolvedValue({ title: null, description: null, image: null, duration: null })
+
+      const result = await importLinks([{ url: 'https://example.com' }], null, dek, undefined, fetchMeta)
+
+      expect(result).toEqual({ imported: 1, skipped: 0, duplicates: 0, metaMissing: 1 })
+    })
+
+    it('fetches one link at a time', async () => {
+      let inFlight = 0
+      let maxInFlight = 0
+      const fetchMeta = vi.fn(async () => {
+        maxInFlight = Math.max(maxInFlight, ++inFlight)
+        await new Promise(resolve => setTimeout(resolve, 1))
+        inFlight--
+        return FULL_META
+      })
+
+      await importLinks([{ url: 'https://a.com' }, { url: 'https://b.com' }, { url: 'https://c.com' }], null, dek, undefined, fetchMeta)
+
+      expect(fetchMeta).toHaveBeenCalledTimes(3)
+      expect(maxInFlight).toBe(1)
+    })
+
+    it('omits metaMissing from the result when no fetcher is given', async () => {
+      const result = await importLinks([{ url: 'https://example.com' }], null, dek)
+
+      expect(result).not.toHaveProperty('metaMissing')
+    })
+  })
 })
 
 // ── toggleLinkFavorite ────────────────────────────────────────────────────────

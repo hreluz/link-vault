@@ -13,7 +13,7 @@ const MOCK_CATEGORIES = [
 
 const {
   mockImportLinks, mockUseCategoryList, mockGetOrCreateCategoryByName, mockImportVaultExport,
-  mockToastSuccess, mockToastError, mockToastWarning, mockRefetchTags,
+  mockToastSuccess, mockToastError, mockToastWarning, mockRefetchTags, mockFetchLinkMeta,
 } = vi.hoisted(() => ({
   mockImportLinks: vi.fn(),
   mockUseCategoryList: vi.fn(),
@@ -23,6 +23,7 @@ const {
   mockToastError: vi.fn(),
   mockToastWarning: vi.fn(),
   mockRefetchTags: vi.fn(),
+  mockFetchLinkMeta: vi.fn(),
 }))
 
 vi.mock('sonner', () => ({
@@ -39,6 +40,10 @@ vi.mock('@/lib/services/categories', () => ({
 
 vi.mock('@/lib/services/importExport/importVault', () => ({
   importVaultExport: mockImportVaultExport,
+}))
+
+vi.mock('@/app/dashboard/link/actions', () => ({
+  fetchLinkMeta: mockFetchLinkMeta,
 }))
 
 vi.mock('@/lib/hooks/categories/useCategoryList', () => ({
@@ -113,7 +118,7 @@ describe('useLinkImport', () => {
       })
       await act(async () => { await result.current.handleImport() })
 
-      expect(mockImportLinks).toHaveBeenCalledWith(expect.any(Array), 'cat-2', FAKE_DEK, expect.any(Function))
+      expect(mockImportLinks).toHaveBeenCalledWith(expect.any(Array), 'cat-2', FAKE_DEK, expect.any(Function), undefined)
     })
   })
 
@@ -178,6 +183,7 @@ describe('useLinkImport', () => {
         'cat-0',
         FAKE_DEK,
         expect.any(Function),
+        undefined,
       )
     })
 
@@ -192,6 +198,7 @@ describe('useLinkImport', () => {
         expect.anything(),
         FAKE_DEK,
         expect.any(Function),
+        undefined,
       )
     })
 
@@ -290,6 +297,7 @@ describe('useLinkImport', () => {
         expect.anything(),
         FAKE_DEK,
         expect.any(Function),
+        undefined,
       )
     })
 
@@ -322,6 +330,7 @@ describe('useLinkImport', () => {
         expect.anything(),
         FAKE_DEK,
         expect.any(Function),
+        undefined,
       )
     })
   })
@@ -353,6 +362,7 @@ describe('useLinkImport', () => {
         expect.anything(),
         FAKE_DEK,
         expect.any(Function),
+        undefined,
       )
     })
 
@@ -411,6 +421,7 @@ describe('useLinkImport', () => {
         expect.anything(),
         FAKE_DEK,
         expect.any(Function),
+        undefined,
       )
     })
 
@@ -433,6 +444,7 @@ describe('useLinkImport', () => {
         expect.anything(),
         FAKE_DEK,
         expect.any(Function),
+        undefined,
       )
       expect(mockGetOrCreateCategoryByName).not.toHaveBeenCalled()
     })
@@ -598,6 +610,58 @@ describe('useLinkImport', () => {
       await act(async () => { await result.current.handleImport() })
 
       expect(mockToastError).toHaveBeenCalledWith('boom: something specific went wrong')
+    })
+  })
+
+  describe('auto-fetch on import', () => {
+    it('defaults to off and passes no fetcher to importLinks', async () => {
+      const { result } = await renderWithDefaultCategory()
+      expect(result.current.autoFetchOnImport).toBe(false)
+
+      act(() => result.current.setUrlsText('https://example.com'))
+      await act(async () => { await result.current.handleImport() })
+
+      expect(mockImportLinks).toHaveBeenCalledWith(
+        expect.any(Array), 'cat-0', FAKE_DEK, expect.any(Function), undefined,
+      )
+    })
+
+    it('passes fetchLinkMeta to importLinks when turned on', async () => {
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.setAutoFetchOnImport(true))
+      expect(result.current.autoFetchOnImport).toBe(true)
+
+      act(() => result.current.setUrlsText('https://example.com'))
+      await act(async () => { await result.current.handleImport() })
+
+      expect(mockImportLinks).toHaveBeenCalledWith(
+        expect.any(Array), 'cat-0', FAKE_DEK, expect.any(Function), mockFetchLinkMeta,
+      )
+    })
+
+    it('never fetches for a detected v2 export, even when turned on', async () => {
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.setAutoFetchOnImport(true))
+      act(() => result.current.switchTab('json'))
+      act(() => result.current.setJsonText(JSON.stringify(VAULT_EXPORT)))
+
+      await waitFor(() => expect(result.current.detectedVaultExport).not.toBeNull())
+      await act(async () => { await result.current.handleImport() })
+
+      expect(mockImportVaultExport).toHaveBeenCalled()
+      expect(mockImportLinks).not.toHaveBeenCalled()
+      expect(mockFetchLinkMeta).not.toHaveBeenCalled()
+    })
+
+    it('carries metaMissing from importLinks into lastResult', async () => {
+      mockImportLinks.mockResolvedValue({ imported: 2, skipped: 0, duplicates: 0, metaMissing: 1 })
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.setAutoFetchOnImport(true))
+
+      act(() => result.current.setUrlsText('https://a.com\nhttps://b.com'))
+      await act(async () => { await result.current.handleImport() })
+
+      expect(result.current.lastResult?.metaMissing).toBe(1)
     })
   })
 

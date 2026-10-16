@@ -33,6 +33,10 @@ vi.mock('@/lib/services/links', async (importOriginal) => {
   return { ...actual, importLinks: mockImportLinks }
 })
 
+vi.mock('@/app/dashboard/link/actions', () => ({
+  fetchLinkMeta: vi.fn(),
+}))
+
 vi.mock('@/lib/hooks/categories/useCategoryList', () => ({
   useCategoryList: mockUseCategoryList,
 }))
@@ -289,6 +293,60 @@ describe('ImportExportClient', () => {
       await waitFor(() => expect(screen.getByText('Importing… links (1/2)')).toBeTruthy())
 
       resolveImport({ imported: 2, skipped: 0, duplicates: 0 })
+      await waitFor(() => expect(screen.getByText('Import links')).toBeTruthy())
+    })
+  })
+
+  describe('auto-fetch metadata switch', () => {
+    function autoFetchSwitch() {
+      return screen.getByRole('switch', { name: 'Auto-fetch metadata' }) as HTMLButtonElement
+    }
+
+    it('renders off and toggles on click', () => {
+      render(<ImportExportClient />)
+
+      expect(autoFetchSwitch().getAttribute('aria-checked')).toBe('false')
+      fireEvent.click(autoFetchSwitch())
+      expect(autoFetchSwitch().getAttribute('aria-checked')).toBe('true')
+    })
+
+    it('is disabled with a note when a v2 export is detected', async () => {
+      const VALID_V2_JSON = JSON.stringify({
+        format: 'link-vault-export', version: 2, exportedAt: '', mode: 'links', links: [],
+      })
+      render(<ImportExportClient />)
+      fireEvent.click(screen.getByText('📋 Paste JSON'))
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: VALID_V2_JSON } })
+
+      await waitFor(() => expect(autoFetchSwitch().disabled).toBe(true))
+      expect(screen.getByText(/Not available for full vault exports/)).toBeTruthy()
+    })
+
+    it('shows the without-metadata count in the result summary', async () => {
+      mockImportLinks.mockResolvedValue({ imported: 2, skipped: 0, duplicates: 0, metaMissing: 3 })
+      render(<ImportExportClient />)
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: 'https://example.com' } })
+      fireEvent.click(btn('Import links'))
+
+      await waitFor(() => expect(screen.getByText(/3 without metadata/)).toBeTruthy())
+    })
+
+    it('labels the in-flight import as links + metadata when on', async () => {
+      let resolveImport: (v: unknown) => void = () => {}
+      mockImportLinks.mockImplementation((
+        _inputs: unknown, _cat: unknown, _dek: unknown, onProgress?: (done: number, total: number) => void,
+      ) => {
+        onProgress?.(1, 2)
+        return new Promise(resolve => { resolveImport = resolve })
+      })
+      render(<ImportExportClient />)
+      fireEvent.click(autoFetchSwitch())
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: 'https://example.com\nhttps://github.com' } })
+      fireEvent.click(btn('Import links'))
+
+      await waitFor(() => expect(screen.getByText('Importing… links + metadata (1/2)')).toBeTruthy())
+
+      resolveImport({ imported: 2, skipped: 0, duplicates: 0, metaMissing: 0 })
       await waitFor(() => expect(screen.getByText('Import links')).toBeTruthy())
     })
   })

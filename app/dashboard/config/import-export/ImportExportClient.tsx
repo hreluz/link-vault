@@ -43,6 +43,7 @@ export default function ImportExportClient() {
     importing, lastResult, progress,
     detectedVaultExport, vaultExportError,
     applyPreferences, setApplyPreferences,
+    autoFetchOnImport, setAutoFetchOnImport,
     fileInputRef,
     hasImportContent,
     handleDragOver, handleDragLeave, handleDrop, handleFileChange,
@@ -50,6 +51,9 @@ export default function ImportExportClient() {
   } = useLinkImport()
 
   const showApplyPreferences = detectedVaultExport?.mode === 'everything' && !!detectedVaultExport.preferences
+  // A full vault restore never fetches (see useLinkImport), so the switch is disabled for it.
+  const autoFetchUnavailable = !!detectedVaultExport
+  const fetchingMetadata = autoFetchOnImport && !autoFetchUnavailable
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
@@ -282,6 +286,36 @@ export default function ImportExportClient() {
             </select>
           </div>
 
+          <div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={autoFetchOnImport}
+              aria-describedby="import-auto-fetch-hint"
+              onClick={() => setAutoFetchOnImport(!autoFetchOnImport)}
+              disabled={autoFetchUnavailable}
+              className="flex items-center gap-2 text-sm font-medium text-surface-700 transition disabled:cursor-not-allowed disabled:opacity-50 dark:text-surface-300"
+            >
+              <span
+                className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors ${
+                  autoFetchOnImport ? 'bg-primary-600' : 'bg-surface-300 dark:bg-surface-600'
+                }`}
+              >
+                <span
+                  className={`inline-block h-3 w-3 rounded-full bg-white shadow-sm transition-transform ${
+                    autoFetchOnImport ? 'translate-x-3.5' : 'translate-x-0.5'
+                  }`}
+                />
+              </span>
+              Auto-fetch metadata
+            </button>
+            <p id="import-auto-fetch-hint" className="mt-1 text-xs text-surface-500 dark:text-surface-400">
+              {autoFetchUnavailable
+                ? 'Not available for full vault exports — they already include metadata.'
+                : 'Fills in missing title, description, image and duration. Slower: links are fetched one at a time.'}
+            </p>
+          </div>
+
           {showApplyPreferences && (
             <label className="flex items-center gap-2 text-sm text-surface-700 dark:text-surface-300">
               <input
@@ -301,6 +335,7 @@ export default function ImportExportClient() {
                 : '⚠️ No links imported'}
               {lastResult.duplicates > 0 && ` · ${lastResult.duplicates} already existed`}
               {lastResult.skipped > 0 && ` · ${lastResult.skipped} invalid`}
+              {!!lastResult.metaMissing && ` · ${lastResult.metaMissing} without metadata`}
               {!!lastResult.categoriesCreated && ` · ${lastResult.categoriesCreated} categories`}
               {!!lastResult.tagsCreated && ` · ${lastResult.tagsCreated} tags`}
               {!!lastResult.domainsCreated && ` · ${lastResult.domainsCreated} domain rules`}
@@ -322,7 +357,7 @@ export default function ImportExportClient() {
           >
             {importing
               ? progress
-                ? `Importing… ${PHASE_LABELS[progress.phase]} (${progress.done}/${progress.total})`
+                ? `Importing… ${progress.phase === 'links' && fetchingMetadata ? 'links + metadata' : PHASE_LABELS[progress.phase]} (${progress.done}/${progress.total})`
                 : 'Importing…'
               : 'Import links'}
           </button>
