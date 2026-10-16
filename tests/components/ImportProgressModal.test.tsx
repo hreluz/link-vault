@@ -32,6 +32,9 @@ function renderModal(overrides: Partial<Props> = {}) {
     progress: { phase: 'links', done: 3, total: 10 },
     result: null,
     error: null,
+    cancelling: false,
+    notProcessed: [],
+    onCancel: vi.fn(),
     onClose: vi.fn(),
     ...overrides,
   }
@@ -80,9 +83,9 @@ describe('ImportProgressModal', () => {
       expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBeNull()
     })
 
-    it('has no close control', () => {
+    it('has no close control (Cancel is the only button)', () => {
       renderModal()
-      expect(screen.queryAllByRole('button')).toHaveLength(0)
+      expect(screen.queryAllByRole('button').map(b => b.textContent)).toEqual(['Cancel'])
     })
 
     it('does not close on Escape', () => {
@@ -201,6 +204,116 @@ describe('ImportProgressModal', () => {
         result: { imported: 2, skipped: 0, duplicates: 0, domainsFailed: 1, preferencesFailed: ['theme', 'surface'] },
       })
       expect(screen.getByText(/1 domain rule and 2 appearance settings couldn.t be applied/)).toBeTruthy()
+    })
+  })
+
+  describe('cancel button', () => {
+    it('is shown while running and calls onCancel', () => {
+      const { props } = renderModal()
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+      expect(props.onCancel).toHaveBeenCalledOnce()
+    })
+
+    it('is shown while "Preparing…"', () => {
+      renderModal({ progress: null, stats: { ...STATS, imported: 0, failed: 0, failures: [] } })
+      expect(screen.getByText('Preparing…')).toBeTruthy()
+      expect(screen.getByRole('button', { name: 'Cancel' })).toBeTruthy()
+    })
+
+    it('is shown during a v2 phase before links', () => {
+      renderModal({
+        run: { isVault: true, withMetadata: false },
+        progress: { phase: 'categories', done: 0, total: 2 },
+        stats: { ...STATS, imported: 0, failed: 0, failures: [] },
+      })
+      expect(screen.getByRole('button', { name: 'Cancel' })).toBeTruthy()
+    })
+
+    it('reads "Stopping…" and is disabled while cancelling', () => {
+      const { props } = renderModal({ cancelling: true })
+      const button = screen.getByRole('button', { name: 'Stopping…' }) as HTMLButtonElement
+      expect(button.disabled).toBe(true)
+      fireEvent.click(button)
+      expect(props.onCancel).not.toHaveBeenCalled()
+    })
+
+    it('does not make Escape close or cancel while running', () => {
+      const { props } = renderModal()
+      fireEvent.keyDown(document, { key: 'Escape' })
+      expect(props.onClose).not.toHaveBeenCalled()
+      expect(props.onCancel).not.toHaveBeenCalled()
+    })
+
+    it('is not shown once finished', () => {
+      renderModal({ state: 'finished', progress: null })
+      expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull()
+    })
+  })
+
+  describe('cancelled', () => {
+    const NOT_PROCESSED = ['https://c.com', 'https://d.com', 'https://e.com']
+
+    function renderCancelled(overrides: Partial<Props> = {}) {
+      return renderModal({ state: 'cancelled', progress: null, notProcessed: NOT_PROCESSED, ...overrides })
+    }
+
+    it('shows the heading, the status line and the Not processed counter', () => {
+      renderCancelled()
+      expect(screen.getByText('Import cancelled')).toBeTruthy()
+      expect(screen.getByText('3 links processed · 3 not processed')).toBeTruthy()
+      expect(screen.getByText('Not processed').parentElement!.textContent).toContain('3')
+    })
+
+    it('keeps the failed-links list and "Copy failed URLs"', () => {
+      renderCancelled()
+      expect(screen.getByRole('list').textContent).toContain('not a url')
+      expect(screen.getByRole('button', { name: 'Copy failed URLs' })).toBeTruthy()
+    })
+
+    it('copies the unprocessed URLs one per line', async () => {
+      renderCancelled()
+      fireEvent.click(screen.getByRole('button', { name: 'Copy unprocessed URLs' }))
+
+      expect(writeText).toHaveBeenCalledWith('https://c.com\nhttps://d.com\nhttps://e.com')
+      await waitFor(() => expect(mockToastSuccess).toHaveBeenCalledWith('Copied'))
+    })
+
+    it('does not list the unprocessed URLs', () => {
+      renderCancelled()
+      expect(screen.queryByText('https://c.com')).toBeNull()
+    })
+
+    it('hides "Copy unprocessed URLs" when nothing is left unprocessed', () => {
+      renderCancelled({ notProcessed: [] })
+      expect(screen.queryByRole('button', { name: 'Copy unprocessed URLs' })).toBeNull()
+    })
+
+    it('never shows "Copy unprocessed URLs" after an import that finished normally', () => {
+      renderModal({ state: 'finished', progress: null, notProcessed: NOT_PROCESSED })
+      expect(screen.queryByRole('button', { name: 'Copy unprocessed URLs' })).toBeNull()
+      expect(screen.queryByText('Not processed')).toBeNull()
+    })
+
+    it('closes with Done, which takes focus', async () => {
+      const { props } = renderCancelled()
+      const done = screen.getByRole('button', { name: 'Done' })
+      await waitFor(() => expect(document.activeElement).toBe(done))
+      fireEvent.click(done)
+      expect(props.onClose).toHaveBeenCalledOnce()
+    })
+
+    it('shows what a cancelled v2 restore created and that remaining steps were skipped', () => {
+      renderCancelled({
+        run: { isVault: true, withMetadata: false },
+        result: { imported: 0, skipped: 0, duplicates: 0, categoriesCreated: 2 },
+      })
+      expect(screen.getByText(/Also created 2 categories\./)).toBeTruthy()
+      expect(screen.getByText(/Remaining steps were skipped\./)).toBeTruthy()
+    })
+
+    it('does not mention skipped steps for a plain links import', () => {
+      renderCancelled()
+      expect(screen.queryByText(/Remaining steps were skipped/)).toBeNull()
     })
   })
 

@@ -537,7 +537,7 @@ describe('importLinks', () => {
     const result = await importLinks([{ url: 'https://example.com' }], null, dek)
 
     expect(result).toEqual({
-      imported: 0, skipped: 1, duplicates: 0,
+      imported: 0, skipped: 1, duplicates: 0, cancelled: false, notProcessed: [],
       failures: [{ url: 'https://example.com', reason: 'save_error' }],
     })
   })
@@ -545,7 +545,7 @@ describe('importLinks', () => {
   it('returns { imported: 0, skipped: 0, duplicates: 0 } for an empty inputs array', async () => {
     const result = await importLinks([], null, dek)
 
-    expect(result).toEqual({ imported: 0, skipped: 0, duplicates: 0, failures: [] })
+    expect(result).toEqual({ imported: 0, skipped: 0, duplicates: 0, failures: [], cancelled: false, notProcessed: [] })
     expect(mockLinksInsert).not.toHaveBeenCalled()
   })
 
@@ -553,7 +553,7 @@ describe('importLinks', () => {
     const result = await importLinks([{ url: 'not-a-url' }], null, dek)
 
     expect(result).toEqual({
-      imported: 0, skipped: 1, duplicates: 0,
+      imported: 0, skipped: 1, duplicates: 0, cancelled: false, notProcessed: [],
       failures: [{ url: 'not-a-url', reason: 'invalid_url' }],
     })
     expect(mockLinksInsert).not.toHaveBeenCalled()
@@ -563,7 +563,7 @@ describe('importLinks', () => {
     const result = await importLinks([{ url: '   ' }], null, dek)
 
     expect(result).toEqual({
-      imported: 0, skipped: 1, duplicates: 0,
+      imported: 0, skipped: 1, duplicates: 0, cancelled: false, notProcessed: [],
       failures: [{ url: '   ', reason: 'invalid_url' }],
     })
     expect(mockLinksInsert).not.toHaveBeenCalled()
@@ -575,7 +575,7 @@ describe('importLinks', () => {
 
     const result = await importLinks([{ url: 'https://example.com' }], null, dek)
 
-    expect(result).toEqual({ imported: 1, skipped: 0, duplicates: 0, failures: [] })
+    expect(result).toEqual({ imported: 1, skipped: 0, duplicates: 0, failures: [], cancelled: false, notProcessed: [] })
   })
 
   it('always inserts with status unread', async () => {
@@ -639,7 +639,7 @@ describe('importLinks', () => {
     const result = await importLinks([{ url: 'https://example.com' }], null, dek)
 
     expect(result).toEqual({
-      imported: 0, skipped: 1, duplicates: 0,
+      imported: 0, skipped: 1, duplicates: 0, cancelled: false, notProcessed: [],
       failures: [{ url: 'https://example.com', reason: 'save_error' }],
     })
   })
@@ -654,7 +654,7 @@ describe('importLinks', () => {
       { url: 'https://youtube.com' },
     ], null, dek)
 
-    expect(result).toEqual({ imported: 3, skipped: 0, duplicates: 0, failures: [] })
+    expect(result).toEqual({ imported: 3, skipped: 0, duplicates: 0, failures: [], cancelled: false, notProcessed: [] })
     expect(mockLinksInsert).toHaveBeenCalledTimes(3)
   })
 
@@ -671,7 +671,7 @@ describe('importLinks', () => {
     ], null, dek)
 
     expect(result).toEqual({
-      imported: 1, skipped: 2, duplicates: 0,
+      imported: 1, skipped: 2, duplicates: 0, cancelled: false, notProcessed: [],
       failures: [
         { url: 'not-a-url', reason: 'invalid_url' },
         { url: 'https://github.com', reason: 'save_error' },
@@ -684,7 +684,7 @@ describe('importLinks', () => {
 
     const result = await importLinks([{ url: 'https://example.com' }], null, dek)
 
-    expect(result).toEqual({ imported: 0, skipped: 0, duplicates: 1, failures: [] })
+    expect(result).toEqual({ imported: 0, skipped: 0, duplicates: 1, failures: [], cancelled: false, notProcessed: [] })
   })
 
   it('does not insert when the URL is a duplicate', async () => {
@@ -789,7 +789,7 @@ describe('importLinks', () => {
     ], null, dek)
 
     expect(result).toEqual({
-      imported: 1, skipped: 1, duplicates: 1,
+      imported: 1, skipped: 1, duplicates: 1, cancelled: false, notProcessed: [],
       failures: [{ url: 'not-a-url', reason: 'invalid_url' }],
     })
   })
@@ -807,7 +807,7 @@ describe('importLinks', () => {
         { url: 'https://example.com' },
         { url: 'not-a-url' },
         { url: 'https://github.com' },
-      ], null, dek, onProgress)
+      ], null, dek, { onProgress })
 
       expect(onProgress).toHaveBeenCalledTimes(3)
       expect(onProgress).toHaveBeenNthCalledWith(1, 1, 3, expect.anything())
@@ -818,7 +818,7 @@ describe('importLinks', () => {
     it('reaches done === total even when every input is skipped', async () => {
       const onProgress = vi.fn()
 
-      await importLinks([{ url: 'not-a-url' }, { url: 'also not a url' }], null, dek, onProgress)
+      await importLinks([{ url: 'not-a-url' }, { url: 'also not a url' }], null, dek, { onProgress })
 
       expect(onProgress).toHaveBeenCalledTimes(2)
       expect(onProgress).toHaveBeenLastCalledWith(2, 2, expect.anything())
@@ -829,7 +829,7 @@ describe('importLinks', () => {
       mockLinksSingle.mockResolvedValue({ data: row, error: null })
 
       await expect(importLinks([{ url: 'https://example.com' }], null, dek))
-        .resolves.toEqual({ imported: 1, skipped: 0, duplicates: 0, failures: [] })
+        .resolves.toEqual({ imported: 1, skipped: 0, duplicates: 0, failures: [], cancelled: false, notProcessed: [] })
     })
   })
 
@@ -850,7 +850,7 @@ describe('importLinks', () => {
         { url: 'not-a-url' },
         { url: 'https://dup.com' },
         { url: 'https://github.com' },
-      ], null, dek, onProgress)
+      ], null, dek, { onProgress })
 
       expect(onProgress.mock.calls.map(call => call[2])).toEqual([
         { url: 'https://example.com', status: 'imported', metaMissing: false },
@@ -865,7 +865,7 @@ describe('importLinks', () => {
       const fetchMeta = vi.fn().mockResolvedValue({ title: null, description: null, image: null, duration: null })
       const onProgress = vi.fn()
 
-      await importLinks([{ url: 'https://example.com' }], null, dek, onProgress, fetchMeta)
+      await importLinks([{ url: 'https://example.com' }], null, dek, { onProgress, fetchMeta })
 
       expect(onProgress).toHaveBeenCalledWith(1, 1, { url: 'https://example.com', status: 'imported', metaMissing: true })
     })
@@ -904,7 +904,7 @@ describe('importLinks', () => {
     it('fills empty fields from the fetched metadata', async () => {
       const fetchMeta = vi.fn().mockResolvedValue(FULL_META)
 
-      await importLinks([{ url: 'https://example.com' }], null, dek, undefined, fetchMeta)
+      await importLinks([{ url: 'https://example.com' }], null, dek, { fetchMeta })
 
       expect(fetchMeta).toHaveBeenCalledWith('https://example.com')
       expect(await insertedContent()).toEqual(expect.objectContaining({
@@ -915,7 +915,7 @@ describe('importLinks', () => {
     it('does not overwrite a provided title, but fills an empty image_url', async () => {
       const fetchMeta = vi.fn().mockResolvedValue(FULL_META)
 
-      await importLinks([{ url: 'https://example.com', title: 'My title', image_url: '' }], null, dek, undefined, fetchMeta)
+      await importLinks([{ url: 'https://example.com', title: 'My title', image_url: '' }], null, dek, { fetchMeta })
 
       const content = await insertedContent()
       expect(content.title).toBe('My title')
@@ -925,7 +925,7 @@ describe('importLinks', () => {
     it('is not called for invalid URLs', async () => {
       const fetchMeta = vi.fn().mockResolvedValue(FULL_META)
 
-      await importLinks([{ url: 'not-a-url' }], null, dek, undefined, fetchMeta)
+      await importLinks([{ url: 'not-a-url' }], null, dek, { fetchMeta })
 
       expect(fetchMeta).not.toHaveBeenCalled()
     })
@@ -934,10 +934,10 @@ describe('importLinks', () => {
       mockDupCheck.mockResolvedValue({ data: [{ id: 'existing-id' }] })
       const fetchMeta = vi.fn().mockResolvedValue(FULL_META)
 
-      const result = await importLinks([{ url: 'https://example.com' }], null, dek, undefined, fetchMeta)
+      const result = await importLinks([{ url: 'https://example.com' }], null, dek, { fetchMeta })
 
       expect(fetchMeta).not.toHaveBeenCalled()
-      expect(result).toEqual({ imported: 0, skipped: 0, duplicates: 1, metaMissing: 0, failures: [] })
+      expect(result).toEqual({ imported: 0, skipped: 0, duplicates: 1, metaMissing: 0, failures: [], cancelled: false, notProcessed: [] })
     })
 
     it('is not called when title, description, image_url and duration are all set', async () => {
@@ -945,7 +945,7 @@ describe('importLinks', () => {
 
       await importLinks([{
         url: 'https://example.com', title: 'T', description: 'D', image_url: 'https://img/x.png', duration: '1:00',
-      }], null, dek, undefined, fetchMeta)
+      }], null, dek, { fetchMeta })
 
       expect(fetchMeta).not.toHaveBeenCalled()
     })
@@ -953,18 +953,18 @@ describe('importLinks', () => {
     it('still imports the link and counts metaMissing when the fetcher throws', async () => {
       const fetchMeta = vi.fn().mockRejectedValue(new Error('network'))
 
-      const result = await importLinks([{ url: 'https://example.com', title: 'Kept' }], null, dek, undefined, fetchMeta)
+      const result = await importLinks([{ url: 'https://example.com', title: 'Kept' }], null, dek, { fetchMeta })
 
-      expect(result).toEqual({ imported: 1, skipped: 0, duplicates: 0, metaMissing: 1, failures: [] })
+      expect(result).toEqual({ imported: 1, skipped: 0, duplicates: 0, metaMissing: 1, failures: [], cancelled: false, notProcessed: [] })
       expect((await insertedContent()).title).toBe('Kept')
     })
 
     it('counts metaMissing when the fetcher returns all-null metadata', async () => {
       const fetchMeta = vi.fn().mockResolvedValue({ title: null, description: null, image: null, duration: null })
 
-      const result = await importLinks([{ url: 'https://example.com' }], null, dek, undefined, fetchMeta)
+      const result = await importLinks([{ url: 'https://example.com' }], null, dek, { fetchMeta })
 
-      expect(result).toEqual({ imported: 1, skipped: 0, duplicates: 0, metaMissing: 1, failures: [] })
+      expect(result).toEqual({ imported: 1, skipped: 0, duplicates: 0, metaMissing: 1, failures: [], cancelled: false, notProcessed: [] })
     })
 
     it('fetches one link at a time', async () => {
@@ -977,7 +977,7 @@ describe('importLinks', () => {
         return FULL_META
       })
 
-      await importLinks([{ url: 'https://a.com' }, { url: 'https://b.com' }, { url: 'https://c.com' }], null, dek, undefined, fetchMeta)
+      await importLinks([{ url: 'https://a.com' }, { url: 'https://b.com' }, { url: 'https://c.com' }], null, dek, { fetchMeta })
 
       expect(fetchMeta).toHaveBeenCalledTimes(3)
       expect(maxInFlight).toBe(1)
@@ -987,6 +987,55 @@ describe('importLinks', () => {
       const result = await importLinks([{ url: 'https://example.com' }], null, dek)
 
       expect(result).not.toHaveProperty('metaMissing')
+    })
+  })
+
+  describe('signal', () => {
+    const FIVE = ['https://a.com', 'https://b.com', 'https://c.com', 'https://d.com', 'https://e.com']
+
+    beforeEach(async () => {
+      mockLinksSingle.mockResolvedValue({ data: await encryptLinkRow('1'), error: null })
+    })
+
+    it('imports nothing and lists every URL as not processed when aborted before the call', async () => {
+      const controller = new AbortController()
+      controller.abort()
+
+      const result = await importLinks(FIVE.map(url => ({ url: ` ${url} ` })), null, dek, { signal: controller.signal })
+
+      expect(mockLinksInsert).not.toHaveBeenCalled()
+      expect(result).toMatchObject({ imported: 0, cancelled: true, notProcessed: FIVE })
+    })
+
+    it('stops before the next row when aborted inside onProgress after row 2 of 5', async () => {
+      const controller = new AbortController()
+      const onProgress = vi.fn((done: number) => { if (done === 2) controller.abort() })
+
+      const result = await importLinks(FIVE.map(url => ({ url })), null, dek, { onProgress, signal: controller.signal })
+
+      expect(mockLinksInsert).toHaveBeenCalledTimes(2)
+      expect(onProgress).toHaveBeenCalledTimes(2)
+      expect(result).toMatchObject({ imported: 2, cancelled: true, notProcessed: FIVE.slice(2) })
+    })
+
+    it('still completes and counts the row that is mid-fetch when the abort fires', async () => {
+      const controller = new AbortController()
+      const fetchMeta = vi.fn(async () => {
+        controller.abort()
+        return { title: 'T', description: null, image: null, duration: null }
+      })
+
+      const result = await importLinks(FIVE.map(url => ({ url })), null, dek, { fetchMeta, signal: controller.signal })
+
+      expect(fetchMeta).toHaveBeenCalledTimes(1)
+      expect(mockLinksInsert).toHaveBeenCalledTimes(1)
+      expect(result).toMatchObject({ imported: 1, cancelled: true, notProcessed: FIVE.slice(1) })
+    })
+
+    it('returns cancelled: false and an empty notProcessed without a signal', async () => {
+      const result = await importLinks(FIVE.map(url => ({ url })), null, dek)
+
+      expect(result).toMatchObject({ imported: 5, cancelled: false, notProcessed: [] })
     })
   })
 })

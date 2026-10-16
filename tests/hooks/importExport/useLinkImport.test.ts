@@ -118,7 +118,7 @@ describe('useLinkImport', () => {
       })
       await act(async () => { await result.current.handleImport() })
 
-      expect(mockImportLinks).toHaveBeenCalledWith(expect.any(Array), 'cat-2', FAKE_DEK, expect.any(Function), undefined)
+      expect(mockImportLinks).toHaveBeenCalledWith(expect.any(Array), 'cat-2', FAKE_DEK, { onProgress: expect.any(Function), fetchMeta: undefined, signal: expect.any(AbortSignal) })
     })
   })
 
@@ -182,8 +182,7 @@ describe('useLinkImport', () => {
         [{ url: 'https://example.com', tags: [] }, { url: 'https://github.com', tags: [] }],
         'cat-0',
         FAKE_DEK,
-        expect.any(Function),
-        undefined,
+        { onProgress: expect.any(Function), fetchMeta: undefined, signal: expect.any(AbortSignal) },
       )
     })
 
@@ -197,8 +196,7 @@ describe('useLinkImport', () => {
         [{ url: 'https://example.com', tags: [] }],
         expect.anything(),
         FAKE_DEK,
-        expect.any(Function),
-        undefined,
+        { onProgress: expect.any(Function), fetchMeta: undefined, signal: expect.any(AbortSignal) },
       )
     })
 
@@ -269,8 +267,7 @@ describe('useLinkImport', () => {
         [{ url: 'https://example.com', tags: ['react'] }],
         expect.anything(),
         FAKE_DEK,
-        expect.any(Function),
-        undefined,
+        { onProgress: expect.any(Function), fetchMeta: undefined, signal: expect.any(AbortSignal) },
       )
     })
 
@@ -302,8 +299,7 @@ describe('useLinkImport', () => {
         [{ url: 'https://example.com' }],
         expect.anything(),
         FAKE_DEK,
-        expect.any(Function),
-        undefined,
+        { onProgress: expect.any(Function), fetchMeta: undefined, signal: expect.any(AbortSignal) },
       )
     })
   })
@@ -334,8 +330,7 @@ describe('useLinkImport', () => {
         [{ url: 'https://example.com', tags: ['test'] }],
         expect.anything(),
         FAKE_DEK,
-        expect.any(Function),
-        undefined,
+        { onProgress: expect.any(Function), fetchMeta: undefined, signal: expect.any(AbortSignal) },
       )
     })
 
@@ -393,8 +388,7 @@ describe('useLinkImport', () => {
         ]),
         expect.anything(),
         FAKE_DEK,
-        expect.any(Function),
-        undefined,
+        { onProgress: expect.any(Function), fetchMeta: undefined, signal: expect.any(AbortSignal) },
       )
     })
 
@@ -416,8 +410,7 @@ describe('useLinkImport', () => {
         ]),
         expect.anything(),
         FAKE_DEK,
-        expect.any(Function),
-        undefined,
+        { onProgress: expect.any(Function), fetchMeta: undefined, signal: expect.any(AbortSignal) },
       )
       expect(mockGetOrCreateCategoryByName).not.toHaveBeenCalled()
     })
@@ -434,7 +427,7 @@ describe('useLinkImport', () => {
 
       expect(mockImportVaultExport).toHaveBeenCalledWith(
         VAULT_EXPORT,
-        { defaultCategoryId: 'cat-0', applyPreferences: true, onProgress: expect.any(Function) },
+        { defaultCategoryId: 'cat-0', applyPreferences: true, onProgress: expect.any(Function), signal: expect.any(AbortSignal) },
         FAKE_DEK,
       )
       expect(mockImportLinks).not.toHaveBeenCalled()
@@ -451,7 +444,7 @@ describe('useLinkImport', () => {
 
       expect(mockImportVaultExport).toHaveBeenCalledWith(
         VAULT_EXPORT,
-        { defaultCategoryId: 'cat-0', applyPreferences: true, onProgress: expect.any(Function) },
+        { defaultCategoryId: 'cat-0', applyPreferences: true, onProgress: expect.any(Function), signal: expect.any(AbortSignal) },
         FAKE_DEK,
       )
     })
@@ -476,7 +469,7 @@ describe('useLinkImport', () => {
 
       expect(mockImportVaultExport).toHaveBeenCalledWith(
         VAULT_EXPORT,
-        { defaultCategoryId: 'cat-0', applyPreferences: false, onProgress: expect.any(Function) },
+        { defaultCategoryId: 'cat-0', applyPreferences: false, onProgress: expect.any(Function), signal: expect.any(AbortSignal) },
         FAKE_DEK,
       )
     })
@@ -585,7 +578,7 @@ describe('useLinkImport', () => {
       await act(async () => { await result.current.handleImport() })
 
       expect(mockImportLinks).toHaveBeenCalledWith(
-        expect.any(Array), 'cat-0', FAKE_DEK, expect.any(Function), undefined,
+        expect.any(Array), 'cat-0', FAKE_DEK, { onProgress: expect.any(Function), fetchMeta: undefined, signal: expect.any(AbortSignal) },
       )
     })
 
@@ -598,7 +591,7 @@ describe('useLinkImport', () => {
       await act(async () => { await result.current.handleImport() })
 
       expect(mockImportLinks).toHaveBeenCalledWith(
-        expect.any(Array), 'cat-0', FAKE_DEK, expect.any(Function), mockFetchLinkMeta,
+        expect.any(Array), 'cat-0', FAKE_DEK, { onProgress: expect.any(Function), fetchMeta: mockFetchLinkMeta, signal: expect.any(AbortSignal) },
       )
     })
 
@@ -671,7 +664,7 @@ describe('useLinkImport', () => {
     it('updates progress via the legacy importLinks path for a plain URL paste', async () => {
       let resolveImport: (v: unknown) => void = () => {}
       mockImportLinks.mockImplementation((
-        _inputs: unknown, _cat: unknown, _dek: unknown, onProgress?: (done: number, total: number) => void,
+        _inputs: unknown, _cat: unknown, _dek: unknown, { onProgress }: { onProgress?: (done: number, total: number) => void } = {},
       ) => {
         onProgress?.(1, 1)
         return new Promise(resolve => { resolveImport = resolve })
@@ -695,7 +688,7 @@ describe('useLinkImport', () => {
     function emitOutcomes(outcomes: Outcome[]) {
       mockImportLinks.mockImplementation(async (
         _inputs: unknown, _cat: unknown, _dek: unknown,
-        onProgress?: (done: number, total: number, outcome: Outcome) => void,
+        { onProgress }: { onProgress?: (done: number, total: number, outcome: Outcome) => void } = {},
       ) => {
         outcomes.forEach((outcome, i) => onProgress?.(i + 1, outcomes.length, outcome))
         return { imported: 0, skipped: 0, duplicates: 0, failures: [] }
@@ -885,6 +878,126 @@ describe('useLinkImport', () => {
       expect(removeSpy).toHaveBeenCalledWith('beforeunload', expect.any(Function))
       addSpy.mockRestore()
       removeSpy.mockRestore()
+    })
+  })
+
+  describe('cancel', () => {
+    /** Starts a URL import whose importLinks call stays pending; exposes its signal and a resolver. */
+    async function startPendingImport() {
+      let resolveImport: (v: unknown) => void = () => {}
+      let signal: AbortSignal | undefined
+      mockImportLinks.mockImplementation((
+        _inputs: unknown, _cat: unknown, _dek: unknown, options: { signal?: AbortSignal } = {},
+      ) => {
+        signal = options.signal
+        return new Promise(resolve => { resolveImport = resolve })
+      })
+      const utils = await renderWithDefaultCategory()
+      act(() => utils.result.current.setUrlsText('https://a.com\nhttps://b.com\nhttps://c.com'))
+
+      let importPromise!: Promise<void>
+      act(() => { importPromise = utils.result.current.handleImport() })
+      await waitFor(() => expect(utils.result.current.importModalState).toBe('running'))
+
+      return {
+        ...utils,
+        getSignal: () => signal,
+        finish: async (result: unknown) => {
+          await act(async () => {
+            resolveImport(result)
+            await importPromise
+          })
+        },
+      }
+    }
+
+    const CANCELLED_RESULT = {
+      imported: 1, skipped: 0, duplicates: 0, failures: [],
+      cancelled: true, notProcessed: ['https://b.com', 'https://c.com'],
+    }
+
+    it('aborts the signal handed to importLinks', async () => {
+      const { result, getSignal, finish } = await startPendingImport()
+      expect(getSignal()?.aborted).toBe(false)
+
+      act(() => result.current.cancelImport())
+
+      expect(getSignal()?.aborted).toBe(true)
+      await finish(CANCELLED_RESULT)
+    })
+
+    it('goes running -> cancelled on a cancelled result and keeps the URLs input', async () => {
+      const { result, finish } = await startPendingImport()
+
+      act(() => result.current.cancelImport())
+      await finish(CANCELLED_RESULT)
+
+      expect(result.current.importModalState).toBe('cancelled')
+      expect(result.current.notProcessed).toEqual(['https://b.com', 'https://c.com'])
+      expect(result.current.urlsText).toBe('https://a.com\nhttps://b.com\nhttps://c.com')
+    })
+
+    it('is cancelling between the click and the import resolving', async () => {
+      const { result, finish } = await startPendingImport()
+      expect(result.current.cancelling).toBe(false)
+
+      act(() => result.current.cancelImport())
+      expect(result.current.cancelling).toBe(true)
+      expect(result.current.importModalState).toBe('running')
+
+      await finish(CANCELLED_RESULT)
+      expect(result.current.cancelling).toBe(false)
+    })
+
+    it('closes from cancelled', async () => {
+      const { result, finish } = await startPendingImport()
+      act(() => result.current.cancelImport())
+      await finish(CANCELLED_RESULT)
+
+      act(() => result.current.closeImportModal())
+
+      expect(result.current.importModalState).toBe('closed')
+    })
+
+    it('is a no-op when not running', async () => {
+      const { result } = await renderWithDefaultCategory()
+
+      act(() => result.current.cancelImport())
+
+      expect(result.current.cancelling).toBe(false)
+      expect(result.current.importModalState).toBe('closed')
+    })
+
+    it('passes the signal to importVaultExport on the v2 path, and aborts it on cancel', async () => {
+      let resolveImport: (v: unknown) => void = () => {}
+      let signal: AbortSignal | undefined
+      mockImportVaultExport.mockImplementation((_data: unknown, options: { signal?: AbortSignal }) => {
+        signal = options.signal
+        return new Promise(resolve => { resolveImport = resolve })
+      })
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.switchTab('json'))
+      act(() => result.current.setJsonText(JSON.stringify(VAULT_EXPORT)))
+      await waitFor(() => expect(result.current.detectedVaultExport).not.toBeNull())
+
+      let importPromise!: Promise<void>
+      act(() => { importPromise = result.current.handleImport() })
+      await waitFor(() => expect(result.current.importModalState).toBe('running'))
+
+      expect(signal).toBeInstanceOf(AbortSignal)
+      act(() => result.current.cancelImport())
+      expect(signal?.aborted).toBe(true)
+
+      await act(async () => {
+        resolveImport({
+          imported: 0, skipped: 0, duplicates: 0, failures: [], cancelled: true, notProcessed: ['https://example.com'],
+          categoriesCreated: 1, domainsCreated: 0, domainsFailed: 0, tagsCreated: 0, preferencesFailed: [],
+        })
+        await importPromise
+      })
+
+      expect(result.current.importModalState).toBe('cancelled')
+      expect(result.current.jsonText).toBe(JSON.stringify(VAULT_EXPORT))
     })
   })
 })

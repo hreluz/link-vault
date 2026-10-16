@@ -283,7 +283,7 @@ describe('ImportExportClient', () => {
     it('shows the in-flight progress phase/count in the Import links button while importing', async () => {
       let resolveImport: (v: unknown) => void = () => {}
       mockImportLinks.mockImplementation((
-        _inputs: unknown, _cat: unknown, _dek: unknown, onProgress?: (done: number, total: number) => void,
+        _inputs: unknown, _cat: unknown, _dek: unknown, { onProgress }: { onProgress?: (done: number, total: number) => void } = {},
       ) => {
         onProgress?.(1, 2)
         return new Promise(resolve => { resolveImport = resolve })
@@ -327,7 +327,7 @@ describe('ImportExportClient', () => {
     it('shows the without-metadata count in the progress modal', async () => {
       mockImportLinks.mockImplementation(async (
         _inputs: unknown, _cat: unknown, _dek: unknown,
-        onProgress?: (done: number, total: number, outcome: unknown) => void,
+        { onProgress }: { onProgress?: (done: number, total: number, outcome: unknown) => void } = {},
       ) => {
         for (let i = 1; i <= 3; i++) onProgress?.(i, 3, { url: `https://e.com/${i}`, status: 'imported', metaMissing: true })
         return { imported: 3, skipped: 0, duplicates: 0, metaMissing: 3, failures: [] }
@@ -346,7 +346,7 @@ describe('ImportExportClient', () => {
     it('labels the in-flight import as links + metadata when on', async () => {
       let resolveImport: (v: unknown) => void = () => {}
       mockImportLinks.mockImplementation((
-        _inputs: unknown, _cat: unknown, _dek: unknown, onProgress?: (done: number, total: number) => void,
+        _inputs: unknown, _cat: unknown, _dek: unknown, { onProgress }: { onProgress?: (done: number, total: number) => void } = {},
       ) => {
         onProgress?.(1, 2)
         return new Promise(resolve => { resolveImport = resolve })

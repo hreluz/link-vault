@@ -46,6 +46,7 @@ export default function ImportExportClient() {
     applyPreferences, setApplyPreferences,
     autoFetchOnImport, setAutoFetchOnImport,
     importModalState, importStats, importError, importRun, closeImportModal,
+    cancelling, notProcessed, cancelImport,
     fileInputRef,
     hasImportContent,
     handleDragOver, handleDragLeave, handleDrop, handleFileChange,
@@ -355,6 +356,9 @@ export default function ImportExportClient() {
         progress={progress}
         result={lastResult}
         error={importError}
+        cancelling={cancelling}
+        notProcessed={notProcessed}
+        onCancel={cancelImport}
         onClose={closeImportModal}
       />
     </main>

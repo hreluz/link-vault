@@ -23,6 +23,9 @@ const PHASE_TEXT: Record<VaultImportPhase, string> = {
   preferences: 'Applying appearance settings',
 }
 
+const SECONDARY_BUTTON =
+  'rounded-xl border border-surface-200 bg-surface-card px-4 py-2.5 text-sm font-medium text-surface-600 shadow-sm transition hover:bg-surface-50 hover:text-surface-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-surface-700 dark:bg-surface-900 dark:text-surface-300 dark:hover:bg-surface-800'
+
 function plural(n: number, word: string, pluralWord = `${word}s`) {
   return `${n} ${n === 1 ? word : pluralWord}`
 }
@@ -34,12 +37,21 @@ interface Props {
   progress: VaultImportProgress | null
   result: ImportLastResult | null
   error: string | null
+  /** True from the Cancel click until the current row finishes and the import returns. */
+  cancelling: boolean
+  /** URLs never started because of a cancel; only counted and copyable, never listed. */
+  notProcessed: string[]
+  onCancel: () => void
   onClose: () => void
 }
 
-export default function ImportProgressModal({ state, stats, run, progress, result, error, onClose }: Props) {
+export default function ImportProgressModal({
+  state, stats, run, progress, result, error, cancelling, notProcessed, onCancel, onClose,
+}: Props) {
   const isOpen = state !== 'closed'
   const running = state === 'running'
+  const cancelled = state === 'cancelled'
+  const ended = state === 'finished' || cancelled
   // Escape and the backdrop are ignored mid-import, like the hidden close controls.
   const close = running ? () => {} : onClose
   const dialog = useDialog({ isOpen, onClose: close })
@@ -57,15 +69,17 @@ export default function ImportProgressModal({ state, stats, run, progress, resul
   }
   if (progress?.phase === 'links' && progress.total !== linksTotal) setLinksTotal(progress.total)
 
-  // Focus lands on the panel while running (no controls yet); move it to Done once there is one.
+  // Focus lands on the panel while running (not on Cancel, so a stray Enter can't stop the
+  // import); move it to Done once there is one.
   useEffect(() => {
-    if (state === 'finished' || state === 'error') doneRef.current?.focus()
+    if (state === 'finished' || state === 'cancelled' || state === 'error') doneRef.current?.focus()
   }, [state])
 
   if (!isOpen) return null
 
   const processed = stats.imported + stats.duplicates + stats.failed
-  const total = Math.max(linksTotal, processed)
+  // After a cancel the unprocessed rows stay as the bar's empty track.
+  const total = Math.max(linksTotal, processed + (cancelled ? notProcessed.length : 0))
   const remaining = total - processed
   const inLinksPhase = progress?.phase === 'links'
   const indeterminate = running && !inLinksPhase && total === 0
@@ -74,13 +88,17 @@ export default function ImportProgressModal({ state, stats, run, progress, resul
 
   const heading = state === 'running'
     ? (run?.isVault ? 'Importing everything' : 'Importing links')
-    : state === 'finished' ? 'Import finished' : 'Import stopped'
+    : state === 'finished' ? 'Import finished'
+    : cancelled ? 'Import cancelled'
+    : 'Import stopped'
 
   let statusLine: string
   if (running) {
     statusLine = total > 0 && (inLinksPhase || processed < total)
       ? `Processing ${processed} of ${total} — ${remaining} remaining`
       : 'Preparing…'
+  } else if (cancelled) {
+    statusLine = `${plural(processed, 'link')} processed · ${notProcessed.length} not processed`
   } else {
     statusLine = `${plural(processed, 'link')} processed`
   }
@@ -98,6 +116,9 @@ export default function ImportProgressModal({ state, stats, run, progress, resul
     ...(run?.withMetadata
       ? [{ label: 'Without metadata', value: stats.metaMissing, swatch: 'ring-2 ring-inset ring-amber-400 bg-transparent' }]
       : []),
+    ...(cancelled
+      ? [{ label: 'Not processed', value: notProcessed.length, swatch: 'bg-surface-100 ring-1 ring-inset ring-surface-300 dark:bg-surface-800 dark:ring-surface-600' }]
+      : []),
   ]
 
   const created: string[] = []
@@ -109,14 +130,18 @@ export default function ImportProgressModal({ state, stats, run, progress, resul
   if (result?.domainsFailed) notApplied.push(plural(result.domainsFailed, 'domain rule'))
   if (result?.preferencesFailed?.length) notApplied.push(plural(result.preferencesFailed.length, 'appearance setting'))
 
-  async function copyFailedUrls() {
+  async function copyUrls(urls: string[], errorMessage: string) {
     try {
-      await navigator.clipboard.writeText(stats.failures.map(f => f.url).join('\n'))
+      await navigator.clipboard.writeText(urls.join('\n'))
       toast.success('Copied')
     } catch {
-      toast.error("Couldn't copy. Select the URLs in the list instead.")
+      toast.error(errorMessage)
     }
   }
+  const copyFailedUrls = () =>
+    copyUrls(stats.failures.map(f => f.url), "Couldn't copy. Select the URLs in the list instead.")
+  const copyUnprocessedUrls = () => copyUrls(notProcessed, "Couldn't copy the unprocessed URLs.")
+  const copyButtonWidth = cancelled ? 'flex-auto whitespace-nowrap' : 'flex-1'
 
   return (
     <div
@@ -184,13 +209,21 @@ export default function ImportProgressModal({ state, stats, run, progress, resul
             ))}
           </dl>
 
-          {state === 'finished' && created.length > 0 && (
+          {running && (
+            <button type="button" onClick={onCancel} disabled={cancelling} className={`w-full ${SECONDARY_BUTTON}`}>
+              {cancelling ? 'Stopping…' : 'Cancel'}
+            </button>
+          )}
+
+          {((ended && created.length > 0) || (cancelled && run?.isVault)) && (
             <p className="text-sm text-surface-600 dark:text-surface-300">
-              Also created {created.join(', ')}.
+              {created.length > 0 && <>Also created {created.join(', ')}.</>}
+              {created.length > 0 && cancelled && run?.isVault && ' '}
+              {cancelled && run?.isVault && 'Remaining steps were skipped.'}
             </p>
           )}
 
-          {state === 'finished' && notApplied.length > 0 && (
+          {ended && notApplied.length > 0 && (
             <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
               {notApplied.join(' and ')} couldn&apos;t be applied. See the browser console for details.
             </p>
@@ -220,15 +253,22 @@ export default function ImportProgressModal({ state, stats, run, progress, resul
           )}
 
           {!running && (
-            <div className="flex gap-3">
-              {stats.failures.length > 0 && (
-                <button
-                  type="button"
-                  onClick={copyFailedUrls}
-                  className="flex-1 rounded-xl border border-surface-200 bg-surface-card px-4 py-2.5 text-sm font-medium text-surface-600 shadow-sm transition hover:bg-surface-50 hover:text-surface-900 dark:border-surface-700 dark:bg-surface-900 dark:text-surface-300 dark:hover:bg-surface-800"
-                >
-                  Copy failed URLs
-                </button>
+            // When cancelled, the copy buttons sit on their own (wrapping) row above a
+            // full-width Done, so up to three buttons still fit a 375px bottom sheet.
+            <div className={cancelled ? 'flex flex-col gap-3' : 'flex gap-3'}>
+              {(stats.failures.length > 0 || (cancelled && notProcessed.length > 0)) && (
+                <div className={cancelled ? 'flex flex-wrap gap-3' : 'contents'}>
+                  {stats.failures.length > 0 && (
+                    <button type="button" onClick={copyFailedUrls} className={`${copyButtonWidth} ${SECONDARY_BUTTON}`}>
+                      Copy failed URLs
+                    </button>
+                  )}
+                  {cancelled && notProcessed.length > 0 && (
+                    <button type="button" onClick={copyUnprocessedUrls} className={`${copyButtonWidth} ${SECONDARY_BUTTON}`}>
+                      Copy unprocessed URLs
+                    </button>
+                  )}
+                </div>
               )}
               <button
                 ref={doneRef}

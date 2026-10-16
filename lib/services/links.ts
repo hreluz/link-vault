@@ -403,6 +403,10 @@ export type ImportResult = {
   metaMissing?: number
   /** One entry per row counted in `skipped`, in input order. */
   failures: ImportFailure[]
+  /** True when the signal stopped the loop early. */
+  cancelled: boolean
+  /** URLs of rows never started, in input order; `[]` when not cancelled. */
+  notProcessed: string[]
 }
 
 export type ImportFailureReason = 'invalid_url' | 'save_error'
@@ -423,6 +427,13 @@ export type ImportMeta = {
   duration: string | null
 }
 export type ImportMetaFetcher = (url: string) => Promise<ImportMeta>
+
+export type ImportLinksOptions = {
+  onProgress?: (done: number, total: number, outcome: ImportRowOutcome) => void
+  fetchMeta?: ImportMetaFetcher
+  /** Checked before each row. Once aborted, no new row starts. */
+  signal?: AbortSignal
+}
 
 const isEmpty = (value: string | null | undefined) => value == null || value === ''
 
@@ -460,15 +471,16 @@ export async function importLinks(
   inputs: ImportLinkInput[],
   defaultCategoryId: string | null,
   dek: CryptoKey,
-  onProgress?: (done: number, total: number, outcome: ImportRowOutcome) => void,
-  fetchMeta?: ImportMetaFetcher,
+  options: ImportLinksOptions = {},
 ): Promise<ImportResult> {
+  const { onProgress, fetchMeta, signal } = options
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     return {
       imported: 0, skipped: inputs.length, duplicates: 0,
       failures: inputs.map(input => ({ url: input.url, reason: 'save_error' as const })),
+      cancelled: false, notProcessed: [],
     }
   }
 
@@ -477,8 +489,14 @@ export async function importLinks(
   let metaMissing = 0
   let processed = 0
   const failures: ImportFailure[] = []
+  let notProcessed: string[] = []
 
-  for (const rawInput of inputs) {
+  for (const [index, rawInput] of inputs.entries()) {
+    // Checked between rows only, so the row in progress always finishes completely.
+    if (signal?.aborted) {
+      notProcessed = inputs.slice(index).map(remaining => remaining.url.trim())
+      break
+    }
     let input = rawInput
     let outcome: ImportRowOutcome | null = null
     // `finally` still runs on every `continue` below, so progress always reaches
@@ -554,7 +572,8 @@ export async function importLinks(
   }
 
   const skipped = failures.length
+  const cancelled = notProcessed.length > 0
   return fetchMeta
-    ? { imported, skipped, duplicates, metaMissing, failures }
-    : { imported, skipped, duplicates, failures }
+    ? { imported, skipped, duplicates, metaMissing, failures, cancelled, notProcessed }
+    : { imported, skipped, duplicates, failures, cancelled, notProcessed }
 }

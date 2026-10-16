@@ -29,6 +29,8 @@ export type VaultImportOptions = {
   /** Only meaningful when `data.mode === 'everything'` and `data.preferences` is present. */
   applyPreferences: boolean
   onProgress?: (progress: VaultImportProgress) => void
+  /** Checked before each phase, and passed through to `importLinks` (checked before each link row). */
+  signal?: AbortSignal
 }
 
 /** Imports a full v2 vault export: categories (styled) -> domain rules -> tags (colored/private) -> links -> preferences.
@@ -43,6 +45,21 @@ export async function importVaultExport(
   // actionable message instead of throwing deep inside the loops below.
   const validationError = getVaultExportValidationError(data)
   if (validationError) throw new Error(validationError)
+
+  const { signal } = options
+  let categoriesCreated = 0
+  let domainsCreated = 0
+  let domainsFailed = 0
+  let tagsCreated = 0
+  // A cancel before the links phase skips every remaining phase (preferences included);
+  // what the finished phases created stays, and every link counts as not processed.
+  const cancelledBeforeLinks = (): VaultImportResult => ({
+    imported: 0, skipped: 0, duplicates: 0, failures: [],
+    cancelled: true, notProcessed: data.links.map(l => l.url.trim()),
+    categoriesCreated, domainsCreated, domainsFailed, tagsCreated, preferencesFailed: [],
+  })
+
+  if (signal?.aborted) return cancelledBeforeLinks()
 
   // ── categories ──────────────────────────────────────────────────────────
   const existingCategories = await getCategories(dek)
@@ -59,7 +76,6 @@ export async function importVaultExport(
   // rows), so no two concurrent iterations ever target the same one -- safe to run in
   // parallel, unlike the tag-sync loops further down (see their own comments).
   const categoryIdByName = new Map<string, string>()
-  let categoriesCreated = 0
   const categoryEntries = [...categoryNames]
   let categoriesDone = 0
   await Promise.all(categoryEntries.map(async name => {
@@ -71,9 +87,9 @@ export async function importVaultExport(
     options.onProgress?.({ phase: 'categories', done: ++categoriesDone, total: categoryEntries.length })
   }))
 
+  if (signal?.aborted) return cancelledBeforeLinks()
+
   // ── domain auto-assign rules ("everything" only) ───────────────────────
-  let domainsCreated = 0
-  let domainsFailed = 0
   const domainEntries = data.categoryDomains ?? []
   let domainsDone = 0
   await Promise.all(domainEntries.map(async d => {
@@ -90,13 +106,14 @@ export async function importVaultExport(
     options.onProgress?.({ phase: 'domains', done: ++domainsDone, total: domainEntries.length })
   }))
 
+  if (signal?.aborted) return cancelledBeforeLinks()
+
   // ── tags ("everything" only) -- pre-create with color/privacy so the
   //    per-link tag sync below (name-matched, inside importLinks) reuses them.
   //    syncTagDefinitions stays a single sequential call/loop (not parallelized): it
   //    mutates a local "existing tags" accumulator as it creates new ones, so a later
   //    entry sharing a not-yet-existing name resolves to the tag just created instead of
   //    racing to create a duplicate -- see its own doc comment in tags.ts.
-  let tagsCreated = 0
   if (data.tags && data.tags.length > 0) {
     options.onProgress?.({ phase: 'tags', done: 0, total: data.tags.length })
     const existingTags = await getTags(dek)
@@ -108,6 +125,8 @@ export async function importVaultExport(
     }
     options.onProgress?.({ phase: 'tags', done: data.tags.length, total: data.tags.length })
   }
+
+  if (signal?.aborted) return cancelledBeforeLinks()
 
   // ── links ───────────────────────────────────────────────────────────────
   const inputs: ImportLinkInput[] = data.links.map(l => ({
@@ -128,12 +147,18 @@ export async function importVaultExport(
 
   const linkResult = await importLinks(
     inputs, options.defaultCategoryId, dek,
-    (done, total, outcome) => options.onProgress?.({ phase: 'links', done, total, outcome }),
+    {
+      onProgress: (done, total, outcome) => options.onProgress?.({ phase: 'links', done, total, outcome }),
+      signal,
+    },
   )
 
   // ── preferences ("everything" only, opt-in) ─────────────────────────────
+  // Never applied after a cancel -- even one that landed after the last link row.
+  const wantsPreferences = options.applyPreferences && data.mode === 'everything' && !!data.preferences
+  const preferencesSkipped = wantsPreferences && !!signal?.aborted
   const preferencesFailed: string[] = []
-  if (options.applyPreferences && data.mode === 'everything' && data.preferences) {
+  if (wantsPreferences && !preferencesSkipped && data.preferences) {
     options.onProgress?.({ phase: 'preferences', done: 0, total: 1 })
     const supabase = createClient()
     const prefs = data.preferences
@@ -154,5 +179,9 @@ export async function importVaultExport(
     options.onProgress?.({ phase: 'preferences', done: 1, total: 1 })
   }
 
-  return { ...linkResult, categoriesCreated, domainsCreated, domainsFailed, tagsCreated, preferencesFailed }
+  return {
+    ...linkResult,
+    cancelled: linkResult.cancelled || preferencesSkipped,
+    categoriesCreated, domainsCreated, domainsFailed, tagsCreated, preferencesFailed,
+  }
 }

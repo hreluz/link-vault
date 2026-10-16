@@ -21,7 +21,7 @@ export type ImportStats = {
   metaMissing: number
   failures: ImportFailure[]
 }
-export type ImportModalState = 'closed' | 'running' | 'finished' | 'error'
+export type ImportModalState = 'closed' | 'running' | 'finished' | 'cancelled' | 'error'
 /** Fixed at the start of an import, since the inputs it was derived from are cleared on success. */
 export type ImportRun = { isVault: boolean; withMetadata: boolean }
 
@@ -107,6 +107,10 @@ export function useLinkImport() {
   const [importStats, setImportStats] = useState<ImportStats>(EMPTY_STATS)
   const [importError, setImportError] = useState<string | null>(null)
   const [importRun, setImportRun] = useState<ImportRun | null>(null)
+  // True from the Cancel click until the import returns (the current row still finishes).
+  const [cancelling, setCancelling] = useState(false)
+  const [notProcessed, setNotProcessed] = useState<string[]>([])
+  const abortControllerRef = useRef<AbortController | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -160,6 +164,12 @@ export function useLinkImport() {
     setImportModalState(state => (state === 'running' ? state : 'closed'))
   }
 
+  function cancelImport() {
+    if (importModalState !== 'running') return
+    abortControllerRef.current?.abort()
+    setCancelling(true)
+  }
+
   function switchTab(tab: ImportTab) {
     setImportTab(tab)
     setLastResult(null)
@@ -203,26 +213,35 @@ export function useLinkImport() {
     // Called only once pre-flight validation has passed, just before the first write.
     function openModal(run: ImportRun) {
       modalOpened = true
+      abortControllerRef.current = new AbortController()
       setImportRun(run)
       setImportStats(EMPTY_STATS)
       setImportError(null)
+      setNotProcessed([])
       setImportModalState('running')
+      return abortControllerRef.current.signal
     }
 
     try {
       // ── full-vault (v2) export detected on the json/file tab ──────────
       if (detectedVaultExport) {
-        openModal({ isVault: true, withMetadata: false })
+        const signal = openModal({ isVault: true, withMetadata: false })
         const result = await importVaultExport(
           detectedVaultExport,
-          { defaultCategoryId: catId, applyPreferences, onProgress: handleProgress },
+          { defaultCategoryId: catId, applyPreferences, onProgress: handleProgress, signal },
           dek,
         )
         setLastResult(result)
+        if (result.imported > 0) refetchTags()
+        if (result.cancelled) {
+          // Inputs are kept so re-running the same import continues where it stopped.
+          setNotProcessed(result.notProcessed)
+          setImportModalState('cancelled')
+          return
+        }
         if (result.imported > 0) {
           setJsonText('')
           setSelectedFile(null)
-          refetchTags()
         }
         setImportModalState('finished')
         return
@@ -257,21 +276,30 @@ export function useLinkImport() {
 
       if (inputs.length === 0) { toast.error('No valid links found'); return }
 
-      openModal({ isVault: false, withMetadata: autoFetchOnImport })
+      const signal = openModal({ isVault: false, withMetadata: autoFetchOnImport })
       // CSV category names are created here, so this runs after the modal opens ("Preparing…").
       if (csvRows) inputs = await resolveCsvCategories(csvRows, dek)
 
       const result = await importLinks(
         inputs, catId, dek,
-        (done, total, outcome) => handleProgress({ phase: 'links', done, total, outcome }),
-        autoFetchOnImport ? fetchLinkMeta : undefined,
+        {
+          onProgress: (done, total, outcome) => handleProgress({ phase: 'links', done, total, outcome }),
+          fetchMeta: autoFetchOnImport ? fetchLinkMeta : undefined,
+          signal,
+        },
       )
       setLastResult(result)
+      if (result.imported > 0) refetchTags()
+      if (result.cancelled) {
+        // Inputs are kept so re-running the same import continues where it stopped.
+        setNotProcessed(result.notProcessed)
+        setImportModalState('cancelled')
+        return
+      }
       if (result.imported > 0) {
         setUrlsText('')
         setJsonText('')
         setSelectedFile(null)
-        refetchTags()
       }
       setImportModalState('finished')
     } catch (err) {
@@ -283,7 +311,9 @@ export function useLinkImport() {
         toast.error(message)
       }
     } finally {
+      abortControllerRef.current = null
       setImporting(false)
+      setCancelling(false)
       setProgress(null)
     }
   }
@@ -300,6 +330,7 @@ export function useLinkImport() {
     applyPreferences, setApplyPreferences,
     autoFetchOnImport, setAutoFetchOnImport,
     importModalState, importStats, importError, importRun, closeImportModal,
+    cancelling, notProcessed, cancelImport,
     fileInputRef,
     hasImportContent,
     handleDragOver, handleDragLeave, handleDrop, handleFileChange,
