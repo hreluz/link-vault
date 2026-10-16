@@ -17,7 +17,7 @@ const TAB_LABELS: Record<ImportTab, string> = {
 const CSV_COLUMN_GUIDE: { columns: string; description: string }[] = [
   { columns: 'url', description: 'Required. The link to save.' },
   { columns: 'title, description, site_name, image_url, duration, notes', description: 'Optional free text.' },
-  { columns: 'category', description: 'Exactly one category name per link. Created if it doesn\'t exist; blank uses the default category below.' },
+  { columns: 'category', description: 'Exactly one category name per link. Created if it doesn\'t exist; blank uses the domain rule, or the default category below.' },
   { columns: 'status', description: 'unread, watching, read or archived. Anything else is ignored.' },
   { columns: 'is_favorite', description: 'true or false.' },
   { columns: 'tags', description: 'Any number of tags per link, separated by | (e.g. react|tutorial|video).' },

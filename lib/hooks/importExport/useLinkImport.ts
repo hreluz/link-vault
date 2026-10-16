@@ -3,7 +3,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { toast } from 'sonner'
 import { importLinks, type ImportLinkInput, type ImportFailure, type ImportRowOutcome } from '@/lib/services/links'
-import { getOrCreateCategoryByName } from '@/lib/services/categories'
+import { getOrCreateCategoryByName, PROTECTED_CATEGORY_NAME } from '@/lib/services/categories'
+import { getCategoryIdByDomainMap, lookupCategoryIdByUrl } from '@/lib/services/category-domains'
 import { importVaultExport, type VaultImportResult, type VaultImportProgress } from '@/lib/services/importExport/importVault'
 import { isVaultExportV2, getVaultExportValidationError, type VaultExportV2 } from '@/lib/types/importExport'
 import { useVault } from '@/lib/context/VaultContext'
@@ -68,6 +69,22 @@ async function resolveCsvCategories(rows: ParsedRow[], dek: CryptoKey): Promise<
   }))
 }
 
+/** Gives rows with no category of their own the category of their URL's domain rule, if any.
+ *  Rows still left without one fall back to the default selector inside importLinks. */
+async function applyDomainCategories(inputs: ImportLinkInput[], dek: CryptoKey): Promise<ImportLinkInput[]> {
+  let map: Map<string, string>
+  try {
+    map = await getCategoryIdByDomainMap(dek)
+  } catch {
+    return inputs
+  }
+  return inputs.map(input => {
+    if (input.category_id) return input
+    const categoryId = lookupCategoryIdByUrl(input.url, map)
+    return categoryId ? { ...input, category_id: categoryId } : input
+  })
+}
+
 type VaultExportDetection = { data: VaultExportV2 | null; error: string | null }
 
 /** Sniffs whether the given JSON text is a full v2 vault export, for a live "everything" file.
@@ -115,7 +132,7 @@ export function useLinkImport() {
 
   useEffect(() => {
     if (categories.length > 0 && !defaultCategorySet.current) {
-      const notDefined = categories.find(c => c.name === 'Not defined')
+      const notDefined = categories.find(c => c.name === PROTECTED_CATEGORY_NAME)
       setDefaultCategoryId((notDefined ?? categories[0]).id)
       defaultCategorySet.current = true
     }
@@ -279,6 +296,7 @@ export function useLinkImport() {
       const signal = openModal({ isVault: false, withMetadata: autoFetchOnImport })
       // CSV category names are created here, so this runs after the modal opens ("Preparing…").
       if (csvRows) inputs = await resolveCsvCategories(csvRows, dek)
+      inputs = await applyDomainCategories(inputs, dek)
 
       const result = await importLinks(
         inputs, catId, dek,

@@ -14,6 +14,7 @@ const MOCK_CATEGORIES = [
 const {
   mockImportLinks, mockUseCategoryList, mockGetOrCreateCategoryByName, mockImportVaultExport,
   mockToastSuccess, mockToastError, mockToastWarning, mockRefetchTags, mockFetchLinkMeta,
+  mockGetCategoryIdByDomainMap,
 } = vi.hoisted(() => ({
   mockImportLinks: vi.fn(),
   mockUseCategoryList: vi.fn(),
@@ -24,6 +25,7 @@ const {
   mockToastWarning: vi.fn(),
   mockRefetchTags: vi.fn(),
   mockFetchLinkMeta: vi.fn(),
+  mockGetCategoryIdByDomainMap: vi.fn(),
 }))
 
 vi.mock('sonner', () => ({
@@ -36,6 +38,13 @@ vi.mock('@/lib/services/links', () => ({
 
 vi.mock('@/lib/services/categories', () => ({
   getOrCreateCategoryByName: mockGetOrCreateCategoryByName,
+  PROTECTED_CATEGORY_NAME: 'Not defined',
+}))
+
+// Only the DB read is mocked; matching uses the real lookup.
+vi.mock('@/lib/services/category-domains', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/lib/services/category-domains')>()),
+  getCategoryIdByDomainMap: mockGetCategoryIdByDomainMap,
 }))
 
 vi.mock('@/lib/services/importExport/importVault', () => ({
@@ -64,6 +73,7 @@ beforeEach(() => {
   mockUseCategoryList.mockReturnValue({ categories: MOCK_CATEGORIES, loading: false })
   mockImportLinks.mockResolvedValue({ imported: 2, skipped: 0, duplicates: 0 })
   mockGetOrCreateCategoryByName.mockResolvedValue('cat-resolved')
+  mockGetCategoryIdByDomainMap.mockResolvedValue(new Map())
   mockImportVaultExport.mockResolvedValue({
     imported: 2, skipped: 0, duplicates: 0, categoriesCreated: 0, domainsCreated: 0, tagsCreated: 0,
   })
@@ -413,6 +423,117 @@ describe('useLinkImport', () => {
         { onProgress: expect.any(Function), fetchMeta: undefined, signal: expect.any(AbortSignal) },
       )
       expect(mockGetOrCreateCategoryByName).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('domain auto-assign', () => {
+    const CSV_HEADER = 'url,title,description,site_name,image_url,duration,category,status,is_favorite,notes,tags,created_at,updated_at'
+    const DOMAIN_MAP = new Map([['youtube.com', 'cat-1'], ['github.com', 'cat-2']])
+
+    beforeEach(() => {
+      mockGetCategoryIdByDomainMap.mockResolvedValue(DOMAIN_MAP)
+    })
+
+    function importedInputs() {
+      return mockImportLinks.mock.calls[0][0]
+    }
+
+    async function importCsv(csv: string) {
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.switchTab('file'))
+      act(() => result.current.handleFileChange(fileChangeEvent(new File([csv], 'links.csv', { type: 'text/csv' }))))
+      await act(async () => { await result.current.handleImport() })
+    }
+
+    it('gives pasted URLs with a mapped domain the rule\'s category, leaving unmapped ones without one', async () => {
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.setUrlsText('https://www.youtube.com/watch?v=x\nhttps://example.com/a'))
+
+      await act(async () => { await result.current.handleImport() })
+
+      expect(importedInputs()).toEqual([
+        { url: 'https://www.youtube.com/watch?v=x', tags: [], category_id: 'cat-1' },
+        { url: 'https://example.com/a', tags: [] },
+      ])
+      expect(mockImportLinks.mock.calls[0][1]).toBe('cat-0')
+    })
+
+    it('keeps a CSV row\'s explicit category even when its domain is mapped', async () => {
+      await importCsv([CSV_HEADER, 'https://github.com/a/b,,,,,,Course,unread,false,,,2026-01-01,2026-01-01'].join('\n'))
+
+      expect(importedInputs()).toEqual([
+        expect.objectContaining({ url: 'https://github.com/a/b', category_id: 'cat-resolved' }),
+      ])
+    })
+
+    it('gives a CSV row with a blank category its domain rule', async () => {
+      await importCsv([CSV_HEADER, 'https://github.com/a/b,,,,,,,,false,,,2026-01-01,2026-01-01'].join('\n'))
+
+      expect(importedInputs()).toEqual([
+        expect.objectContaining({ url: 'https://github.com/a/b', category_id: 'cat-2' }),
+      ])
+    })
+
+    it('keeps a pasted JSON row\'s own category_id, and fills one in for a row without it', async () => {
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.switchTab('json'))
+      act(() => result.current.setJsonText(JSON.stringify([
+        { url: 'https://youtube.com/watch?v=x', category_id: 'cat-own' },
+        { url: 'https://youtube.com/watch?v=y' },
+      ])))
+
+      await act(async () => { await result.current.handleImport() })
+
+      expect(importedInputs()).toEqual([
+        { url: 'https://youtube.com/watch?v=x', category_id: 'cat-own' },
+        { url: 'https://youtube.com/watch?v=y', category_id: 'cat-1' },
+      ])
+    })
+
+    it('applies domain rules to a plain JSON upload too', async () => {
+      const { result } = await renderWithDefaultCategory()
+      const file = new File([JSON.stringify([{ url: 'https://github.com/a/b' }])], 'links.json', { type: 'application/json' })
+      act(() => result.current.switchTab('file'))
+      act(() => result.current.handleFileChange(fileChangeEvent(file)))
+
+      await act(async () => { await result.current.handleImport() })
+
+      expect(importedInputs()).toEqual([{ url: 'https://github.com/a/b', category_id: 'cat-2' }])
+    })
+
+    it('loads the domain rules once per import, regardless of row count', async () => {
+      const { result } = await renderWithDefaultCategory()
+      const urls = Array.from({ length: 200 }, (_, i) => `https://youtube.com/watch?v=${i}`)
+      act(() => result.current.setUrlsText(urls.join('\n')))
+
+      await act(async () => { await result.current.handleImport() })
+
+      expect(mockGetCategoryIdByDomainMap).toHaveBeenCalledTimes(1)
+      expect(mockGetCategoryIdByDomainMap).toHaveBeenCalledWith(FAKE_DEK)
+      expect(importedInputs()).toHaveLength(200)
+    })
+
+    it('still imports the original inputs when loading the rules fails', async () => {
+      mockGetCategoryIdByDomainMap.mockRejectedValue(new Error('boom'))
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.setUrlsText('https://youtube.com/watch?v=x'))
+
+      await act(async () => { await result.current.handleImport() })
+
+      expect(importedInputs()).toEqual([{ url: 'https://youtube.com/watch?v=x', tags: [] }])
+      expect(result.current.importModalState).toBe('finished')
+    })
+
+    it('never loads the domain rules for a v2 import', async () => {
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.switchTab('json'))
+      act(() => result.current.setJsonText(JSON.stringify(VAULT_EXPORT)))
+
+      await waitFor(() => expect(result.current.detectedVaultExport).not.toBeNull())
+      await act(async () => { await result.current.handleImport() })
+
+      expect(mockImportVaultExport).toHaveBeenCalled()
+      expect(mockGetCategoryIdByDomainMap).not.toHaveBeenCalled()
     })
   })
 

@@ -48,6 +48,12 @@ vi.mock('sonner', () => ({
 vi.mock('@/lib/services/categories', () => ({
   getCategories: vi.fn(),
   getOrCreateCategoryByName: vi.fn(),
+  PROTECTED_CATEGORY_NAME: 'Not defined',
+}))
+
+vi.mock('@/lib/services/category-domains', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/services/category-domains')>()),
+  getCategoryIdByDomainMap: vi.fn().mockResolvedValue(new Map()),
 }))
 
 vi.mock('@/lib/services/importExport/exportVault', () => ({
