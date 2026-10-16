@@ -22,6 +22,8 @@ None of this appears in the UI. The parser also splits on `\n` before handling q
 
 - `buildCsvTemplate()` in `lib/utils/linksCsv.ts`. It returns the same 13-column header as the export, then two sample rows: a full row (via `linksToCSV`) and a minimal row with only `url`, `category` and `tags`.
 - A "Download CSV template" button on the Upload file tab. It downloads `link-vault-template.csv` via `triggerDownload` (`lib/utils/downloadFile.ts`).
+- `buildMinimalCsvTemplate()` in `lib/utils/linksCsv.ts`. It returns only the `url,category,tags` header and the same minimal example row.
+- A "Download minimal template" button next to it. It downloads `link-vault-template-minimal.csv`.
 - A collapsed `<details>` "CSV format" guide under the drop zone. It lists each column, whether it is required, and its accepted values.
 - Parser fixes in `parseCSV`:
   - quoted fields may contain newlines;
@@ -76,6 +78,7 @@ The template's header and full row come from the existing `linksToCSV` (`lib/typ
    - the template's first line equals the export header.
 5. In `app/dashboard/config/import-export/ImportExportClient.tsx`, inside the `importTab === 'file'` branch, under the drop zone:
    - a secondary/ghost button "Download CSV template", calling `triggerDownload(buildCsvTemplate(), 'link-vault-template.csv', 'text/csv')`;
+   - next to it, a secondary/ghost button "Download minimal template", calling `triggerDownload(buildMinimalCsvTemplate(), 'link-vault-template-minimal.csv', 'text/csv')`;
    - a closed `<details>` with summary "CSV format" holding a compact column list:
      - `url` (required);
      - `title`, `description`, `site_name`, `image_url`, `duration`, `notes` (free text);
@@ -90,12 +93,15 @@ The template's header and full row come from the existing `linksToCSV` (`lib/typ
 6. Add tests to `tests/components/ImportExportClient.test.tsx`:
    - on the file tab, a "Download CSV template" button and a "CSV format" summary are rendered;
    - clicking the button calls `triggerDownload` (mocked) with `'link-vault-template.csv'` and `'text/csv'`, and does not open the file input;
+   - clicking "Download minimal template" calls `triggerDownload` with CSV starting `url,category,tags`, `'link-vault-template-minimal.csv'` and `'text/csv'`, and does not open the file input;
    - neither element is rendered on the URLs or JSON tabs.
 
 ## Acceptance criteria
 
 - [ ] The Upload file tab shows a "Download CSV template" button and a collapsed "CSV format" disclosure. The Paste URLs and Paste JSON tabs show neither.
 - [ ] Clicking "Download CSV template" downloads `link-vault-template.csv` without opening the file picker.
+- [ ] Clicking "Download minimal template" downloads `link-vault-template-minimal.csv` without opening the file picker. It has the header `url,category,tags` and one row: `https://github.com/some/repo`, `GitHub`, `example|repo|open-source`.
+- [ ] Uploading the unmodified minimal template imports 1 link with category "GitHub", tags `example`, `repo` and `open-source`, status Unread, not favorited.
 - [ ] The template's header line is identical to the header of a CSV produced by "Export as CSV".
 - [ ] The template has exactly 2 data rows: one with every column filled, and one where only `url`, `category` and `tags` are non-empty.
 - [ ] Uploading the unmodified template imports 2 links. The full row gets category "Article", tags `reading` and `example`, status Read, and is favorited. The minimal row gets category "GitHub", tags `example`, `repo` and `open-source`, status Unread, and is not favorited.
@@ -112,7 +118,8 @@ The template's header and full row come from the existing `linksToCSV` (`lib/typ
 - **Yes:** All 13 columns plus 2 example rows. The template stays round-trip compatible with the export.
 - **Yes:** The minimal row fills only `url`, `category` and `tags`. These are the fields most people set by hand, and leaving the rest empty shows that they are optional.
 - **No:** Building the minimal row via `linksToCSV`. It always writes `status`/`is_favorite`, which would make those columns look required. The row is keyed by column name instead.
-- **No:** A minimal-columns template. It would differ from the export and hide fields users can set.
+- **Yes:** A separate minimal-columns template (`url,category,tags`) in addition to the full one. Added after review: users wanted a ready-made file with only the fields they actually fill in. The full template stays the export-compatible reference.
+- **No:** Replacing the full template with the minimal one. It would hide fields users can set and break header parity with the export.
 - **Yes:** Generate the template with `linksToCSV`. The header has one source of truth and cannot drift.
 - **No:** A static `public/` CSV file. It can silently drift from the parser.
 - **Yes:** Template and guide on the Upload file tab only, because CSV can only be imported there.

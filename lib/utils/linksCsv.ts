@@ -75,6 +75,14 @@ export function buildCsvTemplate(): string {
   return [linksToCSV([TEMPLATE_FULL_ROW]), minimal].join('\n')
 }
 
+const MINIMAL_COLUMNS = ['url', 'category', 'tags'] as const satisfies readonly CsvColumn[]
+
+/** Example CSV with only the columns most people fill in by hand: url, category, tags. */
+export function buildMinimalCsvTemplate(): string {
+  const row = MINIMAL_COLUMNS.map(col => escape(TEMPLATE_MINIMAL_ROW[col])).join(',')
+  return [MINIMAL_COLUMNS.join(','), row].join('\n')
+}
+
 /** Tokenizes the whole text, so a quoted field may span lines. Records end on `\n` or `\r\n`;
  *  blank records are skipped. A `"` only opens a quoted field at the start of a field. */
 function parseCSVRecords(text: string): string[][] {

@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useLinkExport } from '@/lib/hooks/importExport/useLinkExport'
 import { useLinkImport, type ImportTab } from '@/lib/hooks/importExport/useLinkImport'
 import type { VaultImportPhase } from '@/lib/services/importExport/importVault'
-import { buildCsvTemplate } from '@/lib/utils/linksCsv'
+import { buildCsvTemplate, buildMinimalCsvTemplate } from '@/lib/utils/linksCsv'
 import { triggerDownload } from '@/lib/utils/downloadFile'
 
 const TAB_LABELS: Record<ImportTab, string> = {
@@ -220,15 +220,25 @@ export default function ImportExportClient() {
               )}
             </div>
 
-            {/* Outside the drop zone so clicking it doesn't open the file picker. */}
-            <button
-              type="button"
-              onClick={() => triggerDownload(buildCsvTemplate(), 'link-vault-template.csv', 'text/csv')}
-              className="flex items-center gap-2 rounded-xl border border-surface-200 bg-surface-card px-4 py-2 text-sm font-medium text-surface-600 shadow-sm transition hover:bg-surface-50 hover:text-surface-900 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-300 dark:hover:bg-surface-700 dark:hover:text-surface-100"
-            >
-              <span aria-hidden="true">📊</span>
-              Download CSV template
-            </button>
+            {/* Outside the drop zone so clicking these doesn't open the file picker. */}
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => triggerDownload(buildCsvTemplate(), 'link-vault-template.csv', 'text/csv')}
+                className="flex items-center gap-2 rounded-xl border border-surface-200 bg-surface-card px-4 py-2 text-sm font-medium text-surface-600 shadow-sm transition hover:bg-surface-50 hover:text-surface-900 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-300 dark:hover:bg-surface-700 dark:hover:text-surface-100"
+              >
+                <span aria-hidden="true">📊</span>
+                Download CSV template
+              </button>
+              <button
+                type="button"
+                onClick={() => triggerDownload(buildMinimalCsvTemplate(), 'link-vault-template-minimal.csv', 'text/csv')}
+                className="flex items-center gap-2 rounded-xl border border-surface-200 bg-surface-card px-4 py-2 text-sm font-medium text-surface-600 shadow-sm transition hover:bg-surface-50 hover:text-surface-900 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-300 dark:hover:bg-surface-700 dark:hover:text-surface-100"
+              >
+                <span aria-hidden="true">📝</span>
+                Download minimal template
+              </button>
+            </div>
 
             <details className="rounded-xl border border-surface-200 px-4 py-3 text-sm dark:border-surface-700">
               <summary className="cursor-pointer font-medium text-surface-700 dark:text-surface-300">CSV format</summary>

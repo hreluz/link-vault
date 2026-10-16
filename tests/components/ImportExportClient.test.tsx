@@ -220,13 +220,31 @@ describe('ImportExportClient', () => {
       clickSpy.mockRestore()
     })
 
+    it('downloads link-vault-template-minimal.csv without opening the file picker', () => {
+      const clickSpy = vi.spyOn(HTMLInputElement.prototype, 'click')
+      render(<ImportExportClient />)
+      fireEvent.click(screen.getByText('📁 Upload file'))
+
+      fireEvent.click(btn('Download minimal template'))
+
+      expect(mockTriggerDownload).toHaveBeenCalledWith(
+        expect.stringMatching(/^url,category,tags\n/),
+        'link-vault-template-minimal.csv',
+        'text/csv',
+      )
+      expect(clickSpy).not.toHaveBeenCalled()
+      clickSpy.mockRestore()
+    })
+
     it('does not show the template button or guide on the URLs or JSON tabs', () => {
       render(<ImportExportClient />)
       expect(screen.queryByRole('button', { name: 'Download CSV template' })).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Download minimal template' })).toBeNull()
       expect(screen.queryByText('CSV format')).toBeNull()
 
       fireEvent.click(screen.getByText('📋 Paste JSON'))
       expect(screen.queryByRole('button', { name: 'Download CSV template' })).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Download minimal template' })).toBeNull()
       expect(screen.queryByText('CSV format')).toBeNull()
     })
   })

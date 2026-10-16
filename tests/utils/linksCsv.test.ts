@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildCsvTemplate, linksToCSV, parseCSV } from '@/lib/utils/linksCsv'
+import { buildCsvTemplate, buildMinimalCsvTemplate, linksToCSV, parseCSV } from '@/lib/utils/linksCsv'
 import type { ExportedLink } from '@/lib/types/importExport'
 
 const LINK: ExportedLink = {
@@ -212,5 +212,25 @@ describe('buildCsvTemplate', () => {
       title: null,
     })
     expect(rows[1].status).toBeUndefined()
+  })
+})
+
+describe('buildMinimalCsvTemplate', () => {
+  it('has only the url, category and tags columns', () => {
+    expect(buildMinimalCsvTemplate().split('\n')[0]).toBe('url,category,tags')
+  })
+
+  it('parses into one row with a single category and several tags', () => {
+    const rows = parseCSV(buildMinimalCsvTemplate())
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({
+      url: 'https://github.com/some/repo',
+      categoryName: 'GitHub',
+      tags: ['example', 'repo', 'open-source'],
+      title: null,
+    })
+    expect(rows[0].status).toBeUndefined()
+    expect(rows[0].is_favorite).toBeUndefined()
   })
 })
