@@ -401,7 +401,18 @@ export type ImportResult = {
   duplicates: number
   /** Links whose metadata fetch threw or came back empty. Only set when a fetcher was supplied. */
   metaMissing?: number
+  /** One entry per row counted in `skipped`, in input order. */
+  failures: ImportFailure[]
 }
+
+export type ImportFailureReason = 'invalid_url' | 'save_error'
+export type ImportFailure = { url: string; reason: ImportFailureReason }
+
+/** What happened to a single import row, reported through `importLinks`'s `onProgress`. */
+export type ImportRowOutcome =
+  | { url: string; status: 'imported'; metaMissing: boolean }
+  | { url: string; status: 'duplicate' }
+  | { url: string; status: 'failed'; reason: ImportFailureReason }
 
 /** Structurally matches `LinkMeta` from `app/dashboard/link/actions.ts`, so `fetchLinkMeta`
  *  can be passed straight in without this service importing from `app/`. */
@@ -449,26 +460,33 @@ export async function importLinks(
   inputs: ImportLinkInput[],
   defaultCategoryId: string | null,
   dek: CryptoKey,
-  onProgress?: (done: number, total: number) => void,
+  onProgress?: (done: number, total: number, outcome: ImportRowOutcome) => void,
   fetchMeta?: ImportMetaFetcher,
 ): Promise<ImportResult> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { imported: 0, skipped: inputs.length, duplicates: 0 }
+  if (!user) {
+    return {
+      imported: 0, skipped: inputs.length, duplicates: 0,
+      failures: inputs.map(input => ({ url: input.url, reason: 'save_error' as const })),
+    }
+  }
 
   let imported = 0
-  let skipped = 0
   let duplicates = 0
   let metaMissing = 0
   let processed = 0
+  const failures: ImportFailure[] = []
 
   for (const rawInput of inputs) {
     let input = rawInput
+    let outcome: ImportRowOutcome | null = null
     // `finally` still runs on every `continue` below, so progress always reaches
     // `inputs.length` regardless of which outcome (skip/duplicate/error/success) hit.
+    // A row that throws has no outcome; the throw aborts the whole import anyway.
     try {
       if (!input.url.trim() || !isValidUrl(input.url)) {
-        skipped++
+        outcome = { url: input.url, status: 'failed', reason: 'invalid_url' }
         continue
       }
 
@@ -478,14 +496,17 @@ export async function importLinks(
       const existingId = await findLinkIdByUrl(trimmedUrl, dek)
       if (existingId) {
         duplicates++
+        outcome = { url: trimmedUrl, status: 'duplicate' }
         continue
       }
 
       // Sequential on purpose: one fetch in flight at a time, and only for new, valid URLs.
+      let rowMetaMissing = false
       if (fetchMeta) {
         const filled = await fillMissingMeta(input, trimmedUrl, fetchMeta)
         input = filled.input
-        if (filled.metaMissing) metaMissing++
+        rowMetaMissing = filled.metaMissing
+        if (rowMetaMissing) metaMissing++
       }
 
       const category_id = input.category_id ?? defaultCategoryId
@@ -517,17 +538,23 @@ export async function importLinks(
         .single()
 
       if (error || !link) {
-        skipped++
+        outcome = { url: trimmedUrl, status: 'failed', reason: 'save_error' }
         continue
       }
 
       const tagIds = await syncTagsByName(input.tags?.filter(Boolean) ?? [], dek)
       await insertLinkTags(link.id, tagIds)
       imported++
+      outcome = { url: trimmedUrl, status: 'imported', metaMissing: rowMetaMissing }
     } finally {
-      onProgress?.(++processed, inputs.length)
+      if (outcome?.status === 'failed') failures.push({ url: outcome.url, reason: outcome.reason })
+      processed++
+      if (outcome) onProgress?.(processed, inputs.length, outcome)
     }
   }
 
-  return fetchMeta ? { imported, skipped, duplicates, metaMissing } : { imported, skipped, duplicates }
+  const skipped = failures.length
+  return fetchMeta
+    ? { imported, skipped, duplicates, metaMissing, failures }
+    : { imported, skipped, duplicates, failures }
 }

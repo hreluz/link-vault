@@ -212,6 +212,20 @@ html.theme-switching *::after {
   animation: sheet-up 0.22s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
+/* Indeterminate sweep for the import modal's "Preparing…" bar. */
+@keyframes import-sweep {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(250%); }
+}
+
+.animate-import-sweep {
+  animation: import-sweep 1.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-import-sweep { animation: none; transform: none; opacity: 0.5; }
+}
+
 /*
  * Mobile browsers (iOS Safari, Firefox Android) auto-zoom the viewport when
  * focusing a form control with a computed font-size under ~16px, and don't

@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/client'
-import { importLinks, type ImportLinkInput, type ImportResult } from '@/lib/services/links'
+import { importLinks, type ImportLinkInput, type ImportResult, type ImportRowOutcome } from '@/lib/services/links'
 import { getCategories, getOrCreateCategoryByName } from '@/lib/services/categories'
 import { addCategoryDomain } from '@/lib/services/category-domains'
 import { getTags, syncTagDefinitions, toKebabCase } from '@/lib/services/tags/tags'
@@ -16,7 +16,13 @@ export type VaultImportResult = ImportResult & {
 }
 
 export type VaultImportPhase = 'categories' | 'domains' | 'tags' | 'links' | 'preferences'
-export type VaultImportProgress = { phase: VaultImportPhase; done: number; total: number }
+export type VaultImportProgress = {
+  phase: VaultImportPhase
+  done: number
+  total: number
+  /** Set only for phase 'links': what happened to the row that just finished. */
+  outcome?: ImportRowOutcome
+}
 
 export type VaultImportOptions = {
   defaultCategoryId: string | null
@@ -122,7 +128,7 @@ export async function importVaultExport(
 
   const linkResult = await importLinks(
     inputs, options.defaultCategoryId, dek,
-    (done, total) => options.onProgress?.({ phase: 'links', done, total }),
+    (done, total, outcome) => options.onProgress?.({ phase: 'links', done, total, outcome }),
   )
 
   // ── preferences ("everything" only, opt-in) ─────────────────────────────

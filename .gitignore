@@ -43,3 +43,8 @@ next-env.d.ts
 
 # local verification screenshots (from manual/browser QA runs, not committed)
 /.verification-screenshots/
+
+# locally installed agent skills (third-party, reinstallable — not part of the app)
+/.agents/
+/.claude/skills/
+/skills-lock.json

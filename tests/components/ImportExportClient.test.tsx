@@ -4,12 +4,12 @@
 // tests/hooks/importExport/useLinkExport.test.ts, useLinkImport.test.ts, and
 // tests/utils/linksCsv.test.ts. This file only covers what genuinely needs a
 // rendered DOM: initial layout, tab-switching UI, and a couple of DOM-binding
-// smoke tests (does the button disabled state / imported-count text actually
-// reflect the hook's state).
+// smoke tests (does the button disabled state / progress modal actually
+// reflect the hook's state). The modal itself is covered by ImportProgressModal.test.tsx.
 
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, cleanup, within } from '@testing-library/react'
 import ImportExportClient from '@/app/dashboard/config/import-export/ImportExportClient'
 
 const MOCK_CATEGORIES = [
@@ -175,12 +175,14 @@ describe('ImportExportClient', () => {
       expect(btn('Import links').disabled).toBe(false)
     })
 
-    it('renders the imported count inline after a successful import', async () => {
+    it('shows the result in the progress modal instead of an inline banner', async () => {
       render(<ImportExportClient />)
       fireEvent.change(screen.getByRole('textbox'), { target: { value: 'https://example.com' } })
       fireEvent.click(btn('Import links'))
 
-      await waitFor(() => expect(screen.getByText(/2 links imported/)).toBeTruthy())
+      const dialog = await screen.findByRole('dialog')
+      await waitFor(() => expect(dialog.textContent).toContain('Import finished'))
+      expect(screen.queryByText(/links? imported/)).toBeNull()
     })
   })
 
@@ -322,13 +324,23 @@ describe('ImportExportClient', () => {
       expect(screen.getByText(/Not available for full vault exports/)).toBeTruthy()
     })
 
-    it('shows the without-metadata count in the result summary', async () => {
-      mockImportLinks.mockResolvedValue({ imported: 2, skipped: 0, duplicates: 0, metaMissing: 3 })
+    it('shows the without-metadata count in the progress modal', async () => {
+      mockImportLinks.mockImplementation(async (
+        _inputs: unknown, _cat: unknown, _dek: unknown,
+        onProgress?: (done: number, total: number, outcome: unknown) => void,
+      ) => {
+        for (let i = 1; i <= 3; i++) onProgress?.(i, 3, { url: `https://e.com/${i}`, status: 'imported', metaMissing: true })
+        return { imported: 3, skipped: 0, duplicates: 0, metaMissing: 3, failures: [] }
+      })
       render(<ImportExportClient />)
+      fireEvent.click(autoFetchSwitch())
       fireEvent.change(screen.getByRole('textbox'), { target: { value: 'https://example.com' } })
       fireEvent.click(btn('Import links'))
 
-      await waitFor(() => expect(screen.getByText(/3 without metadata/)).toBeTruthy())
+      const dialog = await screen.findByRole('dialog')
+      await waitFor(() => expect(dialog.textContent).toContain('Import finished'))
+      const counter = within(dialog).getByText('Without metadata').parentElement!
+      expect(counter.textContent).toContain('3')
     })
 
     it('labels the in-flight import as links + metadata when on', async () => {

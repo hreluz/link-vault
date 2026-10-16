@@ -202,23 +202,25 @@ describe('useLinkImport', () => {
       )
     })
 
-    it('shows a success toast with the imported count', async () => {
+    it('finishes in the modal without a success toast', async () => {
       const { result } = await renderWithDefaultCategory()
       act(() => result.current.setUrlsText('https://example.com'))
 
       await act(async () => { await result.current.handleImport() })
 
-      expect(mockToastSuccess).toHaveBeenCalledWith('Imported 2 links')
+      expect(result.current.importModalState).toBe('finished')
+      expect(mockToastSuccess).not.toHaveBeenCalled()
     })
 
-    it('shows a warning toast when nothing is imported', async () => {
-      mockImportLinks.mockResolvedValue({ imported: 0, skipped: 1, duplicates: 0 })
+    it('finishes in the modal without a warning toast when nothing is imported', async () => {
+      mockImportLinks.mockResolvedValue({ imported: 0, skipped: 2, duplicates: 1, failures: [] })
       const { result } = await renderWithDefaultCategory()
       act(() => result.current.setUrlsText('https://example.com'))
 
       await act(async () => { await result.current.handleImport() })
 
-      expect(mockToastWarning).toHaveBeenCalled()
+      expect(result.current.importModalState).toBe('finished')
+      expect(mockToastWarning).not.toHaveBeenCalled()
     })
 
     it('sets lastResult after a successful import', async () => {
@@ -248,35 +250,6 @@ describe('useLinkImport', () => {
       expect(mockRefetchTags).toHaveBeenCalledOnce()
     })
 
-    it('appends duplicate count to the success toast when duplicates > 0', async () => {
-      mockImportLinks.mockResolvedValue({ imported: 1, skipped: 0, duplicates: 2 })
-      const { result } = await renderWithDefaultCategory()
-      act(() => result.current.setUrlsText('https://example.com'))
-
-      await act(async () => { await result.current.handleImport() })
-
-      expect(mockToastSuccess).toHaveBeenCalledWith('Imported 1 link (2 already existed)')
-    })
-
-    it('shows duplicate count in the warning toast when all links are duplicates', async () => {
-      mockImportLinks.mockResolvedValue({ imported: 0, skipped: 0, duplicates: 3 })
-      const { result } = await renderWithDefaultCategory()
-      act(() => result.current.setUrlsText('https://example.com'))
-
-      await act(async () => { await result.current.handleImport() })
-
-      expect(mockToastWarning).toHaveBeenCalledWith('No links imported — 3 already existed')
-    })
-
-    it('includes both skipped and duplicate counts in the warning toast', async () => {
-      mockImportLinks.mockResolvedValue({ imported: 0, skipped: 2, duplicates: 1 })
-      const { result } = await renderWithDefaultCategory()
-      act(() => result.current.setUrlsText('https://example.com'))
-
-      await act(async () => { await result.current.handleImport() })
-
-      expect(mockToastWarning).toHaveBeenCalledWith('No links imported — 1 already existed, 2 invalid')
-    })
   })
 
   describe('JSON import', () => {
@@ -508,9 +481,9 @@ describe('useLinkImport', () => {
       )
     })
 
-    it('shows a success toast including categories/tags created', async () => {
+    it('opens the modal as a vault run and finishes without a toast', async () => {
       mockImportVaultExport.mockResolvedValue({
-        imported: 1, skipped: 0, duplicates: 0, categoriesCreated: 1, domainsCreated: 0, tagsCreated: 1,
+        imported: 0, skipped: 0, duplicates: 1, categoriesCreated: 1, domainsCreated: 0, tagsCreated: 1,
       })
       const { result } = await renderWithDefaultCategory()
       act(() => result.current.switchTab('json'))
@@ -519,8 +492,10 @@ describe('useLinkImport', () => {
 
       await act(async () => { await result.current.handleImport() })
 
-      expect(mockToastSuccess).toHaveBeenCalledWith(expect.stringContaining('1 categories'))
-      expect(mockToastSuccess).toHaveBeenCalledWith(expect.stringContaining('1 tags'))
+      expect(result.current.importRun).toEqual({ isVault: true, withMetadata: false })
+      expect(result.current.importModalState).toBe('finished')
+      expect(mockToastSuccess).not.toHaveBeenCalled()
+      expect(mockToastWarning).not.toHaveBeenCalled()
     })
 
     it('sets lastResult with the extended vault-import counts', async () => {
@@ -548,20 +523,6 @@ describe('useLinkImport', () => {
       await act(async () => { await result.current.handleImport() })
 
       expect(result.current.jsonText).toBe('')
-    })
-
-    it('shows a warning toast when nothing is imported from a v2 export', async () => {
-      mockImportVaultExport.mockResolvedValue({
-        imported: 0, skipped: 0, duplicates: 1, categoriesCreated: 0, domainsCreated: 0, tagsCreated: 0,
-      })
-      const { result } = await renderWithDefaultCategory()
-      act(() => result.current.switchTab('json'))
-      act(() => result.current.setJsonText(JSON.stringify(VAULT_EXPORT)))
-      await waitFor(() => expect(result.current.detectedVaultExport).not.toBeNull())
-
-      await act(async () => { await result.current.handleImport() })
-
-      expect(mockToastWarning).toHaveBeenCalledWith('No links imported — 1 already existed')
     })
 
     it('sets vaultExportError and leaves detectedVaultExport null for a structurally-invalid v2 file', async () => {
@@ -600,7 +561,7 @@ describe('useLinkImport', () => {
       expect(result.current.detectedVaultExport).not.toBeNull()
     })
 
-    it('surfaces a thrown error\'s message instead of the generic "Import failed" text', async () => {
+    it('shows a thrown error\'s message in the modal\'s error state instead of a toast', async () => {
       mockImportVaultExport.mockRejectedValue(new Error('boom: something specific went wrong'))
       const { result } = await renderWithDefaultCategory()
       act(() => result.current.switchTab('json'))
@@ -609,7 +570,9 @@ describe('useLinkImport', () => {
 
       await act(async () => { await result.current.handleImport() })
 
-      expect(mockToastError).toHaveBeenCalledWith('boom: something specific went wrong')
+      expect(result.current.importModalState).toBe('error')
+      expect(result.current.importError).toBe('boom: something specific went wrong')
+      expect(mockToastError).not.toHaveBeenCalled()
     })
   })
 
@@ -725,6 +688,203 @@ describe('useLinkImport', () => {
         resolveImport({ imported: 1, skipped: 0, duplicates: 0 })
         await importPromise
       })
+    })
+  })
+  describe('import modal', () => {
+    type Outcome = Record<string, unknown>
+    function emitOutcomes(outcomes: Outcome[]) {
+      mockImportLinks.mockImplementation(async (
+        _inputs: unknown, _cat: unknown, _dek: unknown,
+        onProgress?: (done: number, total: number, outcome: Outcome) => void,
+      ) => {
+        outcomes.forEach((outcome, i) => onProgress?.(i + 1, outcomes.length, outcome))
+        return { imported: 0, skipped: 0, duplicates: 0, failures: [] }
+      })
+    }
+
+    it('starts closed', () => {
+      const { result } = renderHook(() => useLinkImport())
+      expect(result.current.importModalState).toBe('closed')
+    })
+
+    it('accumulates stats from each row outcome', async () => {
+      emitOutcomes([
+        { url: 'https://a.com', status: 'imported', metaMissing: false },
+        { url: 'https://b.com', status: 'imported', metaMissing: true },
+        { url: 'https://dup.com', status: 'duplicate' },
+        { url: 'bad', status: 'failed', reason: 'invalid_url' },
+        { url: 'https://c.com', status: 'failed', reason: 'save_error' },
+      ])
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.setUrlsText('https://a.com'))
+
+      await act(async () => { await result.current.handleImport() })
+
+      expect(result.current.importStats).toEqual({
+        imported: 2, duplicates: 1, failed: 2, metaMissing: 1,
+        failures: [
+          { url: 'bad', reason: 'invalid_url' },
+          { url: 'https://c.com', reason: 'save_error' },
+        ],
+      })
+    })
+
+    it('accumulates stats from outcomes on vault-import links progress events', async () => {
+      mockImportVaultExport.mockImplementation(async (_data: unknown, options: { onProgress?: (p: unknown) => void }) => {
+        options.onProgress?.({ phase: 'categories', done: 1, total: 1 })
+        options.onProgress?.({ phase: 'links', done: 1, total: 1, outcome: { url: 'x', status: 'failed', reason: 'invalid_url' } })
+        return { imported: 0, skipped: 1, duplicates: 0, categoriesCreated: 0, domainsCreated: 0, tagsCreated: 0 }
+      })
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.switchTab('json'))
+      act(() => result.current.setJsonText(JSON.stringify(VAULT_EXPORT)))
+      await waitFor(() => expect(result.current.detectedVaultExport).not.toBeNull())
+
+      await act(async () => { await result.current.handleImport() })
+
+      expect(result.current.importStats.failed).toBe(1)
+      expect(result.current.importStats.failures).toEqual([{ url: 'x', reason: 'invalid_url' }])
+    })
+
+    it('resets stats at the start of each import', async () => {
+      emitOutcomes([{ url: 'https://a.com', status: 'imported', metaMissing: false }])
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.setUrlsText('https://a.com'))
+      await act(async () => { await result.current.handleImport() })
+      act(() => result.current.closeImportModal())
+
+      act(() => result.current.setUrlsText('https://a.com'))
+      await act(async () => { await result.current.handleImport() })
+
+      expect(result.current.importStats.imported).toBe(1)
+    })
+
+    it('goes closed -> running -> finished', async () => {
+      let resolveImport: (v: unknown) => void = () => {}
+      mockImportLinks.mockImplementation(() => new Promise(resolve => { resolveImport = resolve }))
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.setUrlsText('https://a.com'))
+
+      let importPromise!: Promise<void>
+      act(() => { importPromise = result.current.handleImport() })
+      await waitFor(() => expect(result.current.importModalState).toBe('running'))
+
+      await act(async () => {
+        resolveImport({ imported: 1, skipped: 0, duplicates: 0, failures: [] })
+        await importPromise
+      })
+
+      expect(result.current.importModalState).toBe('finished')
+    })
+
+    it('goes to error with the message when importLinks throws', async () => {
+      mockImportLinks.mockRejectedValue(new Error('network down'))
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.setUrlsText('https://a.com'))
+
+      await act(async () => { await result.current.handleImport() })
+
+      expect(result.current.importModalState).toBe('error')
+      expect(result.current.importError).toBe('network down')
+    })
+
+    it('ignores closeImportModal while running, then closes once finished', async () => {
+      let resolveImport: (v: unknown) => void = () => {}
+      mockImportLinks.mockImplementation(() => new Promise(resolve => { resolveImport = resolve }))
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.setUrlsText('https://a.com'))
+
+      let importPromise!: Promise<void>
+      act(() => { importPromise = result.current.handleImport() })
+      await waitFor(() => expect(result.current.importModalState).toBe('running'))
+
+      act(() => result.current.closeImportModal())
+      expect(result.current.importModalState).toBe('running')
+
+      await act(async () => {
+        resolveImport({ imported: 1, skipped: 0, duplicates: 0, failures: [] })
+        await importPromise
+      })
+      act(() => result.current.closeImportModal())
+
+      expect(result.current.importModalState).toBe('closed')
+    })
+
+    it('keeps the modal closed for a pre-flight error (Invalid JSON)', async () => {
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.switchTab('json'))
+      act(() => result.current.setJsonText('{not json'))
+
+      await act(async () => { await result.current.handleImport() })
+
+      expect(mockToastError).toHaveBeenCalledWith('Invalid JSON')
+      expect(result.current.importModalState).toBe('closed')
+    })
+
+    it('keeps the modal closed when no valid links are found', async () => {
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.switchTab('json'))
+      act(() => result.current.setJsonText('[]'))
+
+      await act(async () => { await result.current.handleImport() })
+
+      expect(mockToastError).toHaveBeenCalledWith('No valid links found')
+      expect(result.current.importModalState).toBe('closed')
+    })
+
+    it('opens the modal before CSV categories are created', async () => {
+      let resolveCategory: (id: string) => void = () => {}
+      mockGetOrCreateCategoryByName.mockImplementation(() => new Promise(resolve => { resolveCategory = resolve }))
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.switchTab('file'))
+      const file = new File(['url,category\nhttps://a.com,Article'], 'links.csv', { type: 'text/csv' })
+      act(() => result.current.handleFileChange(fileChangeEvent(file)))
+
+      let importPromise!: Promise<void>
+      act(() => { importPromise = result.current.handleImport() })
+      await waitFor(() => expect(mockGetOrCreateCategoryByName).toHaveBeenCalled())
+
+      expect(result.current.importModalState).toBe('running')
+      expect(mockImportLinks).not.toHaveBeenCalled()
+
+      await act(async () => {
+        resolveCategory('cat-resolved')
+        await importPromise
+      })
+      expect(result.current.importModalState).toBe('finished')
+    })
+
+    it('records whether metadata is fetched for this run', async () => {
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.setAutoFetchOnImport(true))
+      act(() => result.current.setUrlsText('https://a.com'))
+
+      await act(async () => { await result.current.handleImport() })
+
+      expect(result.current.importRun).toEqual({ isVault: false, withMetadata: true })
+    })
+
+    it('registers a beforeunload warning only while importing', async () => {
+      const addSpy = vi.spyOn(window, 'addEventListener')
+      const removeSpy = vi.spyOn(window, 'removeEventListener')
+      let resolveImport: (v: unknown) => void = () => {}
+      mockImportLinks.mockImplementation(() => new Promise(resolve => { resolveImport = resolve }))
+      const { result } = await renderWithDefaultCategory()
+      expect(addSpy).not.toHaveBeenCalledWith('beforeunload', expect.any(Function))
+      act(() => result.current.setUrlsText('https://a.com'))
+
+      let importPromise!: Promise<void>
+      act(() => { importPromise = result.current.handleImport() })
+      await waitFor(() => expect(addSpy).toHaveBeenCalledWith('beforeunload', expect.any(Function)))
+
+      await act(async () => {
+        resolveImport({ imported: 1, skipped: 0, duplicates: 0, failures: [] })
+        await importPromise
+      })
+
+      expect(removeSpy).toHaveBeenCalledWith('beforeunload', expect.any(Function))
+      addSpy.mockRestore()
+      removeSpy.mockRestore()
     })
   })
 })

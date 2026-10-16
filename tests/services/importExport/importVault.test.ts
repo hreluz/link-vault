@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { importVaultExport } from '@/lib/services/importExport/importVault'
+import { importVaultExport, type VaultImportProgress } from '@/lib/services/importExport/importVault'
 import type { VaultExportV2 } from '@/lib/types/importExport'
 import type { Category } from '@/lib/services/categories'
 import type { TagWithCount } from '@/lib/services/tags/tags'
@@ -70,7 +70,7 @@ beforeEach(() => {
   mockGetOrCreateCategoryByName.mockImplementation(async (name: string) => `id-${name}`)
   mockAddCategoryDomain.mockResolvedValue({ data: { id: 'd1', category_id: 'cat-1', user_id: 'u1', domain: 'x.com', created_at: '' }, error: null })
   mockSyncTagDefinitions.mockResolvedValue(['t1'])
-  mockImportLinks.mockResolvedValue({ imported: 1, skipped: 0, duplicates: 0 })
+  mockImportLinks.mockResolvedValue({ imported: 1, skipped: 0, duplicates: 0, failures: [] })
   mockSetThemeMode.mockResolvedValue({ success: true })
   mockSetAccentColor.mockResolvedValue({ success: true })
   mockSetSurfaceFamily.mockResolvedValue({ success: true })
@@ -385,6 +385,27 @@ describe('importVaultExport', () => {
       )
 
       expect(events).toContainEqual({ phase: 'links', done: 1, total: 1 })
+    })
+
+    it('forwards each link row outcome on the links phase and passes failures through', async () => {
+      const failed = { url: 'bad url', status: 'failed', reason: 'invalid_url' } as const
+      mockImportLinks.mockImplementation(async (
+        _inputs: unknown, _catId: unknown, _dek: unknown,
+        onProgress?: (done: number, total: number, outcome: unknown) => void,
+      ) => {
+        onProgress?.(1, 1, failed)
+        return { imported: 0, skipped: 1, duplicates: 0, failures: [{ url: 'bad url', reason: 'invalid_url' }] }
+      })
+      const events: VaultImportProgress[] = []
+
+      const result = await importVaultExport(
+        makeExport(),
+        { defaultCategoryId: null, applyPreferences: false, onProgress: p => events.push(p) },
+        FAKE_DEK,
+      )
+
+      expect(events).toContainEqual({ phase: 'links', done: 1, total: 1, outcome: failed })
+      expect(result.failures).toEqual([{ url: 'bad url', reason: 'invalid_url' }])
     })
 
     it('reports the preferences phase start and end when applying preferences', async () => {

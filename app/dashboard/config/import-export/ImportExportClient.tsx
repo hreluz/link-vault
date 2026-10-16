@@ -6,6 +6,7 @@ import { useLinkImport, type ImportTab } from '@/lib/hooks/importExport/useLinkI
 import type { VaultImportPhase } from '@/lib/services/importExport/importVault'
 import { buildCsvTemplate, buildMinimalCsvTemplate } from '@/lib/utils/linksCsv'
 import { triggerDownload } from '@/lib/utils/downloadFile'
+import ImportProgressModal from './ImportProgressModal'
 
 const TAB_LABELS: Record<ImportTab, string> = {
   urls: '🔗 Paste URLs',
@@ -44,6 +45,7 @@ export default function ImportExportClient() {
     detectedVaultExport, vaultExportError,
     applyPreferences, setApplyPreferences,
     autoFetchOnImport, setAutoFetchOnImport,
+    importModalState, importStats, importError, importRun, closeImportModal,
     fileInputRef,
     hasImportContent,
     handleDragOver, handleDragLeave, handleDrop, handleFileChange,
@@ -328,28 +330,6 @@ export default function ImportExportClient() {
             </label>
           )}
 
-          {lastResult && (
-            <div className={`rounded-xl px-4 py-3 text-sm ${lastResult.imported > 0 ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400' : 'bg-surface-50 text-surface-600 dark:bg-surface-800 dark:text-surface-400'}`}>
-              {lastResult.imported > 0
-                ? `✅ ${lastResult.imported} link${lastResult.imported !== 1 ? 's' : ''} imported`
-                : '⚠️ No links imported'}
-              {lastResult.duplicates > 0 && ` · ${lastResult.duplicates} already existed`}
-              {lastResult.skipped > 0 && ` · ${lastResult.skipped} invalid`}
-              {!!lastResult.metaMissing && ` · ${lastResult.metaMissing} without metadata`}
-              {!!lastResult.categoriesCreated && ` · ${lastResult.categoriesCreated} categories`}
-              {!!lastResult.tagsCreated && ` · ${lastResult.tagsCreated} tags`}
-              {!!lastResult.domainsCreated && ` · ${lastResult.domainsCreated} domain rules`}
-              {(!!lastResult.domainsFailed || !!lastResult.preferencesFailed?.length) && (
-                <div className="mt-1 text-red-600 dark:text-red-400">
-                  ⚠ {[
-                    lastResult.domainsFailed ? `${lastResult.domainsFailed} domain rule${lastResult.domainsFailed !== 1 ? 's' : ''}` : null,
-                    lastResult.preferencesFailed?.length ? `${lastResult.preferencesFailed.length} preference${lastResult.preferencesFailed.length !== 1 ? 's' : ''}` : null,
-                  ].filter(Boolean).join(', ')} failed to import — see console for details
-                </div>
-              )}
-            </div>
-          )}
-
           <button
             onClick={handleImport}
             disabled={!hasImportContent || importing || !!vaultExportError}
@@ -367,6 +347,16 @@ export default function ImportExportClient() {
           Importing will add new links. URLs already in your vault will be skipped.
         </p>
       </section>
+
+      <ImportProgressModal
+        state={importModalState}
+        stats={importStats}
+        run={importRun}
+        progress={progress}
+        result={lastResult}
+        error={importError}
+        onClose={closeImportModal}
+      />
     </main>
   )
 }
