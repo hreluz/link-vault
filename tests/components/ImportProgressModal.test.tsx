@@ -67,6 +67,20 @@ describe('ImportProgressModal', () => {
       expect(screen.getByText('Processing 3 of 10 — 7 remaining')).toBeTruthy()
     })
 
+    it('appends the time left when an estimate is known', () => {
+      renderModal({ etaMs: 4 * 60_000 })
+      expect(screen.getByText('Processing 3 of 10 — 7 remaining · about 4 min left')).toBeTruthy()
+    })
+
+    it('hides the time left while a host block pauses the import', () => {
+      renderModal({
+        etaMs: 4 * 60_000,
+        run: { isVault: false, withMetadata: true },
+        hostBlock: { host: 'youtube.com', reason: 'rate_limited', attempt: 1, retryAt: null },
+      })
+      expect(screen.getByText('Processing 3 of 10 — 7 remaining')).toBeTruthy()
+    })
+
     it('shows the imported, already existed and failed counters', () => {
       renderModal({ stats: { ...STATS, duplicates: 4 } })
       expect(screen.getByText('Imported').parentElement!.textContent).toContain('2')

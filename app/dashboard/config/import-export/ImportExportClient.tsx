@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useLinkExport } from '@/lib/hooks/importExport/useLinkExport'
 import { useLinkImport, type ImportTab } from '@/lib/hooks/importExport/useLinkImport'
 import type { VaultImportPhase } from '@/lib/services/importExport/importVault'
+import { formatEta } from '@/lib/services/importExport/importEstimate'
 import { buildCsvTemplate, buildMinimalCsvTemplate } from '@/lib/utils/linksCsv'
 import { triggerDownload } from '@/lib/utils/downloadFile'
 import ImportProgressModal from './ImportProgressModal'
@@ -45,6 +46,7 @@ export default function ImportExportClient() {
     detectedVaultExport, vaultExportError,
     applyPreferences, setApplyPreferences,
     autoFetchOnImport, setAutoFetchOnImport,
+    importEstimate, importEtaMs,
     importModalState, importStats, importError, importRun, closeImportModal,
     cancelling, notProcessed, cancelImport,
     hostBlock, waitAndRetry, skipBlockedHost, leaveImport,
@@ -332,6 +334,13 @@ export default function ImportExportClient() {
             </label>
           )}
 
+          {importEstimate && !importing && (
+            <p className="text-xs tabular-nums text-surface-500 dark:text-surface-400">
+              {importEstimate.count} {importEstimate.count === 1 ? 'link' : 'links'} · {formatEta(importEstimate.ms)}
+              {fetchingMetadata && ' (less if some already exist)'}
+            </p>
+          )}
+
           <button
             onClick={handleImport}
             disabled={!hasImportContent || importing || !!vaultExportError}
@@ -361,6 +370,7 @@ export default function ImportExportClient() {
         notProcessed={notProcessed}
         onCancel={cancelImport}
         onClose={closeImportModal}
+        etaMs={importEtaMs}
         hostBlock={hostBlock}
         onBlockWait={waitAndRetry}
         onBlockSkip={skipBlockedHost}

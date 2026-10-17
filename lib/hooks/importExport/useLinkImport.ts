@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { toast } from 'sonner'
 import {
   importLinks,
@@ -9,12 +9,14 @@ import {
 import { getOrCreateCategoryByName, PROTECTED_CATEGORY_NAME } from '@/lib/services/categories'
 import { getCategoryIdByDomainMap, lookupCategoryIdByUrl } from '@/lib/services/category-domains'
 import { importVaultExport, type VaultImportResult, type VaultImportProgress } from '@/lib/services/importExport/importVault'
+import { simulateImportMs, type EstimateRow } from '@/lib/services/importExport/importEstimate'
 import { isVaultExportV2, getVaultExportValidationError, type VaultExportV2 } from '@/lib/types/importExport'
 import { useVault } from '@/lib/context/VaultContext'
 import { useTagsContext } from '@/lib/context/TagsContext'
 import { useCategoryList } from '@/lib/hooks/categories/useCategoryList'
 import { parseCSV, type ParsedRow } from '@/lib/utils/linksCsv'
 import { fetchLinkMeta } from '@/app/dashboard/link/actions'
+import { useImportEta } from '@/lib/hooks/importExport/useImportEta'
 
 export type ImportTab = 'urls' | 'json' | 'file'
 
@@ -94,6 +96,21 @@ async function applyDomainCategories(inputs: ImportLinkInput[], dek: CryptoKey):
 
 type VaultExportDetection = { data: VaultExportV2 | null; error: string | null }
 
+/** The rows a pasted JSON / uploaded file would import, for the pre-import estimate only. */
+function previewRowsFromText(text: string, isCsv: boolean): EstimateRow[] {
+  if (isCsv) return parseCSV(text)
+  try {
+    const parsed = JSON.parse(text)
+    if (isVaultExportV2(parsed)) return parsed.links
+    return Array.isArray(parsed) ? parsed.filter(item => typeof item?.url === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+/** Rows to import and how long they would take, assuming none already exist. */
+export type ImportEstimate = { count: number; ms: number }
+
 /** Sniffs whether the given JSON text is a full v2 vault export, for a live "everything" file.
  *  A v2-shaped-but-invalid file comes back as `{ data: null, error: <reason> }`, distinct from
  *  `{ data: null, error: null }` for text that isn't meant to be a v2 export at all (legacy/plain). */
@@ -140,6 +157,9 @@ export function useLinkImport() {
   const hostBlockResolverRef = useRef<((decision: HostBlockDecision) => void) | null>(null)
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  // Only file contents need reading asynchronously; the text tabs are derived during render.
+  const [fileRows, setFileRows] = useState<EstimateRow[]>([])
+  const eta = useImportEta(hostBlock !== null)
 
   useEffect(() => {
     if (categories.length > 0 && !defaultCategorySet.current) {
@@ -165,11 +185,14 @@ export function useLinkImport() {
         apply(tryDetectVaultExport(jsonText))
         return
       }
-      if (importTab === 'file' && selectedFile && selectedFile.name.endsWith('.json')) {
+      if (importTab === 'file' && selectedFile) {
         const text = await readFileText(selectedFile)
-        apply(tryDetectVaultExport(text))
+        const isCsv = selectedFile.name.endsWith('.csv')
+        if (!cancelled) setFileRows(previewRowsFromText(text, isCsv))
+        apply(isCsv ? { data: null, error: null } : tryDetectVaultExport(text))
         return
       }
+      setFileRows([])
       apply({ data: null, error: null })
     }
 
@@ -229,6 +252,7 @@ export function useLinkImport() {
 
   function skipBlockedHost() {
     if (!hostBlockResolverRef.current) return
+    if (hostBlock) eta.skipGroup(hostBlock.host)
     resolveHostBlock('skip_host')
   }
 
@@ -273,8 +297,22 @@ export function useLinkImport() {
     : importTab === 'json' ? jsonText.trim().length > 0
     : !!selectedFile
 
+  const previewRows = useMemo<EstimateRow[]>(() => {
+    if (importTab === 'urls') return urlsText.split('\n').map(l => l.trim()).filter(Boolean).map(url => ({ url }))
+    if (importTab === 'json') return previewRowsFromText(jsonText, false)
+    return fileRows
+  }, [importTab, urlsText, jsonText, fileRows])
+
+  const importEstimate = useMemo<ImportEstimate | null>(() => {
+    if (previewRows.length === 0) return null
+    // Vault exports never fetch metadata (the switch is disabled for them).
+    const withMetadata = autoFetchOnImport && !detectedVaultExport
+    return { count: previewRows.length, ms: simulateImportMs(previewRows, { withMetadata }) }
+  }, [previewRows, autoFetchOnImport, detectedVaultExport])
+
   function handleProgress(p: VaultImportProgress) {
     setProgress(p)
+    if (p.phase === 'links') eta.recordProgress(p.done, p.outcome)
     const outcome = p.outcome
     if (outcome) setImportStats(stats => applyOutcome(stats, outcome))
   }
@@ -304,6 +342,7 @@ export function useLinkImport() {
       // ── full-vault (v2) export detected on the json/file tab ──────────
       if (detectedVaultExport) {
         const signal = openModal({ isVault: true, withMetadata: false })
+        eta.start(detectedVaultExport.links, false)
         const result = await importVaultExport(
           detectedVaultExport,
           { defaultCategoryId: catId, applyPreferences, onProgress: handleProgress, signal },
@@ -358,6 +397,7 @@ export function useLinkImport() {
       // CSV category names are created here, so this runs after the modal opens ("Preparing…").
       if (csvRows) inputs = await resolveCsvCategories(csvRows, dek)
       inputs = await applyDomainCategories(inputs, dek)
+      eta.start(inputs, autoFetchOnImport)
 
       const result = await importLinks(
         inputs, catId, dek,
@@ -395,6 +435,7 @@ export function useLinkImport() {
       clearRetryTimer()
       hostBlockResolverRef.current = null
       setHostBlock(null)
+      eta.stop()
       setImporting(false)
       setCancelling(false)
       setProgress(null)
@@ -412,6 +453,7 @@ export function useLinkImport() {
     detectedVaultExport, vaultExportError,
     applyPreferences, setApplyPreferences,
     autoFetchOnImport, setAutoFetchOnImport,
+    importEstimate, importEtaMs: eta.etaMs,
     importModalState, importStats, importError, importRun, closeImportModal,
     cancelling, notProcessed, cancelImport,
     hostBlock, waitAndRetry, skipBlockedHost, leaveImport,

@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/client'
 import { hmacFingerprint } from '@/lib/crypto/vault'
 import { toEncryptedColumns, fromEncryptedColumns } from '@/lib/crypto/encryptedRow'
 import { syncTagsByName } from '@/lib/services/tags/tags'
-import { createFetchGuard, hostGroupOf, type FetchGuard } from '@/lib/services/importExport/fetchGuard'
+import { createFetchGuard, hostGroupOf, needsMetaFetch, type FetchGuard } from '@/lib/services/importExport/fetchGuard'
 import type { LinkStatus } from '@/lib/types/database'
 import type { SortBy } from '@/app/dashboard/link/FilterSheet'
 
@@ -566,8 +566,7 @@ export async function importLinks(
       // Sequential on purpose: one fetch in flight at a time, and only for new, valid URLs
       // that still have an empty metadata field. Throttled and breaker-guarded per host group.
       let rowMetaMissing = false
-      const needsMeta = [input.title, input.description, input.image_url, input.duration].some(isEmpty)
-      if (fetchMeta && guard && needsMeta) {
+      if (fetchMeta && guard && needsMetaFetch(input)) {
         const group = hostGroupOf(trimmedUrl) ?? trimmedUrl
         if (guard.isSkipped(group)) {
           rowMetaMissing = true

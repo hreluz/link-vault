@@ -1,4 +1,4 @@
-import type { HostBlockReason, ImportMeta } from '@/lib/services/links'
+import type { HostBlockReason, ImportLinkInput, ImportMeta } from '@/lib/services/links'
 
 /** Minimum time between the end of one metadata fetch and the start of the next to the same group. */
 export const FETCH_GAP_MS = 2000
@@ -30,6 +30,13 @@ export function hostGroupOf(url: string): string | null {
   hostname = hostname.replace(/^www\./, '')
   if (!hostname) return null
   return HOST_GROUPS[hostname] ?? hostname
+}
+
+const isBlank = (value: string | null | undefined) => value == null || value === ''
+
+/** Whether an import row still has an empty metadata field, so auto-fetch would fetch it. */
+export function needsMetaFetch(input: Pick<ImportLinkInput, 'title' | 'description' | 'image_url' | 'duration'>): boolean {
+  return [input.title, input.description, input.image_url, input.duration].some(isBlank)
 }
 
 type Sleep = (ms: number, signal?: AbortSignal) => Promise<void>

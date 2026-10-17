@@ -6,6 +6,7 @@ import { useDialog } from '@/lib/hooks/shared/useDialog'
 import { useBackdropClose } from '@/lib/hooks/shared/useBackdropClose'
 import type { ImportFailureReason } from '@/lib/services/links'
 import type { VaultImportPhase, VaultImportProgress } from '@/lib/services/importExport/importVault'
+import { formatEta } from '@/lib/services/importExport/importEstimate'
 import {
   HOST_BLOCK_RETRY_MS,
   type HostBlockState, type ImportLastResult, type ImportModalState, type ImportRun, type ImportStats,
@@ -103,6 +104,8 @@ interface Props {
   cancelling: boolean
   /** URLs never started because of a cancel; only counted and copyable, never listed. */
   notProcessed: string[]
+  /** Estimated time left for the links phase; null while paused or not yet known. */
+  etaMs?: number | null
   onCancel: () => void
   onClose: () => void
   /** Set while a host looks blocked and the import is paused for a decision. */
@@ -113,7 +116,7 @@ interface Props {
 }
 
 export default function ImportProgressModal({
-  state, stats, run, progress, result, error, cancelling, notProcessed, onCancel, onClose,
+  state, stats, run, progress, result, error, cancelling, notProcessed, etaMs = null, onCancel, onClose,
   hostBlock, onBlockWait, onBlockSkip, onBlockLeave,
 }: Props) {
   const isOpen = state !== 'closed'
@@ -165,6 +168,8 @@ export default function ImportProgressModal({
     statusLine = total > 0 && (inLinksPhase || processed < total)
       ? `Processing ${processed} of ${total} — ${remaining} remaining`
       : 'Preparing…'
+    // Hidden during a host-block pause: the notice's own countdown covers that.
+    if (inLinksPhase && remaining > 0 && etaMs !== null && !hostBlock) statusLine += ` · ${formatEta(etaMs)} left`
   } else if (cancelled) {
     statusLine = `${plural(processed, 'link')} processed · ${notProcessed.length} not processed`
   } else {

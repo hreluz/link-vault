@@ -192,7 +192,23 @@ describe('ImportExportClient', () => {
     })
   })
 
-  describe('file import', () => {
+  describe('time estimate', () => {
+    it('shows the link count and an estimate, noting duplicates once auto-fetch is on', () => {
+      render(<ImportExportClient />)
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: 'https://a.com\nhttps://b.com' } })
+      expect(screen.getByText('2 links · less than a minute')).toBeTruthy()
+
+      fireEvent.click(screen.getByRole('switch', { name: 'Auto-fetch metadata' }))
+      expect(screen.getByText(/2 links · less than a minute \(less if some already exist\)/)).toBeTruthy()
+    })
+
+    it('is hidden with nothing to import', () => {
+      render(<ImportExportClient />)
+      expect(screen.queryByText(/ links? · /)).toBeNull()
+    })
+  })
+
+    describe('file import', () => {
     it('shows the filename when a file is selected', () => {
       render(<ImportExportClient />)
       fireEvent.click(screen.getByText('📁 Upload file'))
