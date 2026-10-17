@@ -1054,12 +1054,13 @@ describe('importLinks', () => {
       vi.useRealTimers()
     })
 
-    /** Drives fake time forward until the import resolves. */
+    /** Drives the import to completion. Fake time only jumps when a timer is pending (a
+     *  throttle wait), so real WebCrypto work never moves the clock and gaps are exact. */
     async function settle<T>(promise: Promise<T>): Promise<T> {
       let done = false
       void promise.finally(() => { done = true })
       while (!done) {
-        await vi.advanceTimersByTimeAsync(100)
+        if (vi.getTimerCount() > 0) await vi.advanceTimersToNextTimerAsync()
         await new Promise(resolve => setImmediate(resolve))
       }
       return promise
@@ -1187,9 +1188,8 @@ describe('importLinks', () => {
       const at = Object.fromEntries(calls.map(c => [c.url, c.at]))
       expect(at['https://www.youtube.com/watch?v=b'] - at['https://youtu.be/a']).toBeGreaterThanOrEqual(2000)
       expect(at['https://blog.example.com/2'] - at['https://blog.example.com/1']).toBeGreaterThanOrEqual(2000)
-      // settle() advances fake time in 100 ms steps while crypto runs, so "no wait" is < the gap, not 0.
-      expect(at['https://other.com/1'] - at['https://blog.example.com/2']).toBeLessThan(2000)
-      expect(at['https://blog.example.com/1'] - at['https://www.youtube.com/watch?v=b']).toBeLessThan(2000)
+      expect(at['https://other.com/1'] - at['https://blog.example.com/2']).toBe(0)
+      expect(at['https://blog.example.com/1'] - at['https://www.youtube.com/watch?v=b']).toBe(0)
     })
 
     it('a cancel during the throttle wait stops at once and leaves that row not processed', async () => {
