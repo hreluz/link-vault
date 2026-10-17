@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { importVaultExport } from '@/lib/services/importExport/importVault'
+import { importVaultExport, type VaultImportProgress } from '@/lib/services/importExport/importVault'
 import type { VaultExportV2 } from '@/lib/types/importExport'
 import type { Category } from '@/lib/services/categories'
 import type { TagWithCount } from '@/lib/services/tags/tags'
@@ -70,7 +70,7 @@ beforeEach(() => {
   mockGetOrCreateCategoryByName.mockImplementation(async (name: string) => `id-${name}`)
   mockAddCategoryDomain.mockResolvedValue({ data: { id: 'd1', category_id: 'cat-1', user_id: 'u1', domain: 'x.com', created_at: '' }, error: null })
   mockSyncTagDefinitions.mockResolvedValue(['t1'])
-  mockImportLinks.mockResolvedValue({ imported: 1, skipped: 0, duplicates: 0 })
+  mockImportLinks.mockResolvedValue({ imported: 1, skipped: 0, duplicates: 0, failures: [] })
   mockSetThemeMode.mockResolvedValue({ success: true })
   mockSetAccentColor.mockResolvedValue({ success: true })
   mockSetSurfaceFamily.mockResolvedValue({ success: true })
@@ -81,7 +81,7 @@ describe('importVaultExport', () => {
   it('delegates link insertion to importLinks with the resolved default category', async () => {
     const result = await importVaultExport(makeExport(), { defaultCategoryId: 'cat-default', applyPreferences: false }, FAKE_DEK)
 
-    expect(mockImportLinks).toHaveBeenCalledWith(expect.any(Array), 'cat-default', FAKE_DEK, expect.any(Function))
+    expect(mockImportLinks).toHaveBeenCalledWith(expect.any(Array), 'cat-default', FAKE_DEK, { onProgress: expect.any(Function) })
     expect(result.imported).toBe(1)
   })
 
@@ -103,7 +103,7 @@ describe('importVaultExport', () => {
       [expect.objectContaining({ created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' })],
       null,
       FAKE_DEK,
-      expect.any(Function),
+      { onProgress: expect.any(Function) },
     )
   })
 
@@ -153,7 +153,7 @@ describe('importVaultExport', () => {
         [expect.objectContaining({ category_id: 'cat-resolved' })],
         null,
         FAKE_DEK,
-        expect.any(Function),
+        { onProgress: expect.any(Function) },
       )
     })
   })
@@ -329,7 +329,7 @@ describe('importVaultExport', () => {
     it('reports categories, domains, tags, and links phases in that order', async () => {
       mockGetOrCreateCategoryByName.mockResolvedValue('cat-1')
       mockImportLinks.mockImplementation(async (
-        _inputs: unknown, _catId: unknown, _dek: unknown, onProgress?: (done: number, total: number) => void,
+        _inputs: unknown, _catId: unknown, _dek: unknown, { onProgress }: { onProgress?: (done: number, total: number) => void } = {},
       ) => {
         onProgress?.(1, 1)
         return { imported: 1, skipped: 0, duplicates: 0 }
@@ -371,7 +371,7 @@ describe('importVaultExport', () => {
 
     it('reports the links phase via importLinks\'s own onProgress callback', async () => {
       mockImportLinks.mockImplementation(async (
-        _inputs: unknown, _catId: unknown, _dek: unknown, onProgress?: (done: number, total: number) => void,
+        _inputs: unknown, _catId: unknown, _dek: unknown, { onProgress }: { onProgress?: (done: number, total: number) => void } = {},
       ) => {
         onProgress?.(1, 1)
         return { imported: 1, skipped: 0, duplicates: 0 }
@@ -385,6 +385,27 @@ describe('importVaultExport', () => {
       )
 
       expect(events).toContainEqual({ phase: 'links', done: 1, total: 1 })
+    })
+
+    it('forwards each link row outcome on the links phase and passes failures through', async () => {
+      const failed = { url: 'bad url', status: 'failed', reason: 'invalid_url' } as const
+      mockImportLinks.mockImplementation(async (
+        _inputs: unknown, _catId: unknown, _dek: unknown,
+        { onProgress }: { onProgress?: (done: number, total: number, outcome: unknown) => void } = {},
+      ) => {
+        onProgress?.(1, 1, failed)
+        return { imported: 0, skipped: 1, duplicates: 0, failures: [{ url: 'bad url', reason: 'invalid_url' }] }
+      })
+      const events: VaultImportProgress[] = []
+
+      const result = await importVaultExport(
+        makeExport(),
+        { defaultCategoryId: null, applyPreferences: false, onProgress: p => events.push(p) },
+        FAKE_DEK,
+      )
+
+      expect(events).toContainEqual({ phase: 'links', done: 1, total: 1, outcome: failed })
+      expect(result.failures).toEqual([{ url: 'bad url', reason: 'invalid_url' }])
     })
 
     it('reports the preferences phase start and end when applying preferences', async () => {
@@ -410,6 +431,65 @@ describe('importVaultExport', () => {
       await expect(
         importVaultExport(makeExport(), { defaultCategoryId: null, applyPreferences: false }, FAKE_DEK),
       ).resolves.toBeDefined()
+    })
+  })
+
+  describe('cancel (signal)', () => {
+    const PREFS = {
+      theme_mode: 'dark' as const, accent_color_light: 'indigo', accent_color_dark: 'violet',
+      surface_family: 'slate', auto_fetch_enabled: true,
+    }
+    const everything = () => makeExport({
+      mode: 'everything',
+      preferences: PREFS,
+      categories: [{ name: 'Article', description: null, color: null, emoticon: null }],
+      categoryDomains: [{ domain: 'example.com', category: 'Article' }],
+      tags: [{ name: 'react', color: null, is_private: false }],
+    })
+
+    it('inserts no links and applies no preferences when aborted during categories', async () => {
+      const controller = new AbortController()
+      mockGetOrCreateCategoryByName.mockImplementation(async (name: string) => {
+        controller.abort()
+        return `id-${name}`
+      })
+
+      const result = await importVaultExport(
+        everything(),
+        { defaultCategoryId: null, applyPreferences: true, signal: controller.signal },
+        FAKE_DEK,
+      )
+
+      expect(mockImportLinks).not.toHaveBeenCalled()
+      expect(mockAddCategoryDomain).not.toHaveBeenCalled()
+      expect(mockSyncTagDefinitions).not.toHaveBeenCalled()
+      expect(mockSetThemeMode).not.toHaveBeenCalled()
+      expect(result).toMatchObject({
+        imported: 0, cancelled: true, notProcessed: ['https://example.com'], categoriesCreated: 1,
+      })
+    })
+
+    it('skips preferences and keeps the created counts when aborted during links', async () => {
+      const controller = new AbortController()
+      mockImportLinks.mockImplementation(async () => {
+        controller.abort()
+        return { imported: 1, skipped: 0, duplicates: 0, failures: [], cancelled: true, notProcessed: ['https://b.com'] }
+      })
+
+      const result = await importVaultExport(
+        everything(),
+        { defaultCategoryId: null, applyPreferences: true, signal: controller.signal },
+        FAKE_DEK,
+      )
+
+      expect(mockImportLinks).toHaveBeenCalledWith(
+        expect.any(Array), null, FAKE_DEK, expect.objectContaining({ signal: controller.signal }),
+      )
+      expect(mockSetThemeMode).not.toHaveBeenCalled()
+      expect(result).toMatchObject({
+        imported: 1, cancelled: true, notProcessed: ['https://b.com'],
+        categoriesCreated: 1, domainsCreated: 1, tagsCreated: 1, preferencesFailed: [],
+      })
     })
   })
 })

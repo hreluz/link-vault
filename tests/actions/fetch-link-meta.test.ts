@@ -9,11 +9,15 @@ function htmlResponse(html: string) {
   }
 }
 
-function jsonResponse(body: unknown, ok = true) {
-  return { ok, json: async () => body }
+function jsonResponse(body: unknown, ok = true, status = ok ? 200 : 404) {
+  return { ok, status, json: async () => body }
 }
 
-const notFoundResponse = { ok: false, headers: { get: () => null }, text: async () => '' }
+function statusResponse(status: number) {
+  return { ok: false, status, headers: { get: () => null }, text: async () => '', json: async () => null }
+}
+
+const notFoundResponse = statusResponse(404)
 
 const YOUTUBE_URL = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
 const ARTICLE_URL = 'https://example.com/some-article'
@@ -39,14 +43,13 @@ describe('fetchLinkMeta', () => {
     vi.unstubAllEnvs()
   })
 
-  it('prefers oEmbed title/thumbnail over the scraped page for YouTube URLs', async () => {
+  it('uses oEmbed for title/thumbnail and the Data API for duration/description on YouTube URLs', async () => {
     mockFetch.mockImplementation(async (url: string) => {
-      if (url === YOUTUBE_URL) return htmlResponse(YOUTUBE_PAGE_HTML)
       if (url.startsWith('https://www.youtube.com/oembed')) {
         return jsonResponse({ title: 'Rick Astley - Never Gonna Give You Up', thumbnail_url: 'https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg' })
       }
       if (url.startsWith('https://www.googleapis.com/youtube/v3/videos')) {
-        return jsonResponse({ items: [{ contentDetails: { duration: 'PT3M33S' } }] })
+        return jsonResponse({ items: [{ contentDetails: { duration: 'PT3M33S' }, snippet: { description: 'The official video' } }] })
       }
       throw new Error(`Unexpected fetch: ${url}`)
     })
@@ -56,9 +59,11 @@ describe('fetchLinkMeta', () => {
     expect(meta.title).toBe('Rick Astley - Never Gonna Give You Up')
     expect(meta.image).toBe('https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg')
     expect(meta.duration).toBe('3:33')
+    expect(meta.description).toBe('The official video')
+    expect(meta.rateLimited).toBeUndefined()
   })
 
-  it('falls back to the scraped title/image when oEmbed fails', async () => {
+  it('never fetches the raw youtube.com video page', async () => {
     mockFetch.mockImplementation(async (url: string) => {
       if (url === YOUTUBE_URL) return htmlResponse(YOUTUBE_PAGE_HTML)
       if (url.startsWith('https://www.youtube.com/oembed')) return jsonResponse(null, false)
@@ -68,8 +73,71 @@ describe('fetchLinkMeta', () => {
 
     const meta = await fetchLinkMeta(YOUTUBE_URL)
 
-    expect(meta.title).toBe('Scraped title (consent wall placeholder)')
-    expect(meta.image).toBe('https://i.ytimg.com/vi/dQw4w9WgXcQ/scraped.jpg')
+    expect(mockFetch).not.toHaveBeenCalledWith(YOUTUBE_URL, expect.anything())
+    expect(meta.title).toBeNull()
+    expect(meta.image).toBeNull()
+  })
+
+  it('requests the snippet part from the Data API', async () => {
+    mockFetch.mockImplementation(async (url: string) => {
+      if (url.startsWith('https://www.youtube.com/oembed')) return jsonResponse({ title: 'T', thumbnail_url: null })
+      if (url.startsWith('https://www.googleapis.com/youtube/v3/videos')) return jsonResponse({ items: [] })
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+
+    await fetchLinkMeta(YOUTUBE_URL)
+
+    expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('part=contentDetails,snippet'), expect.anything())
+  })
+
+  it('sets rateLimited when YouTube oEmbed answers 429', async () => {
+    mockFetch.mockImplementation(async (url: string) => {
+      if (url.startsWith('https://www.youtube.com/oembed')) return statusResponse(429)
+      if (url.startsWith('https://www.googleapis.com/youtube/v3/videos')) return jsonResponse({ items: [] })
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+
+    const meta = await fetchLinkMeta(YOUTUBE_URL)
+
+    expect(meta.rateLimited).toBe(true)
+    expect(meta.title).toBeNull()
+  })
+
+  it('does not set rateLimited when the Data API answers 403 (quota)', async () => {
+    mockFetch.mockImplementation(async (url: string) => {
+      if (url.startsWith('https://www.youtube.com/oembed')) return jsonResponse({ title: 'T', thumbnail_url: null })
+      if (url.startsWith('https://www.googleapis.com/youtube/v3/videos')) return statusResponse(403)
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+
+    const meta = await fetchLinkMeta(YOUTUBE_URL)
+
+    expect(meta.rateLimited).toBeUndefined()
+    expect(meta.duration).toBeNull()
+  })
+
+  it('sets rateLimited when a page answers 429', async () => {
+    mockFetch.mockImplementation(async (url: string) => {
+      if (url === ARTICLE_URL) return statusResponse(429)
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+
+    const meta = await fetchLinkMeta(ARTICLE_URL)
+
+    expect(meta.rateLimited).toBe(true)
+    expect(meta.title).toBeNull()
+  })
+
+  it('does not set rateLimited when a page answers 403', async () => {
+    mockFetch.mockImplementation(async (url: string) => {
+      if (url === ARTICLE_URL) return statusResponse(403)
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+
+    const meta = await fetchLinkMeta(ARTICLE_URL)
+
+    expect(meta.rateLimited).toBeUndefined()
+    expect(meta.title).toBeNull()
   })
 
   it('never calls the oEmbed endpoint for non-YouTube URLs', async () => {

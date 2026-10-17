@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/client'
 import { hmacFingerprint } from '@/lib/crypto/vault'
 import { toEncryptedColumns, fromEncryptedColumns } from '@/lib/crypto/encryptedRow'
 import { syncTagsByName } from '@/lib/services/tags/tags'
+import { createFetchGuard, hostGroupOf, needsMetaFetch, type FetchGuard } from '@/lib/services/importExport/fetchGuard'
 import type { LinkStatus } from '@/lib/types/database'
 import type { SortBy } from '@/app/dashboard/link/FilterSheet'
 
@@ -395,29 +396,160 @@ export type ImportLinkInput = {
   category_id?: string | null
 }
 
-export type ImportResult = { imported: number; skipped: number; duplicates: number }
+export type ImportResult = {
+  imported: number
+  skipped: number
+  duplicates: number
+  /** Links whose metadata fetch threw or came back empty. Only set when a fetcher was supplied. */
+  metaMissing?: number
+  /** One entry per row counted in `skipped`, in input order. */
+  failures: ImportFailure[]
+  /** True when the signal stopped the loop early. */
+  cancelled: boolean
+  /** URLs of rows never started, in input order; `[]` when not cancelled. */
+  notProcessed: string[]
+}
+
+export type ImportFailureReason = 'invalid_url' | 'save_error'
+export type ImportFailure = { url: string; reason: ImportFailureReason }
+
+/** What happened to a single import row, reported through `importLinks`'s `onProgress`. */
+export type ImportRowOutcome =
+  | { url: string; status: 'imported'; metaMissing: boolean }
+  | { url: string; status: 'duplicate' }
+  | { url: string; status: 'failed'; reason: ImportFailureReason }
+
+/** Structurally matches `LinkMeta` from `app/dashboard/link/actions.ts`, so `fetchLinkMeta`
+ *  can be passed straight in without this service importing from `app/`. */
+export type ImportMeta = {
+  title: string | null
+  description: string | null
+  image: string | null
+  duration: string | null
+  /** True when the page (or YouTube oEmbed) answered HTTP 429. */
+  rateLimited?: boolean
+}
+export type ImportMetaFetcher = (url: string) => Promise<ImportMeta>
+
+/** Why a host group tripped the import's fetch breaker (see `fetchGuard.ts`). */
+export type HostBlockReason = 'rate_limited' | 'empty_responses'
+/** `attempt` starts at 1 and grows each time a retry of the same row is still blocked. */
+export type HostBlockInfo = { host: string; reason: HostBlockReason; attempt: number }
+export type HostBlockDecision = 'retry' | 'skip_host' | 'cancel'
+
+export type ImportLinksOptions = {
+  onProgress?: (done: number, total: number, outcome: ImportRowOutcome) => void
+  fetchMeta?: ImportMetaFetcher
+  /** Checked before each row. Once aborted, no new row starts. */
+  signal?: AbortSignal
+  /** Awaited when a host group trips the breaker; the import is paused until it resolves.
+   *  When absent, behaves as 'skip_host'. Only consulted when fetchMeta is set. */
+  onHostBlocked?: (info: HostBlockInfo) => Promise<HostBlockDecision>
+}
+
+const isEmpty = (value: string | null | undefined) => value == null || value === ''
+
+const isMetaEmpty = (meta: ImportMeta | null) =>
+  !meta || (!meta.title && !meta.description && !meta.image && !meta.duration)
+
+/** Fills only the fields the import row left empty -- values supplied by the file always win. */
+function mergeMeta(input: ImportLinkInput, meta: ImportMeta | null): ImportLinkInput {
+  if (!meta) return input
+  return {
+    ...input,
+    title: isEmpty(input.title) ? (meta.title ?? input.title) : input.title,
+    description: isEmpty(input.description) ? (meta.description ?? input.description) : input.description,
+    image_url: isEmpty(input.image_url) ? (meta.image ?? input.image_url) : input.image_url,
+    duration: isEmpty(input.duration) ? (meta.duration ?? input.duration) : input.duration,
+  }
+}
+
+/** Fetches one row's metadata through the throttle/breaker. While the group looks blocked
+ *  the row is held and `onHostBlocked` decides: retry the same row, skip the group's
+ *  metadata (row imported as-is), or cancel. Returns `'cancelled'` when the row must not
+ *  be inserted -- a cancel during the throttle wait or a 'cancel' decision. */
+async function fetchRowMeta(
+  input: ImportLinkInput,
+  url: string,
+  group: string,
+  guard: FetchGuard,
+  fetchMeta: ImportMetaFetcher,
+  options: ImportLinksOptions,
+): Promise<{ input: ImportLinkInput; metaMissing: boolean } | 'cancelled'> {
+  const { signal, onHostBlocked } = options
+  let attempt = 0
+
+  for (;;) {
+    await guard.waitTurn(group, signal)
+    if (signal?.aborted) return 'cancelled'
+
+    let meta: ImportMeta | null
+    try {
+      meta = await fetchMeta(url)
+    } catch {
+      meta = null
+    }
+
+    const tripped = guard.record(group, meta)
+    // On a retry, any 429 or empty result is still a block -- the streak doesn't apply.
+    const reason = attempt === 0
+      ? tripped
+      : meta?.rateLimited ? 'rate_limited' : isMetaEmpty(meta) ? 'empty_responses' : null
+
+    if (!reason) {
+      if (attempt > 0) guard.resetGroup(group)
+      return { input: mergeMeta(input, meta), metaMissing: isMetaEmpty(meta) }
+    }
+
+    attempt++
+    const decision = onHostBlocked ? await onHostBlocked({ host: group, reason, attempt }) : 'skip_host'
+    if (decision === 'cancel' || signal?.aborted) return 'cancelled'
+    if (decision === 'skip_host') {
+      guard.skip(group)
+      return { input, metaMissing: true }
+    }
+  }
+}
 
 export async function importLinks(
   inputs: ImportLinkInput[],
   defaultCategoryId: string | null,
   dek: CryptoKey,
-  onProgress?: (done: number, total: number) => void,
+  options: ImportLinksOptions = {},
 ): Promise<ImportResult> {
+  const { onProgress, fetchMeta, signal } = options
+  const guard = fetchMeta ? createFetchGuard() : null
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { imported: 0, skipped: inputs.length, duplicates: 0 }
+  if (!user) {
+    return {
+      imported: 0, skipped: inputs.length, duplicates: 0,
+      failures: inputs.map(input => ({ url: input.url, reason: 'save_error' as const })),
+      cancelled: false, notProcessed: [],
+    }
+  }
 
   let imported = 0
-  let skipped = 0
   let duplicates = 0
+  let metaMissing = 0
   let processed = 0
+  const failures: ImportFailure[] = []
+  let notProcessed: string[] = []
 
-  for (const input of inputs) {
+  for (const [index, rawInput] of inputs.entries()) {
+    // Checked between rows only, so the row in progress always finishes completely.
+    if (signal?.aborted) {
+      notProcessed = inputs.slice(index).map(remaining => remaining.url.trim())
+      break
+    }
+    let input = rawInput
+    let outcome: ImportRowOutcome | null = null
     // `finally` still runs on every `continue` below, so progress always reaches
     // `inputs.length` regardless of which outcome (skip/duplicate/error/success) hit.
+    // A row that throws has no outcome; the throw aborts the whole import anyway.
     try {
       if (!input.url.trim() || !isValidUrl(input.url)) {
-        skipped++
+        outcome = { url: input.url, status: 'failed', reason: 'invalid_url' }
         continue
       }
 
@@ -427,7 +559,28 @@ export async function importLinks(
       const existingId = await findLinkIdByUrl(trimmedUrl, dek)
       if (existingId) {
         duplicates++
+        outcome = { url: trimmedUrl, status: 'duplicate' }
         continue
+      }
+
+      // Sequential on purpose: one fetch in flight at a time, and only for new, valid URLs
+      // that still have an empty metadata field. Throttled and breaker-guarded per host group.
+      let rowMetaMissing = false
+      if (fetchMeta && guard && needsMetaFetch(input)) {
+        const group = hostGroupOf(trimmedUrl) ?? trimmedUrl
+        if (guard.isSkipped(group)) {
+          rowMetaMissing = true
+        } else {
+          const fetched = await fetchRowMeta(input, trimmedUrl, group, guard, fetchMeta, options)
+          if (fetched === 'cancelled') {
+            // Nothing was written for this row, so it counts as not processed.
+            notProcessed = inputs.slice(index).map(remaining => remaining.url.trim())
+            break
+          }
+          input = fetched.input
+          rowMetaMissing = fetched.metaMissing
+        }
+        if (rowMetaMissing) metaMissing++
       }
 
       const category_id = input.category_id ?? defaultCategoryId
@@ -459,17 +612,24 @@ export async function importLinks(
         .single()
 
       if (error || !link) {
-        skipped++
+        outcome = { url: trimmedUrl, status: 'failed', reason: 'save_error' }
         continue
       }
 
       const tagIds = await syncTagsByName(input.tags?.filter(Boolean) ?? [], dek)
       await insertLinkTags(link.id, tagIds)
       imported++
+      outcome = { url: trimmedUrl, status: 'imported', metaMissing: rowMetaMissing }
     } finally {
-      onProgress?.(++processed, inputs.length)
+      if (outcome?.status === 'failed') failures.push({ url: outcome.url, reason: outcome.reason })
+      processed++
+      if (outcome) onProgress?.(processed, inputs.length, outcome)
     }
   }
 
-  return { imported, skipped, duplicates }
+  const skipped = failures.length
+  const cancelled = notProcessed.length > 0
+  return fetchMeta
+    ? { imported, skipped, duplicates, metaMissing, failures, cancelled, notProcessed }
+    : { imported, skipped, duplicates, failures, cancelled, notProcessed }
 }

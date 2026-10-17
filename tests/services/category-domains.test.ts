@@ -4,6 +4,8 @@ import {
   addCategoryDomain,
   removeCategoryDomain,
   getCategoryIdByDomain,
+  getCategoryIdByDomainMap,
+  lookupCategoryIdByUrl,
 } from '@/lib/services/category-domains'
 import { generateDek, encryptJson } from '@/lib/crypto/vault'
 
@@ -271,5 +273,66 @@ describe('getCategoryIdByDomain', () => {
   it('returns null for an empty hostname', async () => {
     expect(await getCategoryIdByDomain('', dek)).toBeNull()
     expect(mockEq).not.toHaveBeenCalled()
+  })
+})
+
+// ── getCategoryIdByDomainMap ──────────────────────────────────────────────────
+
+describe('getCategoryIdByDomainMap', () => {
+  it('maps each normalized domain to its category_id', async () => {
+    const yt = await encryptDomainRow('d1', 'cat-yt', 'youtube.com')
+    const gh = await encryptDomainRow('d2', 'cat-gh', 'github.com')
+    mockEq.mockResolvedValue({ data: [yt, gh], error: null })
+
+    const map = await getCategoryIdByDomainMap(dek)
+
+    expect(map).toEqual(new Map([['youtube.com', 'cat-yt'], ['github.com', 'cat-gh']]))
+    expect(mockEq).toHaveBeenCalledWith('user_id', 'u1')
+  })
+
+  it('keys a legacy row with a scheme prefix by its bare hostname', async () => {
+    const row = await encryptDomainRow('d1', 'cat-claude', 'https://claude.ai')
+    mockEq.mockResolvedValue({ data: [row], error: null })
+
+    const map = await getCategoryIdByDomainMap(dek)
+
+    expect(map.get('claude.ai')).toBe('cat-claude')
+  })
+
+  it('returns an empty map on DB error', async () => {
+    mockEq.mockResolvedValue({ data: null, error: { message: 'err' } })
+    expect((await getCategoryIdByDomainMap(dek)).size).toBe(0)
+  })
+
+  it('returns an empty map when signed out', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } })
+    expect((await getCategoryIdByDomainMap(dek)).size).toBe(0)
+    expect(mockEq).not.toHaveBeenCalled()
+  })
+})
+
+// ── lookupCategoryIdByUrl ─────────────────────────────────────────────────────
+
+describe('lookupCategoryIdByUrl', () => {
+  const map = new Map([['youtube.com', 'cat-yt']])
+
+  it('returns the category for a matching URL', () => {
+    expect(lookupCategoryIdByUrl('https://youtube.com/watch?v=x', map)).toBe('cat-yt')
+  })
+
+  it('matches a www. URL against a bare-domain rule', () => {
+    expect(lookupCategoryIdByUrl('https://www.youtube.com/watch?v=x', map)).toBe('cat-yt')
+  })
+
+  it('returns null for an unmatched host', () => {
+    expect(lookupCategoryIdByUrl('https://example.com/a', map)).toBeNull()
+  })
+
+  it('returns null for an invalid URL', () => {
+    expect(lookupCategoryIdByUrl('not a url', map)).toBeNull()
+  })
+
+  it('returns null for an empty map', () => {
+    expect(lookupCategoryIdByUrl('https://youtube.com', new Map())).toBeNull()
   })
 })

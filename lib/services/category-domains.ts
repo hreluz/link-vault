@@ -113,24 +113,40 @@ export async function removeCategoryDomain(id: string): Promise<boolean> {
   return !error
 }
 
-export async function getCategoryIdByDomain(hostname: string, dek: CryptoKey): Promise<string | null> {
-  const domain = normalizeDomain(hostname)
-  if (!domain) return null
+/** Every domain rule of the current user as normalized hostname -> category id.
+ *  Decrypted once, for bulk lookups (import). Returns an empty map on error or when signed out. */
+export async function getCategoryIdByDomainMap(dek: CryptoKey): Promise<Map<string, string>> {
+  const map = new Map<string, string>()
 
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
+  if (!user) return map
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('category_domains')
     .select('*')
     .eq('user_id', user.id)
 
-  if (!data) return null
+  if (error || !data) return map
 
-  for (const row of data) {
-    const decrypted = await decryptRow(row, dek)
-    if (normalizeDomain(decrypted.domain) === domain) return decrypted.category_id
+  const domains = await Promise.all(data.map(row => decryptRow(row, dek)))
+  for (const d of domains) {
+    const domain = normalizeDomain(d.domain)
+    if (domain) map.set(domain, d.category_id)
   }
-  return null
+  return map
+}
+
+/** Category id for a URL (or bare hostname) from a map built by getCategoryIdByDomainMap,
+ *  or null (invalid URL/hostname or no matching rule). The single matching path, shared by
+ *  import and getCategoryIdByDomain. */
+export function lookupCategoryIdByUrl(url: string, map: Map<string, string>): string | null {
+  const domain = normalizeDomain(url)
+  if (!domain) return null
+  return map.get(domain) ?? null
+}
+
+export async function getCategoryIdByDomain(hostname: string, dek: CryptoKey): Promise<string | null> {
+  if (!normalizeDomain(hostname)) return null
+  return lookupCategoryIdByUrl(hostname, await getCategoryIdByDomainMap(dek))
 }

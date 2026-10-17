@@ -4,12 +4,12 @@
 // tests/hooks/importExport/useLinkExport.test.ts, useLinkImport.test.ts, and
 // tests/utils/linksCsv.test.ts. This file only covers what genuinely needs a
 // rendered DOM: initial layout, tab-switching UI, and a couple of DOM-binding
-// smoke tests (does the button disabled state / imported-count text actually
-// reflect the hook's state).
+// smoke tests (does the button disabled state / progress modal actually
+// reflect the hook's state). The modal itself is covered by ImportProgressModal.test.tsx.
 
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, cleanup, within } from '@testing-library/react'
 import ImportExportClient from '@/app/dashboard/config/import-export/ImportExportClient'
 
 const MOCK_CATEGORIES = [
@@ -18,15 +18,24 @@ const MOCK_CATEGORIES = [
   { id: 'cat-2', user_id: 'u1', name: 'GitHub', emoticon: '💻', color: null, description: null, created_at: '', updated_at: '' },
 ]
 
-const { mockImportLinks, mockUseCategoryList } = vi.hoisted(() => ({
+const { mockImportLinks, mockUseCategoryList, mockTriggerDownload } = vi.hoisted(() => ({
   mockImportLinks: vi.fn(),
   mockUseCategoryList: vi.fn(),
+  mockTriggerDownload: vi.fn(),
+}))
+
+vi.mock('@/lib/utils/downloadFile', () => ({
+  triggerDownload: mockTriggerDownload,
 }))
 
 vi.mock('@/lib/services/links', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/services/links')>()
   return { ...actual, importLinks: mockImportLinks }
 })
+
+vi.mock('@/app/dashboard/link/actions', () => ({
+  fetchLinkMeta: vi.fn(),
+}))
 
 vi.mock('@/lib/hooks/categories/useCategoryList', () => ({
   useCategoryList: mockUseCategoryList,
@@ -39,6 +48,12 @@ vi.mock('sonner', () => ({
 vi.mock('@/lib/services/categories', () => ({
   getCategories: vi.fn(),
   getOrCreateCategoryByName: vi.fn(),
+  PROTECTED_CATEGORY_NAME: 'Not defined',
+}))
+
+vi.mock('@/lib/services/category-domains', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/services/category-domains')>()),
+  getCategoryIdByDomainMap: vi.fn().mockResolvedValue(new Map()),
 }))
 
 vi.mock('@/lib/services/importExport/exportVault', () => ({
@@ -166,16 +181,34 @@ describe('ImportExportClient', () => {
       expect(btn('Import links').disabled).toBe(false)
     })
 
-    it('renders the imported count inline after a successful import', async () => {
+    it('shows the result in the progress modal instead of an inline banner', async () => {
       render(<ImportExportClient />)
       fireEvent.change(screen.getByRole('textbox'), { target: { value: 'https://example.com' } })
       fireEvent.click(btn('Import links'))
 
-      await waitFor(() => expect(screen.getByText(/2 links imported/)).toBeTruthy())
+      const dialog = await screen.findByRole('dialog')
+      await waitFor(() => expect(dialog.textContent).toContain('Import finished'))
+      expect(screen.queryByText(/links? imported/)).toBeNull()
     })
   })
 
-  describe('file import', () => {
+  describe('time estimate', () => {
+    it('shows the link count and an estimate, noting duplicates once auto-fetch is on', () => {
+      render(<ImportExportClient />)
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: 'https://a.com\nhttps://b.com' } })
+      expect(screen.getByText('2 links · less than a minute')).toBeTruthy()
+
+      fireEvent.click(screen.getByRole('switch', { name: 'Auto-fetch metadata' }))
+      expect(screen.getByText(/2 links · less than a minute \(less if some already exist\)/)).toBeTruthy()
+    })
+
+    it('is hidden with nothing to import', () => {
+      render(<ImportExportClient />)
+      expect(screen.queryByText(/ links? · /)).toBeNull()
+    })
+  })
+
+    describe('file import', () => {
     it('shows the filename when a file is selected', () => {
       render(<ImportExportClient />)
       fireEvent.click(screen.getByText('📁 Upload file'))
@@ -186,6 +219,61 @@ describe('ImportExportClient', () => {
       fireEvent.change(input)
 
       expect(screen.getByText('links.json')).toBeTruthy()
+    })
+  })
+
+  describe('CSV template and format guide', () => {
+    it('shows the template button and a collapsed CSV format guide on the file tab', () => {
+      render(<ImportExportClient />)
+      fireEvent.click(screen.getByText('📁 Upload file'))
+
+      expect(btn('Download CSV template')).toBeTruthy()
+      const details = screen.getByText('CSV format').closest('details') as HTMLDetailsElement
+      expect(details.open).toBe(false)
+    })
+
+    it('downloads link-vault-template.csv without opening the file picker', () => {
+      const clickSpy = vi.spyOn(HTMLInputElement.prototype, 'click')
+      render(<ImportExportClient />)
+      fireEvent.click(screen.getByText('📁 Upload file'))
+
+      fireEvent.click(btn('Download CSV template'))
+
+      expect(mockTriggerDownload).toHaveBeenCalledWith(
+        expect.stringMatching(/^url,title,/),
+        'link-vault-template.csv',
+        'text/csv',
+      )
+      expect(clickSpy).not.toHaveBeenCalled()
+      clickSpy.mockRestore()
+    })
+
+    it('downloads link-vault-template-minimal.csv without opening the file picker', () => {
+      const clickSpy = vi.spyOn(HTMLInputElement.prototype, 'click')
+      render(<ImportExportClient />)
+      fireEvent.click(screen.getByText('📁 Upload file'))
+
+      fireEvent.click(btn('Download minimal template'))
+
+      expect(mockTriggerDownload).toHaveBeenCalledWith(
+        expect.stringMatching(/^url,category,tags\n/),
+        'link-vault-template-minimal.csv',
+        'text/csv',
+      )
+      expect(clickSpy).not.toHaveBeenCalled()
+      clickSpy.mockRestore()
+    })
+
+    it('does not show the template button or guide on the URLs or JSON tabs', () => {
+      render(<ImportExportClient />)
+      expect(screen.queryByRole('button', { name: 'Download CSV template' })).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Download minimal template' })).toBeNull()
+      expect(screen.queryByText('CSV format')).toBeNull()
+
+      fireEvent.click(screen.getByText('📋 Paste JSON'))
+      expect(screen.queryByRole('button', { name: 'Download CSV template' })).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Download minimal template' })).toBeNull()
+      expect(screen.queryByText('CSV format')).toBeNull()
     })
   })
 
@@ -217,7 +305,7 @@ describe('ImportExportClient', () => {
     it('shows the in-flight progress phase/count in the Import links button while importing', async () => {
       let resolveImport: (v: unknown) => void = () => {}
       mockImportLinks.mockImplementation((
-        _inputs: unknown, _cat: unknown, _dek: unknown, onProgress?: (done: number, total: number) => void,
+        _inputs: unknown, _cat: unknown, _dek: unknown, { onProgress }: { onProgress?: (done: number, total: number) => void } = {},
       ) => {
         onProgress?.(1, 2)
         return new Promise(resolve => { resolveImport = resolve })
@@ -229,6 +317,70 @@ describe('ImportExportClient', () => {
       await waitFor(() => expect(screen.getByText('Importing… links (1/2)')).toBeTruthy())
 
       resolveImport({ imported: 2, skipped: 0, duplicates: 0 })
+      await waitFor(() => expect(screen.getByText('Import links')).toBeTruthy())
+    })
+  })
+
+  describe('auto-fetch metadata switch', () => {
+    function autoFetchSwitch() {
+      return screen.getByRole('switch', { name: 'Auto-fetch metadata' }) as HTMLButtonElement
+    }
+
+    it('renders off and toggles on click', () => {
+      render(<ImportExportClient />)
+
+      expect(autoFetchSwitch().getAttribute('aria-checked')).toBe('false')
+      fireEvent.click(autoFetchSwitch())
+      expect(autoFetchSwitch().getAttribute('aria-checked')).toBe('true')
+    })
+
+    it('is disabled with a note when a v2 export is detected', async () => {
+      const VALID_V2_JSON = JSON.stringify({
+        format: 'link-vault-export', version: 2, exportedAt: '', mode: 'links', links: [],
+      })
+      render(<ImportExportClient />)
+      fireEvent.click(screen.getByText('📋 Paste JSON'))
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: VALID_V2_JSON } })
+
+      await waitFor(() => expect(autoFetchSwitch().disabled).toBe(true))
+      expect(screen.getByText(/Not available for full vault exports/)).toBeTruthy()
+    })
+
+    it('shows the without-metadata count in the progress modal', async () => {
+      mockImportLinks.mockImplementation(async (
+        _inputs: unknown, _cat: unknown, _dek: unknown,
+        { onProgress }: { onProgress?: (done: number, total: number, outcome: unknown) => void } = {},
+      ) => {
+        for (let i = 1; i <= 3; i++) onProgress?.(i, 3, { url: `https://e.com/${i}`, status: 'imported', metaMissing: true })
+        return { imported: 3, skipped: 0, duplicates: 0, metaMissing: 3, failures: [] }
+      })
+      render(<ImportExportClient />)
+      fireEvent.click(autoFetchSwitch())
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: 'https://example.com' } })
+      fireEvent.click(btn('Import links'))
+
+      const dialog = await screen.findByRole('dialog')
+      await waitFor(() => expect(dialog.textContent).toContain('Import finished'))
+      const counter = within(dialog).getByText('Without metadata').parentElement!
+      expect(counter.textContent).toContain('3')
+    })
+
+    it('labels the in-flight import as links + metadata when on', async () => {
+      let resolveImport: (v: unknown) => void = () => {}
+      mockImportLinks.mockImplementation((
+        _inputs: unknown, _cat: unknown, _dek: unknown, { onProgress }: { onProgress?: (done: number, total: number) => void } = {},
+      ) => {
+        onProgress?.(1, 2)
+        return new Promise(resolve => { resolveImport = resolve })
+      })
+      render(<ImportExportClient />)
+      fireEvent.click(autoFetchSwitch())
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: 'https://example.com\nhttps://github.com' } })
+      fireEvent.click(btn('Import links'))
+
+      await waitFor(() => expect(screen.getByText('Importing… links + metadata (1/2)')).toBeTruthy())
+
+      resolveImport({ imported: 2, skipped: 0, duplicates: 0, metaMissing: 0 })
       await waitFor(() => expect(screen.getByText('Import links')).toBeTruthy())
     })
   })

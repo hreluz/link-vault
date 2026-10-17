@@ -1,19 +1,58 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { toast } from 'sonner'
-import { importLinks, type ImportLinkInput } from '@/lib/services/links'
-import { getOrCreateCategoryByName } from '@/lib/services/categories'
+import {
+  importLinks,
+  type ImportLinkInput, type ImportFailure, type ImportRowOutcome, type HostBlockInfo, type HostBlockDecision,
+} from '@/lib/services/links'
+import { getOrCreateCategoryByName, PROTECTED_CATEGORY_NAME } from '@/lib/services/categories'
+import { getCategoryIdByDomainMap, lookupCategoryIdByUrl } from '@/lib/services/category-domains'
 import { importVaultExport, type VaultImportResult, type VaultImportProgress } from '@/lib/services/importExport/importVault'
+import { simulateImportMs, type EstimateRow } from '@/lib/services/importExport/importEstimate'
 import { isVaultExportV2, getVaultExportValidationError, type VaultExportV2 } from '@/lib/types/importExport'
 import { useVault } from '@/lib/context/VaultContext'
 import { useTagsContext } from '@/lib/context/TagsContext'
 import { useCategoryList } from '@/lib/hooks/categories/useCategoryList'
-import { parseCSV } from '@/lib/utils/linksCsv'
+import { parseCSV, type ParsedRow } from '@/lib/utils/linksCsv'
+import { fetchLinkMeta } from '@/app/dashboard/link/actions'
+import { useImportEta } from '@/lib/hooks/importExport/useImportEta'
 
 export type ImportTab = 'urls' | 'json' | 'file'
 
-type LastResult = { imported: number; skipped: number; duplicates: number } & Partial<
+export type ImportStats = {
+  imported: number
+  duplicates: number
+  failed: number
+  metaMissing: number
+  failures: ImportFailure[]
+}
+export type ImportModalState = 'closed' | 'running' | 'finished' | 'cancelled' | 'error'
+/** Fixed at the start of an import, since the inputs it was derived from are cleared on success. */
+export type ImportRun = { isVault: boolean; withMetadata: boolean }
+/** How long "Wait 1 minute and retry" waits before re-fetching the blocked row. */
+export const HOST_BLOCK_RETRY_MS = 60_000
+/** A host that looks blocked while the import is paused; `retryAt` is set during the countdown. */
+export type HostBlockState = HostBlockInfo & { retryAt: number | null }
+
+const EMPTY_STATS: ImportStats = { imported: 0, duplicates: 0, failed: 0, metaMissing: 0, failures: [] }
+
+function applyOutcome(stats: ImportStats, outcome: ImportRowOutcome): ImportStats {
+  switch (outcome.status) {
+    case 'imported':
+      return { ...stats, imported: stats.imported + 1, metaMissing: stats.metaMissing + (outcome.metaMissing ? 1 : 0) }
+    case 'duplicate':
+      return { ...stats, duplicates: stats.duplicates + 1 }
+    case 'failed':
+      return {
+        ...stats,
+        failed: stats.failed + 1,
+        failures: [...stats.failures, { url: outcome.url, reason: outcome.reason }],
+      }
+  }
+}
+
+export type ImportLastResult = { imported: number; skipped: number; duplicates: number; metaMissing?: number } & Partial<
   Pick<VaultImportResult, 'categoriesCreated' | 'domainsCreated' | 'domainsFailed' | 'tagsCreated' | 'preferencesFailed'>
 >
 
@@ -26,7 +65,51 @@ async function readFileText(file: File): Promise<string> {
   })
 }
 
+async function resolveCsvCategories(rows: ParsedRow[], dek: CryptoKey): Promise<ImportLinkInput[]> {
+  const uniqueNames = [...new Set(rows.map(r => r.categoryName).filter((n): n is string => !!n))]
+  const nameToId = new Map<string, string>()
+  for (const name of uniqueNames) {
+    const id = await getOrCreateCategoryByName(name, dek)
+    if (id) nameToId.set(name, id)
+  }
+  return rows.map(({ categoryName, ...row }) => ({
+    ...row,
+    category_id: categoryName ? (nameToId.get(categoryName) ?? null) : null,
+  }))
+}
+
+/** Gives rows with no category of their own the category of their URL's domain rule, if any.
+ *  Rows still left without one fall back to the default selector inside importLinks. */
+async function applyDomainCategories(inputs: ImportLinkInput[], dek: CryptoKey): Promise<ImportLinkInput[]> {
+  let map: Map<string, string>
+  try {
+    map = await getCategoryIdByDomainMap(dek)
+  } catch {
+    return inputs
+  }
+  return inputs.map(input => {
+    if (input.category_id) return input
+    const categoryId = lookupCategoryIdByUrl(input.url, map)
+    return categoryId ? { ...input, category_id: categoryId } : input
+  })
+}
+
 type VaultExportDetection = { data: VaultExportV2 | null; error: string | null }
+
+/** The rows a pasted JSON / uploaded file would import, for the pre-import estimate only. */
+function previewRowsFromText(text: string, isCsv: boolean): EstimateRow[] {
+  if (isCsv) return parseCSV(text)
+  try {
+    const parsed = JSON.parse(text)
+    if (isVaultExportV2(parsed)) return parsed.links
+    return Array.isArray(parsed) ? parsed.filter(item => typeof item?.url === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+/** Rows to import and how long they would take, assuming none already exist. */
+export type ImportEstimate = { count: number; ms: number }
 
 /** Sniffs whether the given JSON text is a full v2 vault export, for a live "everything" file.
  *  A v2-shaped-but-invalid file comes back as `{ data: null, error: <reason> }`, distinct from
@@ -54,16 +137,33 @@ export function useLinkImport() {
   const [defaultCategoryId, setDefaultCategoryId] = useState<string>('')
   const defaultCategorySet = useRef(false)
   const [importing, setImporting] = useState(false)
-  const [lastResult, setLastResult] = useState<LastResult | null>(null)
+  const [lastResult, setLastResult] = useState<ImportLastResult | null>(null)
   const [detectedVaultExport, setDetectedVaultExport] = useState<VaultExportV2 | null>(null)
   const [vaultExportError, setVaultExportError] = useState<string | null>(null)
   const [applyPreferences, setApplyPreferences] = useState(true)
+  // Opt-in and deliberately not persisted: fetching makes imports much slower.
+  const [autoFetchOnImport, setAutoFetchOnImport] = useState(false)
   const [progress, setProgress] = useState<VaultImportProgress | null>(null)
+  const [importModalState, setImportModalState] = useState<ImportModalState>('closed')
+  const [importStats, setImportStats] = useState<ImportStats>(EMPTY_STATS)
+  const [importError, setImportError] = useState<string | null>(null)
+  const [importRun, setImportRun] = useState<ImportRun | null>(null)
+  // True from the Cancel click until the import returns (the current row still finishes).
+  const [cancelling, setCancelling] = useState(false)
+  const [notProcessed, setNotProcessed] = useState<string[]>([])
+  const abortControllerRef = useRef<AbortController | null>(null)
+  // Set while a host looks blocked: the import is paused until one of the three choices resolves it.
+  const [hostBlock, setHostBlock] = useState<HostBlockState | null>(null)
+  const hostBlockResolverRef = useRef<((decision: HostBlockDecision) => void) | null>(null)
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  // Only file contents need reading asynchronously; the text tabs are derived during render.
+  const [fileRows, setFileRows] = useState<EstimateRow[]>([])
+  const eta = useImportEta(hostBlock !== null)
 
   useEffect(() => {
     if (categories.length > 0 && !defaultCategorySet.current) {
-      const notDefined = categories.find(c => c.name === 'Not defined')
+      const notDefined = categories.find(c => c.name === PROTECTED_CATEGORY_NAME)
       setDefaultCategoryId((notDefined ?? categories[0]).id)
       defaultCategorySet.current = true
     }
@@ -85,17 +185,92 @@ export function useLinkImport() {
         apply(tryDetectVaultExport(jsonText))
         return
       }
-      if (importTab === 'file' && selectedFile && selectedFile.name.endsWith('.json')) {
+      if (importTab === 'file' && selectedFile) {
         const text = await readFileText(selectedFile)
-        apply(tryDetectVaultExport(text))
+        const isCsv = selectedFile.name.endsWith('.csv')
+        if (!cancelled) setFileRows(previewRowsFromText(text, isCsv))
+        apply(isCsv ? { data: null, error: null } : tryDetectVaultExport(text))
         return
       }
+      setFileRows([])
       apply({ data: null, error: null })
     }
 
     detect()
     return () => { cancelled = true }
   }, [importTab, jsonText, selectedFile])
+
+  // The modal can't stop a refresh, and a refresh cuts the import halfway.
+  useEffect(() => {
+    if (!importing) return
+    function warn(e: BeforeUnloadEvent) {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [importing])
+
+  function closeImportModal() {
+    setImportModalState(state => (state === 'running' ? state : 'closed'))
+  }
+
+  function cancelImport() {
+    if (importModalState !== 'running') return
+    abortControllerRef.current?.abort()
+    setCancelling(true)
+  }
+
+  function clearRetryTimer() {
+    if (retryTimerRef.current) clearTimeout(retryTimerRef.current)
+    retryTimerRef.current = null
+  }
+
+  /** Ends the pause with `decision`. Uses only refs and setters, so it is safe from a timer callback. */
+  function resolveHostBlock(decision: HostBlockDecision) {
+    clearRetryTimer()
+    const resolve = hostBlockResolverRef.current
+    hostBlockResolverRef.current = null
+    setHostBlock(null)
+    resolve?.(decision)
+  }
+
+  function handleHostBlocked(info: HostBlockInfo): Promise<HostBlockDecision> {
+    setHostBlock({ ...info, retryAt: null })
+    return new Promise(resolve => { hostBlockResolverRef.current = resolve })
+  }
+
+  function waitAndRetry() {
+    if (!hostBlockResolverRef.current || retryTimerRef.current) return
+    const retryAt = Date.now() + HOST_BLOCK_RETRY_MS
+    setHostBlock(block => block && { ...block, retryAt })
+    retryTimerRef.current = setTimeout(() => {
+      retryTimerRef.current = null
+      resolveHostBlock('retry')
+    }, HOST_BLOCK_RETRY_MS)
+  }
+
+  function skipBlockedHost() {
+    if (!hostBlockResolverRef.current) return
+    if (hostBlock) eta.skipGroup(hostBlock.host)
+    resolveHostBlock('skip_host')
+  }
+
+  function leaveImport() {
+    if (!hostBlockResolverRef.current) return
+    cancelImport()
+    resolveHostBlock('cancel')
+  }
+
+  // Unmounting mid-pause must not leave a timer behind or the import awaiting forever.
+  useEffect(() => () => {
+    if (retryTimerRef.current) clearTimeout(retryTimerRef.current)
+    if (hostBlockResolverRef.current) {
+      abortControllerRef.current?.abort()
+      hostBlockResolverRef.current('cancel')
+      hostBlockResolverRef.current = null
+    }
+  }, [])
 
   function switchTab(tab: ImportTab) {
     setImportTab(tab)
@@ -122,21 +297,24 @@ export function useLinkImport() {
     : importTab === 'json' ? jsonText.trim().length > 0
     : !!selectedFile
 
-  function successToast(result: LastResult) {
-    const dupSuffix = result.duplicates > 0 ? ` (${result.duplicates} already existed)` : ''
-    const extras: string[] = []
-    if (result.categoriesCreated) extras.push(`${result.categoriesCreated} categories`)
-    if (result.tagsCreated) extras.push(`${result.tagsCreated} tags`)
-    if (result.domainsCreated) extras.push(`${result.domainsCreated} domain rules`)
-    const extrasSuffix = extras.length > 0 ? `, plus ${extras.join(', ')}` : ''
-    toast.success(`Imported ${result.imported} link${result.imported !== 1 ? 's' : ''}${dupSuffix}${extrasSuffix}`)
-  }
+  const previewRows = useMemo<EstimateRow[]>(() => {
+    if (importTab === 'urls') return urlsText.split('\n').map(l => l.trim()).filter(Boolean).map(url => ({ url }))
+    if (importTab === 'json') return previewRowsFromText(jsonText, false)
+    return fileRows
+  }, [importTab, urlsText, jsonText, fileRows])
 
-  function partialFailureToast(result: LastResult) {
-    const parts: string[] = []
-    if (result.domainsFailed) parts.push(`${result.domainsFailed} domain rule${result.domainsFailed !== 1 ? 's' : ''}`)
-    if (result.preferencesFailed?.length) parts.push(`${result.preferencesFailed.length} preference${result.preferencesFailed.length !== 1 ? 's' : ''}`)
-    if (parts.length > 0) toast.warning(`Failed to import ${parts.join(' and ')} — see console for details`)
+  const importEstimate = useMemo<ImportEstimate | null>(() => {
+    if (previewRows.length === 0) return null
+    // Vault exports never fetch metadata (the switch is disabled for them).
+    const withMetadata = autoFetchOnImport && !detectedVaultExport
+    return { count: previewRows.length, ms: simulateImportMs(previewRows, { withMetadata }) }
+  }, [previewRows, autoFetchOnImport, detectedVaultExport])
+
+  function handleProgress(p: VaultImportProgress) {
+    setProgress(p)
+    if (p.phase === 'links') eta.recordProgress(p.done, p.outcome)
+    const outcome = p.outcome
+    if (outcome) setImportStats(stats => applyOutcome(stats, outcome))
   }
 
   async function handleImport() {
@@ -146,32 +324,48 @@ export function useLinkImport() {
     setLastResult(null)
     setProgress(null)
     const catId = defaultCategoryId || null
+    let modalOpened = false
+
+    // Called only once pre-flight validation has passed, just before the first write.
+    function openModal(run: ImportRun) {
+      modalOpened = true
+      abortControllerRef.current = new AbortController()
+      setImportRun(run)
+      setImportStats(EMPTY_STATS)
+      setImportError(null)
+      setNotProcessed([])
+      setImportModalState('running')
+      return abortControllerRef.current.signal
+    }
 
     try {
       // ── full-vault (v2) export detected on the json/file tab ──────────
       if (detectedVaultExport) {
+        const signal = openModal({ isVault: true, withMetadata: false })
+        eta.start(detectedVaultExport.links, false)
         const result = await importVaultExport(
           detectedVaultExport,
-          { defaultCategoryId: catId, applyPreferences, onProgress: setProgress },
+          { defaultCategoryId: catId, applyPreferences, onProgress: handleProgress, signal },
           dek,
         )
         setLastResult(result)
+        if (result.imported > 0) refetchTags()
+        if (result.cancelled) {
+          // Inputs are kept so re-running the same import continues where it stopped.
+          setNotProcessed(result.notProcessed)
+          setImportModalState('cancelled')
+          return
+        }
         if (result.imported > 0) {
           setJsonText('')
           setSelectedFile(null)
-          refetchTags()
-          successToast(result)
-        } else {
-          const parts: string[] = []
-          if (result.duplicates > 0) parts.push(`${result.duplicates} already existed`)
-          if (result.skipped > 0) parts.push(`${result.skipped} invalid`)
-          toast.warning(`No links imported${parts.length > 0 ? ` — ${parts.join(', ')}` : ''}`)
         }
-        partialFailureToast(result)
+        setImportModalState('finished')
         return
       }
 
       let inputs: ImportLinkInput[] = []
+      let csvRows: ParsedRow[] | null = null
 
       if (importTab === 'urls') {
         inputs = urlsText
@@ -187,19 +381,8 @@ export function useLinkImport() {
       } else if (importTab === 'file' && selectedFile) {
         const text = await readFileText(selectedFile)
         if (selectedFile.name.endsWith('.csv')) {
-          const parsed = parseCSV(text)
-          const uniqueNames = [...new Set(
-            parsed.map(r => r.categoryName).filter((n): n is string => !!n),
-          )]
-          const nameToId = new Map<string, string>()
-          for (const name of uniqueNames) {
-            const id = await getOrCreateCategoryByName(name, dek)
-            if (id) nameToId.set(name, id)
-          }
-          inputs = parsed.map(({ categoryName, ...row }) => ({
-            ...row,
-            category_id: categoryName ? (nameToId.get(categoryName) ?? null) : null,
-          }))
+          csvRows = parseCSV(text)
+          inputs = csvRows
         } else {
           let parsed: unknown
           try { parsed = JSON.parse(text) } catch { toast.error('Invalid JSON file'); return }
@@ -210,28 +393,51 @@ export function useLinkImport() {
 
       if (inputs.length === 0) { toast.error('No valid links found'); return }
 
+      const signal = openModal({ isVault: false, withMetadata: autoFetchOnImport })
+      // CSV category names are created here, so this runs after the modal opens ("Preparing…").
+      if (csvRows) inputs = await resolveCsvCategories(csvRows, dek)
+      inputs = await applyDomainCategories(inputs, dek)
+      eta.start(inputs, autoFetchOnImport)
+
       const result = await importLinks(
         inputs, catId, dek,
-        (done, total) => setProgress({ phase: 'links', done, total }),
+        {
+          onProgress: (done, total, outcome) => handleProgress({ phase: 'links', done, total, outcome }),
+          fetchMeta: autoFetchOnImport ? fetchLinkMeta : undefined,
+          onHostBlocked: autoFetchOnImport ? handleHostBlocked : undefined,
+          signal,
+        },
       )
       setLastResult(result)
+      if (result.imported > 0) refetchTags()
+      if (result.cancelled) {
+        // Inputs are kept so re-running the same import continues where it stopped.
+        setNotProcessed(result.notProcessed)
+        setImportModalState('cancelled')
+        return
+      }
       if (result.imported > 0) {
         setUrlsText('')
         setJsonText('')
         setSelectedFile(null)
-        refetchTags()
-        const dupSuffix = result.duplicates > 0 ? ` (${result.duplicates} already existed)` : ''
-        toast.success(`Imported ${result.imported} link${result.imported !== 1 ? 's' : ''}${dupSuffix}`)
-      } else {
-        const parts: string[] = []
-        if (result.duplicates > 0) parts.push(`${result.duplicates} already existed`)
-        if (result.skipped > 0) parts.push(`${result.skipped} invalid`)
-        toast.warning(`No links imported${parts.length > 0 ? ` — ${parts.join(', ')}` : ''}`)
       }
+      setImportModalState('finished')
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Import failed')
+      const message = err instanceof Error ? err.message : 'Import failed'
+      if (modalOpened) {
+        setImportError(message)
+        setImportModalState('error')
+      } else {
+        toast.error(message)
+      }
     } finally {
+      abortControllerRef.current = null
+      clearRetryTimer()
+      hostBlockResolverRef.current = null
+      setHostBlock(null)
+      eta.stop()
       setImporting(false)
+      setCancelling(false)
       setProgress(null)
     }
   }
@@ -246,6 +452,11 @@ export function useLinkImport() {
     importing, lastResult, progress,
     detectedVaultExport, vaultExportError,
     applyPreferences, setApplyPreferences,
+    autoFetchOnImport, setAutoFetchOnImport,
+    importEstimate, importEtaMs: eta.etaMs,
+    importModalState, importStats, importError, importRun, closeImportModal,
+    cancelling, notProcessed, cancelImport,
+    hostBlock, waitAndRetry, skipBlockedHost, leaveImport,
     fileInputRef,
     hasImportContent,
     handleDragOver, handleDragLeave, handleDrop, handleFileChange,

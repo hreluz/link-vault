@@ -5,6 +5,8 @@ export type LinkMeta = {
   description: string | null
   image: string | null
   duration: string | null
+  /** True when the page (or YouTube oEmbed) answered HTTP 429. */
+  rateLimited?: boolean
 }
 
 const NULL_META: LinkMeta = { title: null, description: null, image: null, duration: null }
@@ -75,17 +77,19 @@ function extractYouTubeVideoId(url: string): string | null {
   }
 }
 
-async function fetchYouTubeOEmbed(url: string): Promise<{ title: string | null; image: string | null }> {
+async function fetchYouTubeOEmbed(
+  url: string,
+): Promise<{ title: string | null; image: string | null; rateLimited: boolean }> {
   try {
     const res = await fetch(
       `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`,
       { signal: AbortSignal.timeout(5000) },
     )
-    if (!res.ok) return { title: null, image: null }
+    if (!res.ok) return { title: null, image: null, rateLimited: res.status === 429 }
     const data = await res.json()
-    return { title: data?.title ?? null, image: data?.thumbnail_url ?? null }
+    return { title: data?.title ?? null, image: data?.thumbnail_url ?? null, rateLimited: false }
   } catch {
-    return { title: null, image: null }
+    return { title: null, image: null, rateLimited: false }
   }
 }
 
@@ -110,46 +114,54 @@ export async function fetchLinkMeta(url: string): Promise<LinkMeta> {
   const meta: LinkMeta = { ...NULL_META }
   const videoId = extractYouTubeVideoId(url)
 
-  try {
-    const res = await fetch(url, {
-      signal: AbortSignal.timeout(5000),
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; LinkVaultBot/1.0)' },
-    })
-    if (res.ok) {
-      const contentType = res.headers.get('content-type') ?? ''
-      if (contentType.includes('text/html')) {
-        const html = await res.text()
-        Object.assign(meta, extractMeta(html, url))
-      }
-    }
-  } catch {
-    // og fetch failed — continue to YouTube API below
-  }
-
   if (videoId) {
     // youtube.com's raw page is frequently served a bot/consent placeholder when
-    // fetched from datacenter IPs (e.g. Vercel), stripping the og:title/og:image
-    // tags above. oEmbed is an official, key-free endpoint meant for exactly this
-    // and isn't subject to that treatment, so it takes priority when available.
+    // fetched from datacenter IPs (e.g. Vercel), and fetching it is extra load on
+    // the host most likely to rate-limit an import. oEmbed is the official,
+    // key-free endpoint for title/thumbnail, so it is the only page-level request.
     const oembed = await fetchYouTubeOEmbed(url)
-    if (oembed.title) meta.title = oembed.title
-    if (oembed.image) meta.image = oembed.image
+    meta.title = oembed.title
+    meta.image = oembed.image
+    if (oembed.rateLimited) meta.rateLimited = true
+  } else {
+    try {
+      const res = await fetch(url, {
+        signal: AbortSignal.timeout(5000),
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; LinkVaultBot/1.0)' },
+      })
+      if (res.status === 429) meta.rateLimited = true
+      if (res.ok) {
+        const contentType = res.headers.get('content-type') ?? ''
+        if (contentType.includes('text/html')) {
+          const html = await res.text()
+          Object.assign(meta, extractMeta(html, url))
+        }
+      }
+    } catch {
+      // og fetch failed — meta stays empty
+    }
   }
 
   const apiKey = process.env.YOUTUBE_API_KEY
   if (videoId && apiKey) {
     try {
+      // Same 1-unit quota cost with `snippet` added; it supplies the description
+      // the raw page used to provide. Its errors (e.g. quotaExceeded) never mark
+      // the link as rate-limited — they only leave duration/description null.
       const ytRes = await fetch(
-        `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&part=contentDetails&key=${apiKey}`,
+        `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&part=contentDetails,snippet&key=${apiKey}`,
         { signal: AbortSignal.timeout(5000) },
       )
       if (ytRes.ok) {
         const ytData = await ytRes.json()
-        const isoDuration = ytData?.items?.[0]?.contentDetails?.duration
+        const item = ytData?.items?.[0]
+        const isoDuration = item?.contentDetails?.duration
         if (isoDuration) meta.duration = parseIsoDuration(isoDuration)
+        const description = item?.snippet?.description
+        if (description) meta.description = description
       }
     } catch {
-      // YouTube API failed — duration stays null
+      // YouTube API failed — duration/description stay null
     }
   }
 
