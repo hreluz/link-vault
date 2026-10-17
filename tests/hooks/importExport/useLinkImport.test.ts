@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
-import { useLinkImport } from '@/lib/hooks/importExport/useLinkImport'
+import { useLinkImport, HOST_BLOCK_RETRY_MS } from '@/lib/hooks/importExport/useLinkImport'
 import type { VaultExportV2 } from '@/lib/types/importExport'
 
 const MOCK_CATEGORIES = [
@@ -712,7 +712,10 @@ describe('useLinkImport', () => {
       await act(async () => { await result.current.handleImport() })
 
       expect(mockImportLinks).toHaveBeenCalledWith(
-        expect.any(Array), 'cat-0', FAKE_DEK, { onProgress: expect.any(Function), fetchMeta: mockFetchLinkMeta, signal: expect.any(AbortSignal) },
+        expect.any(Array), 'cat-0', FAKE_DEK, {
+          onProgress: expect.any(Function), fetchMeta: mockFetchLinkMeta, onHostBlocked: expect.any(Function),
+          signal: expect.any(AbortSignal),
+        },
       )
     })
 
@@ -1119,6 +1122,140 @@ describe('useLinkImport', () => {
 
       expect(result.current.importModalState).toBe('cancelled')
       expect(result.current.jsonText).toBe(JSON.stringify(VAULT_EXPORT))
+    })
+  })
+
+  describe('host block', () => {
+    const INFO = { host: 'instagram.com', reason: 'rate_limited' as const, attempt: 1 }
+
+    /** Starts an auto-fetch URL import whose importLinks immediately reports a blocked host
+     *  and stays pending; exposes the decision (once settled), the signal and a resolver. */
+    async function startBlockedImport() {
+      let decision: string | null = null
+      let signal: AbortSignal | undefined
+      let resolveImport: (v: unknown) => void = () => {}
+      mockImportLinks.mockImplementation((
+        _inputs: unknown, _cat: unknown, _dek: unknown,
+        options: { signal?: AbortSignal; onHostBlocked?: (info: typeof INFO) => Promise<string> },
+      ) => {
+        signal = options.signal
+        void options.onHostBlocked?.(INFO).then(d => { decision = d })
+        return new Promise(resolve => { resolveImport = resolve })
+      })
+      const utils = await renderWithDefaultCategory()
+      act(() => utils.result.current.setAutoFetchOnImport(true))
+      act(() => utils.result.current.setUrlsText('https://instagram.com/p/1'))
+
+      let importPromise!: Promise<void>
+      act(() => { importPromise = utils.result.current.handleImport() })
+      await waitFor(() => expect(utils.result.current.hostBlock).not.toBeNull())
+
+      return {
+        ...utils,
+        getDecision: () => decision,
+        getSignal: () => signal,
+        finish: async () => {
+          await act(async () => {
+            resolveImport({ imported: 1, skipped: 0, duplicates: 0, failures: [], cancelled: false, notProcessed: [] })
+            await importPromise
+          })
+        },
+      }
+    }
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('sets hostBlock while the decision is pending, with no countdown yet', async () => {
+      const { result, getDecision, finish } = await startBlockedImport()
+
+      expect(result.current.hostBlock).toEqual({ ...INFO, retryAt: null })
+      expect(result.current.importModalState).toBe('running')
+      expect(getDecision()).toBeNull()
+      await finish()
+    })
+
+    it("waitAndRetry sets retryAt and resolves 'retry' only after 60 s", async () => {
+      const { result, getDecision, finish } = await startBlockedImport()
+      vi.useFakeTimers()
+      const start = Date.now()
+
+      act(() => result.current.waitAndRetry())
+      expect(result.current.hostBlock?.retryAt).toBe(start + HOST_BLOCK_RETRY_MS)
+
+      await act(async () => { await vi.advanceTimersByTimeAsync(HOST_BLOCK_RETRY_MS - 1) })
+      expect(getDecision()).toBeNull()
+
+      await act(async () => { await vi.advanceTimersByTimeAsync(1) })
+      expect(getDecision()).toBe('retry')
+      expect(result.current.hostBlock).toBeNull()
+
+      vi.useRealTimers()
+      await finish()
+    })
+
+    it("skipBlockedHost during the countdown resolves 'skip_host' at once and cancels the timer", async () => {
+      const { result, getDecision, finish } = await startBlockedImport()
+      vi.useFakeTimers()
+
+      act(() => result.current.waitAndRetry())
+      expect(vi.getTimerCount()).toBe(1)
+      await act(async () => { result.current.skipBlockedHost() })
+
+      expect(getDecision()).toBe('skip_host')
+      expect(vi.getTimerCount()).toBe(0)
+      expect(result.current.hostBlock).toBeNull()
+
+      vi.useRealTimers()
+      await finish()
+    })
+
+    it("leaveImport aborts the signal and resolves 'cancel'", async () => {
+      const { result, getDecision, getSignal, finish } = await startBlockedImport()
+
+      await act(async () => { result.current.leaveImport() })
+
+      expect(getSignal()?.aborted).toBe(true)
+      expect(result.current.cancelling).toBe(true)
+      expect(getDecision()).toBe('cancel')
+      expect(result.current.hostBlock).toBeNull()
+      await finish()
+    })
+
+    it('the actions are no-ops when no host is blocked', async () => {
+      const { result } = await renderWithDefaultCategory()
+
+      act(() => {
+        result.current.waitAndRetry()
+        result.current.skipBlockedHost()
+        result.current.leaveImport()
+      })
+
+      expect(result.current.hostBlock).toBeNull()
+      expect(result.current.cancelling).toBe(false)
+    })
+
+    it('unmounting mid-countdown clears the timer and resolves the pause as cancel', async () => {
+      const { result, unmount, getDecision, getSignal } = await startBlockedImport()
+      vi.useFakeTimers()
+      act(() => result.current.waitAndRetry())
+
+      unmount()
+      await act(async () => {})
+
+      expect(vi.getTimerCount()).toBe(0)
+      expect(getSignal()?.aborted).toBe(true)
+      expect(getDecision()).toBe('cancel')
+    })
+
+    it('passes no onHostBlocked when auto-fetch is off', async () => {
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.setUrlsText('https://example.com'))
+      await act(async () => { await result.current.handleImport() })
+
+      const options = mockImportLinks.mock.calls[0][3]
+      expect(options.onHostBlocked).toBeUndefined()
     })
   })
 })

@@ -2,7 +2,10 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { toast } from 'sonner'
-import { importLinks, type ImportLinkInput, type ImportFailure, type ImportRowOutcome } from '@/lib/services/links'
+import {
+  importLinks,
+  type ImportLinkInput, type ImportFailure, type ImportRowOutcome, type HostBlockInfo, type HostBlockDecision,
+} from '@/lib/services/links'
 import { getOrCreateCategoryByName, PROTECTED_CATEGORY_NAME } from '@/lib/services/categories'
 import { getCategoryIdByDomainMap, lookupCategoryIdByUrl } from '@/lib/services/category-domains'
 import { importVaultExport, type VaultImportResult, type VaultImportProgress } from '@/lib/services/importExport/importVault'
@@ -25,6 +28,10 @@ export type ImportStats = {
 export type ImportModalState = 'closed' | 'running' | 'finished' | 'cancelled' | 'error'
 /** Fixed at the start of an import, since the inputs it was derived from are cleared on success. */
 export type ImportRun = { isVault: boolean; withMetadata: boolean }
+/** How long "Wait 1 minute and retry" waits before re-fetching the blocked row. */
+export const HOST_BLOCK_RETRY_MS = 60_000
+/** A host that looks blocked while the import is paused; `retryAt` is set during the countdown. */
+export type HostBlockState = HostBlockInfo & { retryAt: number | null }
 
 const EMPTY_STATS: ImportStats = { imported: 0, duplicates: 0, failed: 0, metaMissing: 0, failures: [] }
 
@@ -128,6 +135,10 @@ export function useLinkImport() {
   const [cancelling, setCancelling] = useState(false)
   const [notProcessed, setNotProcessed] = useState<string[]>([])
   const abortControllerRef = useRef<AbortController | null>(null)
+  // Set while a host looks blocked: the import is paused until one of the three choices resolves it.
+  const [hostBlock, setHostBlock] = useState<HostBlockState | null>(null)
+  const hostBlockResolverRef = useRef<((decision: HostBlockDecision) => void) | null>(null)
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -186,6 +197,56 @@ export function useLinkImport() {
     abortControllerRef.current?.abort()
     setCancelling(true)
   }
+
+  function clearRetryTimer() {
+    if (retryTimerRef.current) clearTimeout(retryTimerRef.current)
+    retryTimerRef.current = null
+  }
+
+  /** Ends the pause with `decision`. Uses only refs and setters, so it is safe from a timer callback. */
+  function resolveHostBlock(decision: HostBlockDecision) {
+    clearRetryTimer()
+    const resolve = hostBlockResolverRef.current
+    hostBlockResolverRef.current = null
+    setHostBlock(null)
+    resolve?.(decision)
+  }
+
+  function handleHostBlocked(info: HostBlockInfo): Promise<HostBlockDecision> {
+    setHostBlock({ ...info, retryAt: null })
+    return new Promise(resolve => { hostBlockResolverRef.current = resolve })
+  }
+
+  function waitAndRetry() {
+    if (!hostBlockResolverRef.current || retryTimerRef.current) return
+    const retryAt = Date.now() + HOST_BLOCK_RETRY_MS
+    setHostBlock(block => block && { ...block, retryAt })
+    retryTimerRef.current = setTimeout(() => {
+      retryTimerRef.current = null
+      resolveHostBlock('retry')
+    }, HOST_BLOCK_RETRY_MS)
+  }
+
+  function skipBlockedHost() {
+    if (!hostBlockResolverRef.current) return
+    resolveHostBlock('skip_host')
+  }
+
+  function leaveImport() {
+    if (!hostBlockResolverRef.current) return
+    cancelImport()
+    resolveHostBlock('cancel')
+  }
+
+  // Unmounting mid-pause must not leave a timer behind or the import awaiting forever.
+  useEffect(() => () => {
+    if (retryTimerRef.current) clearTimeout(retryTimerRef.current)
+    if (hostBlockResolverRef.current) {
+      abortControllerRef.current?.abort()
+      hostBlockResolverRef.current('cancel')
+      hostBlockResolverRef.current = null
+    }
+  }, [])
 
   function switchTab(tab: ImportTab) {
     setImportTab(tab)
@@ -303,6 +364,7 @@ export function useLinkImport() {
         {
           onProgress: (done, total, outcome) => handleProgress({ phase: 'links', done, total, outcome }),
           fetchMeta: autoFetchOnImport ? fetchLinkMeta : undefined,
+          onHostBlocked: autoFetchOnImport ? handleHostBlocked : undefined,
           signal,
         },
       )
@@ -330,6 +392,9 @@ export function useLinkImport() {
       }
     } finally {
       abortControllerRef.current = null
+      clearRetryTimer()
+      hostBlockResolverRef.current = null
+      setHostBlock(null)
       setImporting(false)
       setCancelling(false)
       setProgress(null)
@@ -349,6 +414,7 @@ export function useLinkImport() {
     autoFetchOnImport, setAutoFetchOnImport,
     importModalState, importStats, importError, importRun, closeImportModal,
     cancelling, notProcessed, cancelImport,
+    hostBlock, waitAndRetry, skipBlockedHost, leaveImport,
     fileInputRef,
     hasImportContent,
     handleDragOver, handleDragLeave, handleDrop, handleFileChange,

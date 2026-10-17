@@ -6,8 +6,9 @@ import { useDialog } from '@/lib/hooks/shared/useDialog'
 import { useBackdropClose } from '@/lib/hooks/shared/useBackdropClose'
 import type { ImportFailureReason } from '@/lib/services/links'
 import type { VaultImportPhase, VaultImportProgress } from '@/lib/services/importExport/importVault'
-import type {
-  ImportLastResult, ImportModalState, ImportRun, ImportStats,
+import {
+  HOST_BLOCK_RETRY_MS,
+  type HostBlockState, type ImportLastResult, type ImportModalState, type ImportRun, type ImportStats,
 } from '@/lib/hooks/importExport/useLinkImport'
 
 const REASON_LABELS: Record<ImportFailureReason, string> = {
@@ -26,8 +27,69 @@ const PHASE_TEXT: Record<VaultImportPhase, string> = {
 const SECONDARY_BUTTON =
   'rounded-xl border border-surface-200 bg-surface-card px-4 py-2.5 text-sm font-medium text-surface-600 shadow-sm transition hover:bg-surface-50 hover:text-surface-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-surface-700 dark:bg-surface-900 dark:text-surface-300 dark:hover:bg-surface-800'
 
+const PRIMARY_BUTTON =
+  'rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 disabled:cursor-not-allowed disabled:opacity-60'
+
 function plural(n: number, word: string, pluralWord = `${word}s`) {
   return `${n} ${n === 1 ? word : pluralWord}`
+}
+
+/** `m:ss` until `retryAt`, clamped to [0, the retry wait] -- `now` may predate the click by
+ *  up to one tick, which would otherwise read as more than a minute. */
+function formatCountdown(retryAt: number, now: number) {
+  const seconds = Math.min(Math.ceil(HOST_BLOCK_RETRY_MS / 1000), Math.max(0, Math.ceil((retryAt - now) / 1000)))
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
+}
+
+/** Re-renders every second while `active`, returning the current time. */
+function useNow(active: boolean) {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (!active) return
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [active])
+  return now
+}
+
+interface HostBlockNoticeProps {
+  block: HostBlockState
+  onWait: () => void
+  onSkip: () => void
+  onLeave: () => void
+}
+
+/** Shown in place of Cancel while a host looks blocked and the import is paused. */
+function HostBlockNotice({ block, onWait, onSkip, onLeave }: HostBlockNoticeProps) {
+  const counting = block.retryAt !== null
+  const now = useNow(counting)
+
+  return (
+    <section aria-labelledby="host-block-heading" className="flex flex-col gap-3">
+      <div role="status" className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
+        <p id="host-block-heading" className="font-medium break-words">
+          {block.host} seems to be limiting our requests.
+        </p>
+        <p className="mt-1">
+          {block.reason === 'rate_limited'
+            ? 'It answered "Too many requests".'
+            : 'The last 3 links from it came back empty.'}
+        </p>
+        {block.attempt > 1 && <p className="mt-1">Still blocked (attempt {block.attempt}).</p>}
+      </div>
+      <button type="button" onClick={onWait} disabled={counting} className={`w-full tabular-nums ${PRIMARY_BUTTON}`}>
+        {counting ? `Retrying in ${formatCountdown(block.retryAt!, now)}` : 'Wait 1 minute and retry'}
+      </button>
+      <div className="flex flex-wrap gap-3">
+        <button type="button" onClick={onSkip} className={`flex-auto whitespace-nowrap ${SECONDARY_BUTTON}`}>
+          Import without metadata
+        </button>
+        <button type="button" onClick={onLeave} className={`flex-auto whitespace-nowrap ${SECONDARY_BUTTON}`}>
+          Leave and try later
+        </button>
+      </div>
+    </section>
+  )
 }
 
 interface Props {
@@ -43,10 +105,16 @@ interface Props {
   notProcessed: string[]
   onCancel: () => void
   onClose: () => void
+  /** Set while a host looks blocked and the import is paused for a decision. */
+  hostBlock: HostBlockState | null
+  onBlockWait: () => void
+  onBlockSkip: () => void
+  onBlockLeave: () => void
 }
 
 export default function ImportProgressModal({
   state, stats, run, progress, result, error, cancelling, notProcessed, onCancel, onClose,
+  hostBlock, onBlockWait, onBlockSkip, onBlockLeave,
 }: Props) {
   const isOpen = state !== 'closed'
   const running = state === 'running'
@@ -209,7 +277,11 @@ export default function ImportProgressModal({
             ))}
           </dl>
 
-          {running && (
+          {running && hostBlock && (
+            <HostBlockNotice block={hostBlock} onWait={onBlockWait} onSkip={onBlockSkip} onLeave={onBlockLeave} />
+          )}
+
+          {running && !hostBlock && (
             <button type="button" onClick={onCancel} disabled={cancelling} className={`w-full ${SECONDARY_BUTTON}`}>
               {cancelling ? 'Stopping…' : 'Cancel'}
             </button>
@@ -274,7 +346,7 @@ export default function ImportProgressModal({
                 ref={doneRef}
                 type="button"
                 onClick={onClose}
-                className="flex-1 rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
+                className={`flex-1 ${PRIMARY_BUTTON}`}
               >
                 Done
               </button>

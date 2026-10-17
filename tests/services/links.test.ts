@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest'
+import { describe, it, expect, vi, beforeEach, beforeAll, afterEach } from 'vitest'
 import {
   getLinks, getLinksByIds, createLink, updateLink, toggleLinkFavorite, deleteLink, importLinks,
   getLinksPage, getMatchingLinkIds, SELECT_ALL_MATCHING_CAP, findLinkIdByUrl,
@@ -1036,6 +1036,191 @@ describe('importLinks', () => {
       const result = await importLinks(FIVE.map(url => ({ url })), null, dek)
 
       expect(result).toMatchObject({ imported: 5, cancelled: false, notProcessed: [] })
+    })
+  })
+
+  describe('host guard (throttle + breaker)', () => {
+    const META = { title: 'T', description: null, image: null, duration: null }
+    const EMPTY_META = { title: null, description: null, image: null, duration: null }
+    const RATE_LIMITED = { ...EMPTY_META, rateLimited: true }
+
+    beforeEach(async () => {
+      // setImmediate stays real so WebCrypto work can settle between fake-timer advances.
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
+      mockLinksSingle.mockResolvedValue({ data: await encryptLinkRow('1'), error: null })
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    /** Drives fake time forward until the import resolves. */
+    async function settle<T>(promise: Promise<T>): Promise<T> {
+      let done = false
+      void promise.finally(() => { done = true })
+      while (!done) {
+        await vi.advanceTimersByTimeAsync(100)
+        await new Promise(resolve => setImmediate(resolve))
+      }
+      return promise
+    }
+
+    /** Fetcher answering per URL from `answers` (a list is consumed one call at a time),
+     *  recording the fake-clock time of each call. */
+    function scriptedFetcher(answers: Record<string, object | object[]>) {
+      const calls: { url: string; at: number }[] = []
+      const fetchMeta = vi.fn(async (url: string) => {
+        calls.push({ url, at: Date.now() })
+        const answer = answers[url] ?? META
+        return Array.isArray(answer) ? (answer.shift() ?? META) : answer
+      })
+      return { fetchMeta, calls }
+    }
+
+    it('calls onHostBlocked once with rate_limited, attempt 1, on a 429', async () => {
+      const { fetchMeta } = scriptedFetcher({ 'https://instagram.com/p/2': RATE_LIMITED })
+      const onHostBlocked = vi.fn().mockResolvedValue('skip_host')
+
+      await settle(importLinks(
+        [{ url: 'https://instagram.com/p/1' }, { url: 'https://instagram.com/p/2' }],
+        null, dek, { fetchMeta, onHostBlocked },
+      ))
+
+      expect(onHostBlocked).toHaveBeenCalledTimes(1)
+      expect(onHostBlocked).toHaveBeenCalledWith({ host: 'instagram.com', reason: 'rate_limited', attempt: 1 })
+    })
+
+    it("'skip_host' imports that group's later rows without fetching, and keeps fetching other hosts", async () => {
+      const { fetchMeta, calls } = scriptedFetcher({ 'https://instagram.com/p/2': RATE_LIMITED })
+      const onHostBlocked = vi.fn().mockResolvedValue('skip_host')
+
+      const result = await settle(importLinks([
+        { url: 'https://instagram.com/p/1' },
+        { url: 'https://instagram.com/p/2' },
+        { url: 'https://instagram.com/p/3' },
+        { url: 'https://youtu.be/abc' },
+      ], null, dek, { fetchMeta, onHostBlocked }))
+
+      expect(calls.map(c => c.url)).toEqual(['https://instagram.com/p/1', 'https://instagram.com/p/2', 'https://youtu.be/abc'])
+      expect(result).toMatchObject({ imported: 4, metaMissing: 2, cancelled: false })
+    })
+
+    it("'retry' re-fetches the same row; a second 429 gives attempt 2, and a success continues", async () => {
+      const { fetchMeta, calls } = scriptedFetcher({
+        'https://instagram.com/p/1': [RATE_LIMITED, RATE_LIMITED, { ...META, title: 'Finally' }],
+      })
+      const onHostBlocked = vi.fn().mockResolvedValue('retry')
+
+      const result = await settle(importLinks(
+        [{ url: 'https://instagram.com/p/1' }, { url: 'https://instagram.com/p/2' }],
+        null, dek, { fetchMeta, onHostBlocked },
+      ))
+
+      expect(onHostBlocked.mock.calls.map(([info]) => info.attempt)).toEqual([1, 2])
+      expect(calls.map(c => c.url)).toEqual([
+        'https://instagram.com/p/1', 'https://instagram.com/p/1', 'https://instagram.com/p/1', 'https://instagram.com/p/2',
+      ])
+      expect(result).toMatchObject({ imported: 2, metaMissing: 0 })
+      const first = mockLinksInsert.mock.calls[0][0]
+      expect((await decryptJson<LinkContent>(first.enc_payload, first.enc_iv, dek)).title).toBe('Finally')
+    })
+
+    it('an empty result on a retry is still blocked', async () => {
+      const { fetchMeta } = scriptedFetcher({ 'https://instagram.com/p/1': [RATE_LIMITED, EMPTY_META, META] })
+      const onHostBlocked = vi.fn().mockResolvedValue('retry')
+
+      await settle(importLinks([{ url: 'https://instagram.com/p/1' }], null, dek, { fetchMeta, onHostBlocked }))
+
+      expect(onHostBlocked.mock.calls.map(([info]) => [info.reason, info.attempt])).toEqual([
+        ['rate_limited', 1], ['empty_responses', 2],
+      ])
+    })
+
+    it("'cancel' stops with the blocked row and later rows not processed, and inserts nothing for it", async () => {
+      const { fetchMeta } = scriptedFetcher({ 'https://b.com/x': RATE_LIMITED })
+      const onHostBlocked = vi.fn().mockResolvedValue('cancel')
+
+      const result = await settle(importLinks(
+        [{ url: 'https://a.com/x' }, { url: 'https://b.com/x' }, { url: 'https://c.com/x' }],
+        null, dek, { fetchMeta, onHostBlocked },
+      ))
+
+      expect(mockLinksInsert).toHaveBeenCalledTimes(1)
+      expect(result).toMatchObject({
+        imported: 1, cancelled: true, notProcessed: ['https://b.com/x', 'https://c.com/x'],
+      })
+    })
+
+    it('3 empty YouTube results in a row trip empty_responses on the 3rd', async () => {
+      const urls = ['https://youtu.be/a', 'https://www.youtube.com/watch?v=b', 'https://m.youtube.com/watch?v=c']
+      const { fetchMeta } = scriptedFetcher(Object.fromEntries(urls.map(url => [url, EMPTY_META])))
+      const onHostBlocked = vi.fn().mockResolvedValue('skip_host')
+
+      await settle(importLinks(urls.map(url => ({ url })), null, dek, { fetchMeta, onHostBlocked }))
+
+      expect(onHostBlocked).toHaveBeenCalledTimes(1)
+      expect(onHostBlocked).toHaveBeenCalledWith({ host: 'youtube.com', reason: 'empty_responses', attempt: 1 })
+    })
+
+    it('empty results spread across different hosts never trip', async () => {
+      const urls = ['https://a.com/x', 'https://b.com/x', 'https://c.com/x', 'https://d.com/x']
+      const { fetchMeta } = scriptedFetcher(Object.fromEntries(urls.map(url => [url, EMPTY_META])))
+      const onHostBlocked = vi.fn()
+
+      const result = await settle(importLinks(urls.map(url => ({ url })), null, dek, { fetchMeta, onHostBlocked }))
+
+      expect(onHostBlocked).not.toHaveBeenCalled()
+      expect(result).toMatchObject({ imported: 4, metaMissing: 4 })
+    })
+
+    it('spaces fetches to the same group by at least 2000 ms, and not to different groups', async () => {
+      const { fetchMeta, calls } = scriptedFetcher({})
+
+      await settle(importLinks([
+        { url: 'https://youtu.be/a' },
+        { url: 'https://www.youtube.com/watch?v=b' },
+        { url: 'https://blog.example.com/1' },
+        { url: 'https://blog.example.com/2' },
+        { url: 'https://other.com/1' },
+      ], null, dek, { fetchMeta }))
+
+      const at = Object.fromEntries(calls.map(c => [c.url, c.at]))
+      expect(at['https://www.youtube.com/watch?v=b'] - at['https://youtu.be/a']).toBeGreaterThanOrEqual(2000)
+      expect(at['https://blog.example.com/2'] - at['https://blog.example.com/1']).toBeGreaterThanOrEqual(2000)
+      // settle() advances fake time in 100 ms steps while crypto runs, so "no wait" is < the gap, not 0.
+      expect(at['https://other.com/1'] - at['https://blog.example.com/2']).toBeLessThan(2000)
+      expect(at['https://blog.example.com/1'] - at['https://www.youtube.com/watch?v=b']).toBeLessThan(2000)
+    })
+
+    it('a cancel during the throttle wait stops at once and leaves that row not processed', async () => {
+      const controller = new AbortController()
+      const { fetchMeta } = scriptedFetcher({})
+      const pending = importLinks(
+        [{ url: 'https://a.com/1' }, { url: 'https://a.com/2' }],
+        null, dek, { fetchMeta, signal: controller.signal },
+      )
+      // Let row 1 finish, then abort while row 2 waits out the 2 s gap.
+      while (mockLinksInsert.mock.calls.length < 1) await new Promise(resolve => setImmediate(resolve))
+      for (let i = 0; i < 20; i++) await new Promise(resolve => setImmediate(resolve))
+      controller.abort()
+
+      const result = await settle(pending)
+
+      expect(fetchMeta).toHaveBeenCalledTimes(1)
+      expect(mockLinksInsert).toHaveBeenCalledTimes(1)
+      expect(result).toMatchObject({ imported: 1, cancelled: true, notProcessed: ['https://a.com/2'] })
+    })
+
+    it('behaves as skip_host when no onHostBlocked is given', async () => {
+      const { fetchMeta, calls } = scriptedFetcher({ 'https://instagram.com/p/1': RATE_LIMITED })
+
+      const result = await settle(importLinks(
+        [{ url: 'https://instagram.com/p/1' }, { url: 'https://instagram.com/p/2' }],
+        null, dek, { fetchMeta },
+      ))
+
+      expect(calls.map(c => c.url)).toEqual(['https://instagram.com/p/1'])
+      expect(result).toMatchObject({ imported: 2, metaMissing: 2 })
     })
   })
 })

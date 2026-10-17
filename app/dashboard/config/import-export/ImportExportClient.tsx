@@ -47,6 +47,7 @@ export default function ImportExportClient() {
     autoFetchOnImport, setAutoFetchOnImport,
     importModalState, importStats, importError, importRun, closeImportModal,
     cancelling, notProcessed, cancelImport,
+    hostBlock, waitAndRetry, skipBlockedHost, leaveImport,
     fileInputRef,
     hasImportContent,
     handleDragOver, handleDragLeave, handleDrop, handleFileChange,
@@ -360,6 +361,10 @@ export default function ImportExportClient() {
         notProcessed={notProcessed}
         onCancel={cancelImport}
         onClose={closeImportModal}
+        hostBlock={hostBlock}
+        onBlockWait={waitAndRetry}
+        onBlockSkip={skipBlockedHost}
+        onBlockLeave={leaveImport}
       />
     </main>
   )

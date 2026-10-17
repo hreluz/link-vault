@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, cleanup, act } from '@testing-library/react'
 import ImportProgressModal from '@/app/dashboard/config/import-export/ImportProgressModal'
 import type { ImportStats } from '@/lib/hooks/importExport/useLinkImport'
 
@@ -36,6 +36,10 @@ function renderModal(overrides: Partial<Props> = {}) {
     notProcessed: [],
     onCancel: vi.fn(),
     onClose: vi.fn(),
+    hostBlock: null,
+    onBlockWait: vi.fn(),
+    onBlockSkip: vi.fn(),
+    onBlockLeave: vi.fn(),
     ...overrides,
   }
   return { ...render(<ImportProgressModal {...props} />), props }
@@ -324,6 +328,78 @@ describe('ImportProgressModal', () => {
       expect(screen.getByText('network down')).toBeTruthy()
       expect(screen.getByText('Imported').parentElement!.textContent).toContain('2')
       expect(screen.getByRole('button', { name: 'Done' })).toBeTruthy()
+    })
+  })
+
+  describe('host blocked', () => {
+    const BLOCK = { host: 'instagram.com', reason: 'rate_limited' as const, attempt: 1, retryAt: null }
+    const LINKS_META_RUN = { isVault: false, withMetadata: true }
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('shows the host and the rate-limited reason', () => {
+      renderModal({ run: LINKS_META_RUN, hostBlock: BLOCK })
+      expect(screen.getByText('instagram.com seems to be limiting our requests.')).toBeTruthy()
+      expect(screen.getByText('It answered "Too many requests".')).toBeTruthy()
+      expect(screen.queryByText(/Still blocked/)).toBeNull()
+    })
+
+    it('shows the empty-responses reason', () => {
+      renderModal({ run: LINKS_META_RUN, hostBlock: { ...BLOCK, reason: 'empty_responses' } })
+      expect(screen.getByText('The last 3 links from it came back empty.')).toBeTruthy()
+    })
+
+    it('shows the attempt from the second prompt on', () => {
+      renderModal({ run: LINKS_META_RUN, hostBlock: { ...BLOCK, attempt: 2 } })
+      expect(screen.getByText('Still blocked (attempt 2).')).toBeTruthy()
+    })
+
+    it('replaces Cancel with the three choices', () => {
+      renderModal({ run: LINKS_META_RUN, hostBlock: BLOCK })
+      expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull()
+      expect(screen.getByRole('button', { name: 'Wait 1 minute and retry' })).toBeTruthy()
+      expect(screen.getByRole('button', { name: 'Import without metadata' })).toBeTruthy()
+      expect(screen.getByRole('button', { name: 'Leave and try later' })).toBeTruthy()
+    })
+
+    it('calls each handler from its button', () => {
+      const { props } = renderModal({ run: LINKS_META_RUN, hostBlock: BLOCK })
+      fireEvent.click(screen.getByRole('button', { name: 'Wait 1 minute and retry' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Import without metadata' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Leave and try later' }))
+      expect(props.onBlockWait).toHaveBeenCalledTimes(1)
+      expect(props.onBlockSkip).toHaveBeenCalledTimes(1)
+      expect(props.onBlockLeave).toHaveBeenCalledTimes(1)
+      expect(props.onCancel).not.toHaveBeenCalled()
+    })
+
+    it('renders the countdown from retryAt, disables only the wait button, and ticks', () => {
+      vi.useFakeTimers()
+      const now = Date.now()
+      renderModal({ run: LINKS_META_RUN, hostBlock: { ...BLOCK, retryAt: now + 42_000 } })
+
+      const wait = screen.getByRole('button', { name: 'Retrying in 0:42' }) as HTMLButtonElement
+      expect(wait.disabled).toBe(true)
+      expect((screen.getByRole('button', { name: 'Import without metadata' }) as HTMLButtonElement).disabled).toBe(false)
+      expect((screen.getByRole('button', { name: 'Leave and try later' }) as HTMLButtonElement).disabled).toBe(false)
+
+      act(() => { vi.advanceTimersByTime(2000) })
+      expect(screen.getByRole('button', { name: 'Retrying in 0:40' })).toBeTruthy()
+    })
+
+    it('never shows more than the 1 minute wait', () => {
+      renderModal({ run: LINKS_META_RUN, hostBlock: { ...BLOCK, retryAt: Date.now() + 90_000 } })
+      expect(screen.getByRole('button', { name: 'Retrying in 1:00' })).toBeTruthy()
+    })
+
+    it('does not close on Escape while paused', () => {
+      const { props } = renderModal({ run: LINKS_META_RUN, hostBlock: BLOCK })
+      fireEvent.keyDown(document, { key: 'Escape' })
+      expect(props.onClose).not.toHaveBeenCalled()
+      expect(props.onBlockLeave).not.toHaveBeenCalled()
+      expect(screen.getByRole('dialog')).toBeTruthy()
     })
   })
 })

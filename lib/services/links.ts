@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/client'
 import { hmacFingerprint } from '@/lib/crypto/vault'
 import { toEncryptedColumns, fromEncryptedColumns } from '@/lib/crypto/encryptedRow'
 import { syncTagsByName } from '@/lib/services/tags/tags'
+import { createFetchGuard, hostGroupOf, type FetchGuard } from '@/lib/services/importExport/fetchGuard'
 import type { LinkStatus } from '@/lib/types/database'
 import type { SortBy } from '@/app/dashboard/link/FilterSheet'
 
@@ -425,45 +426,88 @@ export type ImportMeta = {
   description: string | null
   image: string | null
   duration: string | null
+  /** True when the page (or YouTube oEmbed) answered HTTP 429. */
+  rateLimited?: boolean
 }
 export type ImportMetaFetcher = (url: string) => Promise<ImportMeta>
+
+/** Why a host group tripped the import's fetch breaker (see `fetchGuard.ts`). */
+export type HostBlockReason = 'rate_limited' | 'empty_responses'
+/** `attempt` starts at 1 and grows each time a retry of the same row is still blocked. */
+export type HostBlockInfo = { host: string; reason: HostBlockReason; attempt: number }
+export type HostBlockDecision = 'retry' | 'skip_host' | 'cancel'
 
 export type ImportLinksOptions = {
   onProgress?: (done: number, total: number, outcome: ImportRowOutcome) => void
   fetchMeta?: ImportMetaFetcher
   /** Checked before each row. Once aborted, no new row starts. */
   signal?: AbortSignal
+  /** Awaited when a host group trips the breaker; the import is paused until it resolves.
+   *  When absent, behaves as 'skip_host'. Only consulted when fetchMeta is set. */
+  onHostBlocked?: (info: HostBlockInfo) => Promise<HostBlockDecision>
 }
 
 const isEmpty = (value: string | null | undefined) => value == null || value === ''
 
-/** Fills only the fields the import row left empty -- values supplied by the file always win.
- *  Returns `metaMissing: true` when the fetch threw or returned nothing usable. */
-async function fillMissingMeta(
+const isMetaEmpty = (meta: ImportMeta | null) =>
+  !meta || (!meta.title && !meta.description && !meta.image && !meta.duration)
+
+/** Fills only the fields the import row left empty -- values supplied by the file always win. */
+function mergeMeta(input: ImportLinkInput, meta: ImportMeta | null): ImportLinkInput {
+  if (!meta) return input
+  return {
+    ...input,
+    title: isEmpty(input.title) ? (meta.title ?? input.title) : input.title,
+    description: isEmpty(input.description) ? (meta.description ?? input.description) : input.description,
+    image_url: isEmpty(input.image_url) ? (meta.image ?? input.image_url) : input.image_url,
+    duration: isEmpty(input.duration) ? (meta.duration ?? input.duration) : input.duration,
+  }
+}
+
+/** Fetches one row's metadata through the throttle/breaker. While the group looks blocked
+ *  the row is held and `onHostBlocked` decides: retry the same row, skip the group's
+ *  metadata (row imported as-is), or cancel. Returns `'cancelled'` when the row must not
+ *  be inserted -- a cancel during the throttle wait or a 'cancel' decision. */
+async function fetchRowMeta(
   input: ImportLinkInput,
   url: string,
+  group: string,
+  guard: FetchGuard,
   fetchMeta: ImportMetaFetcher,
-): Promise<{ input: ImportLinkInput; metaMissing: boolean }> {
-  const fields = [input.title, input.description, input.image_url, input.duration]
-  if (!fields.some(isEmpty)) return { input, metaMissing: false }
+  options: ImportLinksOptions,
+): Promise<{ input: ImportLinkInput; metaMissing: boolean } | 'cancelled'> {
+  const { signal, onHostBlocked } = options
+  let attempt = 0
 
-  let meta: ImportMeta
-  try {
-    meta = await fetchMeta(url)
-  } catch {
-    return { input, metaMissing: true }
-  }
+  for (;;) {
+    await guard.waitTurn(group, signal)
+    if (signal?.aborted) return 'cancelled'
 
-  const metaMissing = !meta.title && !meta.description && !meta.image && !meta.duration
-  return {
-    input: {
-      ...input,
-      title: isEmpty(input.title) ? (meta.title ?? input.title) : input.title,
-      description: isEmpty(input.description) ? (meta.description ?? input.description) : input.description,
-      image_url: isEmpty(input.image_url) ? (meta.image ?? input.image_url) : input.image_url,
-      duration: isEmpty(input.duration) ? (meta.duration ?? input.duration) : input.duration,
-    },
-    metaMissing,
+    let meta: ImportMeta | null
+    try {
+      meta = await fetchMeta(url)
+    } catch {
+      meta = null
+    }
+
+    const tripped = guard.record(group, meta)
+    // On a retry, any 429 or empty result is still a block -- the streak doesn't apply.
+    const reason = attempt === 0
+      ? tripped
+      : meta?.rateLimited ? 'rate_limited' : isMetaEmpty(meta) ? 'empty_responses' : null
+
+    if (!reason) {
+      if (attempt > 0) guard.resetGroup(group)
+      return { input: mergeMeta(input, meta), metaMissing: isMetaEmpty(meta) }
+    }
+
+    attempt++
+    const decision = onHostBlocked ? await onHostBlocked({ host: group, reason, attempt }) : 'skip_host'
+    if (decision === 'cancel' || signal?.aborted) return 'cancelled'
+    if (decision === 'skip_host') {
+      guard.skip(group)
+      return { input, metaMissing: true }
+    }
   }
 }
 
@@ -474,6 +518,7 @@ export async function importLinks(
   options: ImportLinksOptions = {},
 ): Promise<ImportResult> {
   const { onProgress, fetchMeta, signal } = options
+  const guard = fetchMeta ? createFetchGuard() : null
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
@@ -518,12 +563,24 @@ export async function importLinks(
         continue
       }
 
-      // Sequential on purpose: one fetch in flight at a time, and only for new, valid URLs.
+      // Sequential on purpose: one fetch in flight at a time, and only for new, valid URLs
+      // that still have an empty metadata field. Throttled and breaker-guarded per host group.
       let rowMetaMissing = false
-      if (fetchMeta) {
-        const filled = await fillMissingMeta(input, trimmedUrl, fetchMeta)
-        input = filled.input
-        rowMetaMissing = filled.metaMissing
+      const needsMeta = [input.title, input.description, input.image_url, input.duration].some(isEmpty)
+      if (fetchMeta && guard && needsMeta) {
+        const group = hostGroupOf(trimmedUrl) ?? trimmedUrl
+        if (guard.isSkipped(group)) {
+          rowMetaMissing = true
+        } else {
+          const fetched = await fetchRowMeta(input, trimmedUrl, group, guard, fetchMeta, options)
+          if (fetched === 'cancelled') {
+            // Nothing was written for this row, so it counts as not processed.
+            notProcessed = inputs.slice(index).map(remaining => remaining.url.trim())
+            break
+          }
+          input = fetched.input
+          rowMetaMissing = fetched.metaMissing
+        }
         if (rowMetaMissing) metaMissing++
       }
 
