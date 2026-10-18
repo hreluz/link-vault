@@ -937,7 +937,7 @@ describe('importLinks', () => {
       const result = await importLinks([{ url: 'https://example.com' }], null, dek, { fetchMeta })
 
       expect(fetchMeta).not.toHaveBeenCalled()
-      expect(result).toEqual({ imported: 0, skipped: 0, duplicates: 1, metaMissing: 0, failures: [], cancelled: false, notProcessed: [] })
+      expect(result).toEqual({ imported: 0, skipped: 0, duplicates: 1, metaMissing: 0, failures: [], cancelled: false, notProcessed: [], genericSkipped: [] })
     })
 
     it('is not called when title, description, image_url and duration are all set', async () => {
@@ -955,7 +955,7 @@ describe('importLinks', () => {
 
       const result = await importLinks([{ url: 'https://example.com', title: 'Kept' }], null, dek, { fetchMeta })
 
-      expect(result).toEqual({ imported: 1, skipped: 0, duplicates: 0, metaMissing: 1, failures: [], cancelled: false, notProcessed: [] })
+      expect(result).toEqual({ imported: 1, skipped: 0, duplicates: 0, metaMissing: 1, failures: [], cancelled: false, notProcessed: [], genericSkipped: [] })
       expect((await insertedContent()).title).toBe('Kept')
     })
 
@@ -964,7 +964,7 @@ describe('importLinks', () => {
 
       const result = await importLinks([{ url: 'https://example.com' }], null, dek, { fetchMeta })
 
-      expect(result).toEqual({ imported: 1, skipped: 0, duplicates: 0, metaMissing: 1, failures: [], cancelled: false, notProcessed: [] })
+      expect(result).toEqual({ imported: 1, skipped: 0, duplicates: 0, metaMissing: 1, failures: [], cancelled: false, notProcessed: [], genericSkipped: [] })
     })
 
     it('fetches one link at a time', async () => {
@@ -983,10 +983,11 @@ describe('importLinks', () => {
       expect(maxInFlight).toBe(1)
     })
 
-    it('omits metaMissing from the result when no fetcher is given', async () => {
+    it('omits metaMissing and genericSkipped from the result when no fetcher is given', async () => {
       const result = await importLinks([{ url: 'https://example.com' }], null, dek)
 
       expect(result).not.toHaveProperty('metaMissing')
+      expect(result).not.toHaveProperty('genericSkipped')
     })
   })
 
@@ -1172,6 +1173,63 @@ describe('importLinks', () => {
 
       expect(onHostBlocked).not.toHaveBeenCalled()
       expect(result).toMatchObject({ imported: 4, metaMissing: 4 })
+    })
+
+    describe('generic app-shell pages', () => {
+      const GENERIC = { ...EMPTY_META, generic: true }
+
+      it('skips a generic row with no title: not inserted, reported, and listed in genericSkipped', async () => {
+        const { fetchMeta } = scriptedFetcher({ 'https://instagram.com/p/1': GENERIC })
+        const onProgress = vi.fn()
+
+        const result = await settle(importLinks(
+          [{ url: 'https://instagram.com/p/1' }, { url: 'https://example.com/a' }],
+          null, dek, { fetchMeta, onProgress },
+        ))
+
+        expect(mockLinksInsert).toHaveBeenCalledTimes(1)
+        expect(onProgress.mock.calls.map(call => call[2])).toEqual([
+          { url: 'https://instagram.com/p/1', status: 'skipped_generic' },
+          { url: 'https://example.com/a', status: 'imported', metaMissing: false },
+        ])
+        expect(result).toMatchObject({
+          imported: 1, skipped: 0, metaMissing: 0, failures: [], genericSkipped: ['https://instagram.com/p/1'],
+        })
+      })
+
+      it('imports a generic row whose file gave it a title, counting it as metaMissing', async () => {
+        const { fetchMeta } = scriptedFetcher({ 'https://instagram.com/p/1': GENERIC })
+
+        const result = await settle(importLinks(
+          [{ url: 'https://instagram.com/p/1', title: 'From the file' }], null, dek, { fetchMeta },
+        ))
+
+        expect(result).toMatchObject({ imported: 1, metaMissing: 1, genericSkipped: [] })
+        const call = mockLinksInsert.mock.calls[0][0]
+        expect((await decryptJson<LinkContent>(call.enc_payload, call.enc_iv, dek)).title).toBe('From the file')
+      })
+
+      it('never calls onHostBlocked for generic rows from one host', async () => {
+        const urls = ['https://instagram.com/p/1', 'https://instagram.com/p/2', 'https://instagram.com/p/3']
+        const { fetchMeta } = scriptedFetcher(Object.fromEntries(urls.map(url => [url, GENERIC])))
+        const onHostBlocked = vi.fn()
+
+        const result = await settle(importLinks(urls.map(url => ({ url })), null, dek, { fetchMeta, onHostBlocked }))
+
+        expect(onHostBlocked).not.toHaveBeenCalled()
+        expect(result).toMatchObject({ imported: 0, genericSkipped: urls })
+      })
+
+      it('skips the row when a retry after a host block returns a generic page', async () => {
+        const { fetchMeta } = scriptedFetcher({ 'https://instagram.com/p/1': [RATE_LIMITED, GENERIC] })
+        const onHostBlocked = vi.fn().mockResolvedValue('retry')
+
+        const result = await settle(importLinks([{ url: 'https://instagram.com/p/1' }], null, dek, { fetchMeta, onHostBlocked }))
+
+        expect(onHostBlocked).toHaveBeenCalledTimes(1)
+        expect(mockLinksInsert).not.toHaveBeenCalled()
+        expect(result).toMatchObject({ imported: 0, genericSkipped: ['https://instagram.com/p/1'] })
+      })
     })
 
     it('spaces fetches to the same group by at least 2000 ms, and not to different groups', async () => {

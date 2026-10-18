@@ -186,4 +186,182 @@ describe('fetchLinkMeta', () => {
 
     expect(meta.title).toBe('Say &quot;hi&quot;')
   })
+
+  describe('generic app-shell pages', () => {
+    /** Serves the same HTML to every request for `pageUrl`, whatever the user agent. */
+    function servePage(pageUrl: string, html: string) {
+      mockFetch.mockImplementation(async (url: string) => {
+        if (url === pageUrl) return htmlResponse(html)
+        throw new Error(`Unexpected fetch: ${url}`)
+      })
+    }
+
+    it('returns null meta flagged generic for an Instagram shell', async () => {
+      const url = 'https://www.instagram.com/reel/DPwciDeD86l/'
+      servePage(url, '<html><head><title>Instagram</title></head></html>')
+
+      const meta = await fetchLinkMeta(url)
+
+      expect(meta).toMatchObject({ title: null, description: null, image: null, duration: null, generic: true })
+    })
+
+    it('keeps a real <title> on a page with no og tags', async () => {
+      servePage(ARTICLE_URL, '<html><head><title>My Blog Post - Example</title></head></html>')
+
+      const meta = await fetchLinkMeta(ARTICLE_URL)
+
+      expect(meta.title).toBe('My Blog Post - Example')
+      expect(meta.generic).toBeUndefined()
+    })
+
+    it('drops a brand + tagline <title> when the page has no og tags', async () => {
+      servePage(ARTICLE_URL, '<html><head><title>Example - Home</title></head></html>')
+
+      const meta = await fetchLinkMeta(ARTICLE_URL)
+
+      expect(meta.title).toBeNull()
+      expect(meta.generic).toBe(true)
+    })
+
+    it('does not split hyphenated words', async () => {
+      const url = 'https://instagram.com/some-post'
+      servePage(url, '<html><head><title>Instagram-clone tutorial</title></head></html>')
+
+      const meta = await fetchLinkMeta(url)
+
+      expect(meta.title).toBe('Instagram-clone tutorial')
+      expect(meta.generic).toBeUndefined()
+    })
+
+    it('drops an exact-brand <title> even when og:image exists, keeping the image', async () => {
+      const url = 'https://www.instagram.com/p/abc/'
+      servePage(url, `<html><head>
+        <meta property="og:image" content="https://cdn.example.com/pic.jpg" />
+        <title>Instagram</title>
+      </head></html>`)
+
+      const meta = await fetchLinkMeta(url)
+
+      expect(meta.title).toBeNull()
+      expect(meta.image).toBe('https://cdn.example.com/pic.jpg')
+      expect(meta.generic).toBeUndefined()
+    })
+
+    it('keeps a brand + tagline <title> when the page has og tags', async () => {
+      const url = 'https://www.instagram.com/p/abc/'
+      servePage(url, `<html><head>
+        <meta property="og:image" content="https://cdn.example.com/pic.jpg" />
+        <title>Instagram | Reels</title>
+      </head></html>`)
+
+      const meta = await fetchLinkMeta(url)
+
+      expect(meta.title).toBe('Instagram | Reels')
+    })
+
+    it('never filters og:title, even when it equals the brand', async () => {
+      const url = 'https://www.instagram.com/p/abc/'
+      servePage(url, '<html><head><meta property="og:title" content="Instagram" /></head></html>')
+
+      const meta = await fetchLinkMeta(url)
+
+      expect(meta.title).toBe('Instagram')
+      expect(meta.generic).toBeUndefined()
+    })
+
+    it('keeps the title on multi-part TLDs', async () => {
+      const url = 'https://www.bbc.co.uk/news'
+      servePage(url, '<html><head><title>BBC</title></head></html>')
+
+      const meta = await fetchLinkMeta(url)
+
+      expect(meta.title).toBe('BBC')
+    })
+
+    it('returns plain null meta, not generic, for a page with no og tags and no <title>', async () => {
+      servePage(ARTICLE_URL, '<html><head></head><body>hi</body></html>')
+
+      const meta = await fetchLinkMeta(ARTICLE_URL)
+
+      expect(meta).toMatchObject({ title: null, description: null, image: null, duration: null })
+      expect(meta.generic).toBeUndefined()
+    })
+  })
+
+  describe('crawler user-agent retry', () => {
+    const TIKTOK_URL = 'https://www.tiktok.com/@user/video/123'
+    const SHELL = '<html><head><title>TikTok - Make Your Day</title></head></html>'
+    const OG_PAGE = `<html><head>
+      <meta property="og:title" content="A real video" />
+      <meta property="og:description" content="Video description" />
+      <meta property="og:image" content="https://cdn.tiktok.com/pic.jpg" />
+    </head></html>`
+
+    const userAgentOf = (call: unknown[]) =>
+      (call[1] as { headers: Record<string, string> }).headers['User-Agent']
+
+    it('uses the og tags a crawler user agent gets when the first response is a shell', async () => {
+      mockFetch
+        .mockResolvedValueOnce(htmlResponse(SHELL))
+        .mockResolvedValueOnce(htmlResponse(OG_PAGE))
+
+      const meta = await fetchLinkMeta(TIKTOK_URL)
+
+      expect(meta).toMatchObject({
+        title: 'A real video', description: 'Video description', image: 'https://cdn.tiktok.com/pic.jpg',
+      })
+      expect(meta.generic).toBeUndefined()
+      expect(mockFetch).toHaveBeenCalledTimes(2)
+      expect(userAgentOf(mockFetch.mock.calls[1])).toBe('facebookexternalhit/1.1')
+    })
+
+    it('returns generic null meta when both responses are shells', async () => {
+      mockFetch.mockResolvedValue(htmlResponse(SHELL))
+
+      const meta = await fetchLinkMeta(TIKTOK_URL)
+
+      expect(meta).toMatchObject({ title: null, description: null, image: null, generic: true })
+      expect(mockFetch).toHaveBeenCalledTimes(2)
+    })
+
+    it('does not retry a page that has og tags', async () => {
+      mockFetch.mockResolvedValue(htmlResponse(OG_PAGE))
+
+      await fetchLinkMeta(TIKTOK_URL)
+
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+    })
+
+    it('does not retry after a 429', async () => {
+      mockFetch.mockResolvedValue(statusResponse(429))
+
+      const meta = await fetchLinkMeta(TIKTOK_URL)
+
+      expect(meta.rateLimited).toBe(true)
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+    })
+
+    it('sets rateLimited when the retry answers 429', async () => {
+      mockFetch
+        .mockResolvedValueOnce(htmlResponse(SHELL))
+        .mockResolvedValueOnce(statusResponse(429))
+
+      const meta = await fetchLinkMeta(TIKTOK_URL)
+
+      expect(meta.rateLimited).toBe(true)
+      expect(meta.title).toBeNull()
+      expect(mockFetch).toHaveBeenCalledTimes(2)
+    })
+
+    it('does not retry a non-HTML 200 or a 404', async () => {
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200, headers: { get: () => 'application/json' }, text: async () => '{}' })
+      await fetchLinkMeta(TIKTOK_URL)
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+
+      mockFetch.mockReset()
+      mockFetch.mockResolvedValueOnce(notFoundResponse)
+      await fetchLinkMeta(TIKTOK_URL)
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+    })
+  })
 })

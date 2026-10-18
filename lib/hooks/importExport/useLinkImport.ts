@@ -31,6 +31,8 @@ export type ImportStats = {
   failed: number
   metaMissing: number
   failures: ImportFailure[]
+  /** URLs left out because the site returned a generic page with no metadata. */
+  genericSkipped: string[]
 }
 export type ImportModalState = 'closed' | 'running' | 'finished' | 'cancelled' | 'error'
 /** Fixed at the start of an import, since the inputs it was derived from are cleared on success. */
@@ -38,7 +40,7 @@ export type ImportRun = { isVault: boolean; withMetadata: boolean }
 /** A host that looks blocked while the import is paused; `retryAt` is set during the countdown. */
 export type HostBlockState = HostBlockInfo & { retryAt: number | null }
 
-const EMPTY_STATS: ImportStats = { imported: 0, duplicates: 0, failed: 0, metaMissing: 0, failures: [] }
+const EMPTY_STATS: ImportStats = { imported: 0, duplicates: 0, failed: 0, metaMissing: 0, failures: [], genericSkipped: [] }
 
 function applyOutcome(stats: ImportStats, outcome: ImportRowOutcome): ImportStats {
   switch (outcome.status) {
@@ -52,6 +54,8 @@ function applyOutcome(stats: ImportStats, outcome: ImportRowOutcome): ImportStat
         failed: stats.failed + 1,
         failures: [...stats.failures, { url: outcome.url, reason: outcome.reason }],
       }
+    case 'skipped_generic':
+      return { ...stats, genericSkipped: [...stats.genericSkipped, outcome.url] }
   }
 }
 
