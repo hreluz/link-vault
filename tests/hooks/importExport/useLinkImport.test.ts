@@ -726,7 +726,7 @@ describe('useLinkImport', () => {
       expect(mockImportLinks).toHaveBeenCalledWith(
         expect.any(Array), 'cat-0', FAKE_DEK, {
           onProgress: expect.any(Function), fetchMeta: mockFetchLinkMeta, onHostBlocked: expect.any(Function),
-          guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal),
+          onThrottleWait: expect.any(Function), guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal),
         },
       )
     })
@@ -1302,6 +1302,77 @@ describe('useLinkImport', () => {
 
       const options = mockImportLinks.mock.calls[0][3]
       expect(options.onHostBlocked).toBeUndefined()
+    })
+  })
+
+  describe('throttle wait', () => {
+    const WAIT = { host: 'youtube.com', until: 1_000_000 }
+
+    /** Starts an auto-fetch import whose importLinks stays pending; exposes the
+     *  onThrottleWait it received and a resolver to finish the import. */
+    async function startImport() {
+      let onThrottleWait: ((wait: typeof WAIT | null) => void) | undefined
+      let resolveImport: (v: unknown) => void = () => {}
+      mockImportLinks.mockImplementation((
+        _inputs: unknown, _cat: unknown, _dek: unknown,
+        options: { onThrottleWait?: (wait: typeof WAIT | null) => void },
+      ) => {
+        onThrottleWait = options.onThrottleWait
+        return new Promise(resolve => { resolveImport = resolve })
+      })
+      const utils = await renderWithDefaultCategory()
+      act(() => utils.result.current.setAutoFetchOnImport(true))
+      act(() => utils.result.current.setUrlsText('https://youtu.be/a\nhttps://youtu.be/b'))
+
+      let importPromise!: Promise<void>
+      act(() => { importPromise = utils.result.current.handleImport() })
+      await waitFor(() => expect(onThrottleWait).toBeDefined())
+
+      return {
+        ...utils,
+        report: (wait: typeof WAIT | null) => act(() => onThrottleWait?.(wait)),
+        finish: async () => {
+          await act(async () => {
+            resolveImport({ imported: 2, skipped: 0, duplicates: 0 })
+            await importPromise
+          })
+        },
+      }
+    }
+
+    it('is null before any wait is reported', async () => {
+      const { result, finish } = await startImport()
+      expect(result.current.throttleWait).toBeNull()
+      await finish()
+    })
+
+    it('exposes a reported wait, and clears it when the wait ends', async () => {
+      const { result, report, finish } = await startImport()
+
+      report(WAIT)
+      expect(result.current.throttleWait).toEqual(WAIT)
+
+      report(null)
+      expect(result.current.throttleWait).toBeNull()
+      await finish()
+    })
+
+    it('is null after the import finishes, even if no null was reported', async () => {
+      const { result, report, finish } = await startImport()
+      report(WAIT)
+
+      await finish()
+
+      expect(result.current.throttleWait).toBeNull()
+    })
+
+    it('passes no onThrottleWait when auto-fetch is off', async () => {
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.setUrlsText('https://example.com'))
+      await act(async () => { await result.current.handleImport() })
+
+      const options = mockImportLinks.mock.calls[0][3]
+      expect(options.onThrottleWait).toBeUndefined()
     })
   })
 

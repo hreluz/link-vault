@@ -108,6 +108,36 @@ describe('createFetchGuard — throttle', () => {
   })
 })
 
+describe('createFetchGuard — wait notice', () => {
+  it('calls onWait with now + wait for a 2000 ms wait', async () => {
+    const { guard, advance } = makeGuard()
+    advance(10_000)
+    guard.record('example.com', FULL)
+    const onWait = vi.fn()
+    await guard.waitTurn('example.com', undefined, onWait)
+    expect(onWait).toHaveBeenCalledTimes(1)
+    expect(onWait).toHaveBeenCalledWith(10_000 + 2000)
+  })
+
+  it('does not call onWait for a 500 ms wait', async () => {
+    const { guard, sleep, advance } = makeGuard()
+    guard.record('example.com', FULL)
+    advance(FETCH_GAP_MS - 500)
+    const onWait = vi.fn()
+    await guard.waitTurn('example.com', undefined, onWait)
+    expect(sleep).toHaveBeenCalledWith(500, undefined)
+    expect(onWait).not.toHaveBeenCalled()
+  })
+
+  it('does not call onWait when there was no previous fetch', async () => {
+    const { guard, sleep } = makeGuard()
+    const onWait = vi.fn()
+    await guard.waitTurn('example.com', undefined, onWait)
+    expect(sleep).not.toHaveBeenCalled()
+    expect(onWait).not.toHaveBeenCalled()
+  })
+})
+
 describe('createFetchGuard — breaker', () => {
   it('trips at once on a rate-limited fetch', () => {
     const { guard } = makeGuard()
