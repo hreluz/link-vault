@@ -13,6 +13,9 @@ export type PaginatedQuery<T> = {
   loading: boolean
   loadingMore: boolean
   loadMore: () => void
+  /** Refetches page 1 with the current params, keeping current items visible until it resolves. Rejects if the fetch fails. */
+  refresh: () => Promise<void>
+  refreshing: boolean
 }
 
 type PageState<T> = {
@@ -21,10 +24,11 @@ type PageState<T> = {
   totalCount: number
   loading: boolean
   loadingMore: boolean
+  refreshing: boolean
 }
 
 function initialState<T>(): PageState<T> {
-  return { items: [], fetchedCount: 0, totalCount: 0, loading: true, loadingMore: false }
+  return { items: [], fetchedCount: 0, totalCount: 0, loading: true, loadingMore: false, refreshing: false }
 }
 
 /**
@@ -57,7 +61,7 @@ export function usePaginatedQuery<T, P>(
 
     fetchPageRef.current(params, pageSize, 0).then(({ items, totalCount }) => {
       if (requestId !== requestIdRef.current) return
-      setState({ items, fetchedCount: items.length, totalCount, loading: false, loadingMore: false })
+      setState({ items, fetchedCount: items.length, totalCount, loading: false, loadingMore: false, refreshing: false })
     })
     // paramsKey is the intentional dependency — params itself is a new object each render
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -78,10 +82,31 @@ export function usePaginatedQuery<T, P>(
         totalCount,
         loading: false,
         loadingMore: false,
+        refreshing: prev.refreshing,
       }))
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paramsKey, pageSize, state.fetchedCount])
+
+  const refresh = useCallback(async () => {
+    // A new request id makes any in-flight first load / loadMore stale, and a
+    // params change during the refresh makes this one stale in turn.
+    const requestId = ++requestIdRef.current
+    setState(prev => ({ ...prev, refreshing: true }))
+
+    try {
+      const { items, totalCount } = await fetchPageRef.current(params, pageSize, 0)
+      if (requestId !== requestIdRef.current) return
+      loadingMoreRef.current = false
+      setState({ items, fetchedCount: items.length, totalCount, loading: false, loadingMore: false, refreshing: false })
+    } catch (err) {
+      if (requestId === requestIdRef.current) {
+        setState(prev => ({ ...prev, refreshing: false }))
+      }
+      throw err
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paramsKey, pageSize])
 
   const setItems = useCallback<Dispatch<SetStateAction<T[]>>>(updater => {
     setState(prev => ({
@@ -98,5 +123,7 @@ export function usePaginatedQuery<T, P>(
     loading: state.loading,
     loadingMore: state.loadingMore,
     loadMore,
+    refresh,
+    refreshing: state.refreshing,
   }
 }

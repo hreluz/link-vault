@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useToast } from '@/components/ToastProvider'
+import { useTagsContext } from '@/lib/context/TagsContext'
 import { useLinkModals } from './useLinkModals'
 import { useLinks } from './useLinks'
 import { useLinkFilters } from './useLinkFilters'
@@ -13,7 +14,7 @@ export function useLinkList(autoFetchDefault = true) {
   const modals = useLinkModals()
   const filters = useLinkFilters()
   const {
-    links, totalCount, hasMore, loading, loadingMore, loadMore,
+    links, totalCount, hasMore, loading, loadingMore, loadMore, refresh, refreshing,
     handleStatusChange: changeStatus,
     handleEdit: editLink,
     handleDelete: deleteLink,
@@ -27,6 +28,11 @@ export function useLinkList(autoFetchDefault = true) {
   const { addToast } = useToast()
   const selection = useLinksSelection()
   const [selectingAllMatching, setSelectingAllMatching] = useState(false)
+  const { refetchTags } = useTagsContext()
+  const [refreshKey, setRefreshKey] = useState(0)
+  // `refreshing` only turns true once page 1 starts loading, so a ref guards
+  // the private-tag re-read that runs first against a second click.
+  const refreshInFlightRef = useRef(false)
 
   function handleStatusChange(id: string, status: LinkStatus) {
     changeStatus(id, status)
@@ -93,6 +99,22 @@ export function useLinkList(autoFetchDefault = true) {
     }
   }
 
+  // Reloads links, tags and categories in place -- never touches the vault
+  // key or unlocked private tags, so no password prompt.
+  async function handleRefresh() {
+    if (refreshing || refreshInFlightRef.current) return
+    refreshInFlightRef.current = true
+    try {
+      refetchTags()
+      await refresh()
+      setRefreshKey(k => k + 1)
+    } catch {
+      addToast('Failed to refresh links', 'destructive')
+    } finally {
+      refreshInFlightRef.current = false
+    }
+  }
+
   return {
     ...modals,
     ...filters,
@@ -104,6 +126,9 @@ export function useLinkList(autoFetchDefault = true) {
     loading,
     loadingMore,
     loadMore,
+    refreshing,
+    refreshKey,
+    handleRefresh,
     selectingAllMatching,
     handleStatusChange,
     handleLinkOpen,

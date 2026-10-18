@@ -3,7 +3,10 @@
 import { useLinkListContext } from './LinkListContext'
 
 export default function LinkListHeader() {
-  const { totalCount, setModalOpen, isSelectionMode, selectedCount, enterSelectionMode, exitSelectionMode, favoritesOnly } = useLinkListContext()
+  const {
+    totalCount, setModalOpen, isSelectionMode, selectedCount, enterSelectionMode, exitSelectionMode, favoritesOnly,
+    refreshing, handleRefresh,
+  } = useLinkListContext()
 
   if (isSelectionMode) {
     return (
@@ -32,6 +35,24 @@ export default function LinkListHeader() {
         </p>
       </div>
       <div className="flex items-center gap-2">
+        <button
+          onClick={handleRefresh}
+          disabled={refreshing}
+          aria-busy={refreshing}
+          aria-label="Refresh links"
+          title="Refresh links"
+          className="rounded-xl border border-surface-200 bg-surface-card px-2.5 py-2 text-sm font-medium text-surface-600 shadow-sm transition hover:bg-surface-50 hover:text-surface-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-surface-700 dark:bg-surface-900 dark:text-surface-300 dark:hover:bg-surface-800"
+        >
+          <svg
+            className={`h-5 w-5${refreshing ? ' animate-spin' : ''}`}
+            viewBox="0 0 20 20"
+            fill="none"
+            aria-hidden="true"
+          >
+            <path d="M16 10a6 6 0 1 1-1.76-4.24" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M16 3.5v3h-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
         <button
           onClick={enterSelectionMode}
           aria-label="Select links"
