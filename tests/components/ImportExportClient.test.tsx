@@ -67,7 +67,8 @@ vi.mock('@/lib/services/importExport/importVault', () => ({
   importVaultExport: vi.fn(),
 }))
 
-vi.mock('@/lib/services/tags/tags', () => ({
+vi.mock('@/lib/services/tags/tags', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/services/tags/tags')>()),
   getPrivateTagIds: vi.fn().mockResolvedValue([]),
 }))
 
@@ -103,6 +104,11 @@ afterEach(() => {
   cleanup()
 })
 
+/** The URLs/JSON textarea (the import tags field is a textbox too). */
+function importBox() {
+  return document.querySelector('textarea') as HTMLTextAreaElement
+}
+
 function btn(name: string) {
   return screen.getByRole('button', { name }) as HTMLButtonElement
 }
@@ -118,7 +124,7 @@ describe('ImportExportClient', () => {
     it('renders a textarea on the URLs tab', () => {
       render(<ImportExportClient />)
 
-      expect(screen.getByRole('textbox')).toBeTruthy()
+      expect(importBox()).toBeTruthy()
     })
 
     it('disables the import button when textarea is empty', () => {
@@ -162,7 +168,7 @@ describe('ImportExportClient', () => {
       render(<ImportExportClient />)
       fireEvent.click(screen.getByText('📋 Paste JSON'))
 
-      expect(screen.getByRole('textbox')).toBeTruthy()
+      expect(importBox()).toBeTruthy()
     })
 
     it('shows the file drop zone when File tab is clicked', () => {
@@ -176,14 +182,14 @@ describe('ImportExportClient', () => {
   describe('URLs import', () => {
     it('enables the import button when URLs are entered', () => {
       render(<ImportExportClient />)
-      fireEvent.change(screen.getByRole('textbox'), { target: { value: 'https://example.com' } })
+      fireEvent.change(importBox(), { target: { value: 'https://example.com' } })
 
       expect(btn('Import links').disabled).toBe(false)
     })
 
     it('shows the result in the progress modal instead of an inline banner', async () => {
       render(<ImportExportClient />)
-      fireEvent.change(screen.getByRole('textbox'), { target: { value: 'https://example.com' } })
+      fireEvent.change(importBox(), { target: { value: 'https://example.com' } })
       fireEvent.click(btn('Import links'))
 
       const dialog = await screen.findByRole('dialog')
@@ -195,7 +201,7 @@ describe('ImportExportClient', () => {
   describe('time estimate', () => {
     it('shows the link count and an estimate, noting duplicates once auto-fetch is on', () => {
       render(<ImportExportClient />)
-      fireEvent.change(screen.getByRole('textbox'), { target: { value: 'https://a.com\nhttps://b.com' } })
+      fireEvent.change(importBox(), { target: { value: 'https://a.com\nhttps://b.com' } })
       expect(screen.getByText('2 links · less than a minute')).toBeTruthy()
 
       fireEvent.click(screen.getByRole('switch', { name: 'Auto-fetch metadata' }))
@@ -286,7 +292,7 @@ describe('ImportExportClient', () => {
     it('shows an inline error banner instead of the appearance checkbox', async () => {
       render(<ImportExportClient />)
       fireEvent.click(screen.getByText('📋 Paste JSON'))
-      fireEvent.change(screen.getByRole('textbox'), { target: { value: INVALID_V2_JSON } })
+      fireEvent.change(importBox(), { target: { value: INVALID_V2_JSON } })
 
       await waitFor(() => expect(screen.getByText(/Invalid export file/)).toBeTruthy())
     })
@@ -294,7 +300,7 @@ describe('ImportExportClient', () => {
     it('disables the Import links button while the detected v2 export is invalid', async () => {
       render(<ImportExportClient />)
       fireEvent.click(screen.getByText('📋 Paste JSON'))
-      fireEvent.change(screen.getByRole('textbox'), { target: { value: INVALID_V2_JSON } })
+      fireEvent.change(importBox(), { target: { value: INVALID_V2_JSON } })
 
       await waitFor(() => expect(screen.getByText(/Invalid export file/)).toBeTruthy())
       expect(btn('Import links').disabled).toBe(true)
@@ -311,13 +317,41 @@ describe('ImportExportClient', () => {
         return new Promise(resolve => { resolveImport = resolve })
       })
       render(<ImportExportClient />)
-      fireEvent.change(screen.getByRole('textbox'), { target: { value: 'https://example.com\nhttps://github.com' } })
+      fireEvent.change(importBox(), { target: { value: 'https://example.com\nhttps://github.com' } })
       fireEvent.click(btn('Import links'))
 
       await waitFor(() => expect(screen.getByText('Importing… links (1/2)')).toBeTruthy())
 
       resolveImport({ imported: 2, skipped: 0, duplicates: 0 })
       await waitFor(() => expect(screen.getByText('Import links')).toBeTruthy())
+    })
+  })
+
+  describe('import tags field', () => {
+    function tagsInput() {
+      return screen.getByLabelText('Tags for imported links (optional)') as HTMLInputElement
+    }
+
+    it('renders under the category selector with the non-v2 hint', () => {
+      render(<ImportExportClient />)
+
+      expect(tagsInput().disabled).toBe(false)
+      expect(tagsInput().getAttribute('aria-describedby')).toBe('import-tags-hint')
+      expect(screen.getByText('Added to every imported link, on top of any tags in the file.')).toBeTruthy()
+      const select = screen.getByRole('combobox')
+      expect(select.compareDocumentPosition(tagsInput()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
+    it('is disabled with the v2 hint when a v2 export is detected', async () => {
+      const VALID_V2_JSON = JSON.stringify({
+        format: 'link-vault-export', version: 2, exportedAt: '', mode: 'links', links: [],
+      })
+      render(<ImportExportClient />)
+      fireEvent.click(screen.getByText('📋 Paste JSON'))
+      fireEvent.change(importBox(), { target: { value: VALID_V2_JSON } })
+
+      await waitFor(() => expect(tagsInput().disabled).toBe(true))
+      expect(screen.getByText('Not available for full vault exports — they keep their own tags.')).toBeTruthy()
     })
   })
 
@@ -340,10 +374,10 @@ describe('ImportExportClient', () => {
       })
       render(<ImportExportClient />)
       fireEvent.click(screen.getByText('📋 Paste JSON'))
-      fireEvent.change(screen.getByRole('textbox'), { target: { value: VALID_V2_JSON } })
+      fireEvent.change(importBox(), { target: { value: VALID_V2_JSON } })
 
       await waitFor(() => expect(autoFetchSwitch().disabled).toBe(true))
-      expect(screen.getByText(/Not available for full vault exports/)).toBeTruthy()
+      expect(screen.getByText(/Not available for full vault exports — they already include metadata/)).toBeTruthy()
     })
 
     it('shows the without-metadata count in the progress modal', async () => {
@@ -356,7 +390,7 @@ describe('ImportExportClient', () => {
       })
       render(<ImportExportClient />)
       fireEvent.click(autoFetchSwitch())
-      fireEvent.change(screen.getByRole('textbox'), { target: { value: 'https://example.com' } })
+      fireEvent.change(importBox(), { target: { value: 'https://example.com' } })
       fireEvent.click(btn('Import links'))
 
       const dialog = await screen.findByRole('dialog')
@@ -375,7 +409,7 @@ describe('ImportExportClient', () => {
       })
       render(<ImportExportClient />)
       fireEvent.click(autoFetchSwitch())
-      fireEvent.change(screen.getByRole('textbox'), { target: { value: 'https://example.com\nhttps://github.com' } })
+      fireEvent.change(importBox(), { target: { value: 'https://example.com\nhttps://github.com' } })
       fireEvent.click(btn('Import links'))
 
       await waitFor(() => expect(screen.getByText('Importing… links + metadata (1/2)')).toBeTruthy())

@@ -9,6 +9,7 @@ import {
 } from '@/lib/services/links'
 import { getOrCreateCategoryByName, PROTECTED_CATEGORY_NAME } from '@/lib/services/categories'
 import { getCategoryIdByDomainMap, lookupCategoryIdByUrl } from '@/lib/services/category-domains'
+import { toKebabCase } from '@/lib/services/tags/tags'
 import { importVaultExport, type VaultImportResult, type VaultImportProgress } from '@/lib/services/importExport/importVault'
 import { simulateImportMs, type EstimateRow } from '@/lib/services/importExport/importEstimate'
 import { isVaultExportV2, getVaultExportValidationError, type VaultExportV2 } from '@/lib/types/importExport'
@@ -101,6 +102,23 @@ async function applyDomainCategories(inputs: ImportLinkInput[], dek: CryptoKey):
   })
 }
 
+/** Row tags followed by the import tags, de-duplicated by kebab-case name, first occurrence kept.
+ *  Returns inputs unchanged when importTags parses to an empty list. */
+function applyImportTags(inputs: ImportLinkInput[], importTags: string): ImportLinkInput[] {
+  const extra = importTags.split(',').map(t => t.trim()).filter(Boolean)
+  if (extra.length === 0) return inputs
+  return inputs.map(input => {
+    const seen = new Set<string>()
+    const tags = [...(input.tags ?? []), ...extra].filter(tag => {
+      const key = toKebabCase(tag)
+      if (!key || seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+    return { ...input, tags }
+  })
+}
+
 type VaultExportDetection = { data: VaultExportV2 | null; error: string | null }
 
 /** The admin's import guard settings; the defaults on any failure, so a settings outage never blocks an import. */
@@ -152,6 +170,8 @@ export function useLinkImport() {
   const [jsonText, setJsonText] = useState('')
   const [defaultCategoryId, setDefaultCategoryId] = useState<string>('')
   const defaultCategorySet = useRef(false)
+  // Comma-separated, added to every non-v2 row; kept between imports, empty on page load.
+  const [importTags, setImportTags] = useState('')
   const [importing, setImporting] = useState(false)
   const [lastResult, setLastResult] = useState<ImportLastResult | null>(null)
   const [detectedVaultExport, setDetectedVaultExport] = useState<VaultExportV2 | null>(null)
@@ -430,6 +450,7 @@ export function useLinkImport() {
       // CSV category names are created here, so this runs after the modal opens ("Preparing…").
       if (csvRows) inputs = await resolveCsvCategories(csvRows, dek)
       inputs = await applyDomainCategories(inputs, dek)
+      inputs = applyImportTags(inputs, importTags)
       // Snapshot: this run keeps these values even if the admin changes them mid-import.
       const settings = await readFetchSettings()
       runFetchSettingsRef.current = settings
@@ -495,6 +516,7 @@ export function useLinkImport() {
     urlsText, setUrlsText,
     jsonText, setJsonText,
     defaultCategoryId, setDefaultCategoryId,
+    importTags, setImportTags,
     categories,
     importing, lastResult, progress,
     detectedVaultExport, vaultExportError,
