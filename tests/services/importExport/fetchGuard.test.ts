@@ -11,6 +11,7 @@ import type { ImportMeta } from '@/lib/services/links'
 const FULL: ImportMeta = { title: 'T', description: null, image: null, duration: null }
 const EMPTY: ImportMeta = { title: null, description: null, image: null, duration: null }
 const RATE_LIMITED: ImportMeta = { ...EMPTY, rateLimited: true }
+const GENERIC: ImportMeta = { ...EMPTY, generic: true }
 
 function makeGuard(config?: FetchGuardConfig) {
   let clock = 0
@@ -184,6 +185,31 @@ describe('createFetchGuard — breaker', () => {
     const { guard } = makeGuard({ gapMs: FETCH_GAP_MS, emptyStreakLimit: 5 })
     for (let i = 0; i < 4; i++) expect(guard.record('instagram.com', EMPTY)).toBeNull()
     expect(guard.record('instagram.com', EMPTY)).toBe('empty_responses')
+  })
+
+  it('never trips on generic results in a row', () => {
+    const { guard } = makeGuard()
+    for (let i = 0; i < EMPTY_STREAK_LIMIT + 2; i++) expect(guard.record('instagram.com', GENERIC)).toBeNull()
+  })
+
+  it('leaves the empty streak unchanged on a generic result', () => {
+    const { guard } = makeGuard()
+    expect(guard.record('instagram.com', EMPTY)).toBeNull()
+    expect(guard.record('instagram.com', EMPTY)).toBeNull()
+    expect(guard.record('instagram.com', GENERIC)).toBeNull()
+    expect(guard.record('instagram.com', EMPTY)).toBe('empty_responses')
+  })
+
+  it('still trips on a generic result that was rate-limited', () => {
+    const { guard } = makeGuard()
+    expect(guard.record('instagram.com', { ...GENERIC, rateLimited: true })).toBe('rate_limited')
+  })
+
+  it('still throttles the next fetch after a generic result', async () => {
+    const { guard, sleep } = makeGuard()
+    guard.record('instagram.com', GENERIC)
+    await guard.waitTurn('instagram.com')
+    expect(sleep).toHaveBeenCalledWith(FETCH_GAP_MS, undefined)
   })
 
   it('skip marks only that group as skipped', () => {

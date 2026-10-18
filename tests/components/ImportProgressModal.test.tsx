@@ -18,6 +18,7 @@ vi.mock('sonner', () => ({
 const STATS: ImportStats = {
   imported: 2, duplicates: 0, failed: 1, metaMissing: 0,
   failures: [{ url: 'not a url', reason: 'invalid_url' }],
+  genericSkipped: [],
 }
 
 const LINKS_RUN = { isVault: false, withMetadata: false }
@@ -140,6 +141,64 @@ describe('ImportProgressModal', () => {
     it('is hidden when the run does not fetch metadata', () => {
       renderModal()
       expect(screen.queryByText('Without metadata')).toBeNull()
+    })
+  })
+
+  describe('skipped (generic page)', () => {
+    const SKIPPED = ['https://instagram.com/p/1', 'https://instagram.com/p/2']
+    const META_RUN = { isVault: false, withMetadata: true }
+
+    it('shows the count while running', () => {
+      renderModal({ run: META_RUN, stats: { ...STATS, genericSkipped: SKIPPED } })
+      expect(screen.getByText('Skipped (generic page)').parentElement!.textContent).toContain('2')
+    })
+
+    it('is hidden when the run does not fetch metadata', () => {
+      renderModal()
+      expect(screen.queryByText('Skipped (generic page)')).toBeNull()
+    })
+
+    it('counts skipped rows as processed in the status line', () => {
+      renderModal({ run: META_RUN, stats: { ...STATS, genericSkipped: SKIPPED } })
+      expect(screen.getByText('Processing 5 of 10 — 5 remaining')).toBeTruthy()
+    })
+
+    it('lists the skipped URLs under their heading once finished', () => {
+      renderModal({
+        state: 'finished', progress: null, run: META_RUN,
+        stats: { ...STATS, failed: 0, failures: [], genericSkipped: SKIPPED },
+      })
+      expect(screen.getByText('Skipped: the site returned a generic page with no metadata')).toBeTruthy()
+      const list = screen.getByRole('list')
+      expect(list.textContent).toContain('https://instagram.com/p/1')
+      expect(list.textContent).toContain('https://instagram.com/p/2')
+    })
+
+    it('copies the skipped URLs one per line', async () => {
+      renderModal({
+        state: 'finished', progress: null, run: META_RUN,
+        stats: { ...STATS, genericSkipped: SKIPPED },
+      })
+      fireEvent.click(screen.getByRole('button', { name: 'Copy skipped URLs' }))
+
+      expect(writeText).toHaveBeenCalledWith('https://instagram.com/p/1\nhttps://instagram.com/p/2')
+      await waitFor(() => expect(mockToastSuccess).toHaveBeenCalledWith('Copied'))
+    })
+
+    it('shows no section or button when nothing was skipped', () => {
+      renderModal({ state: 'finished', progress: null, run: META_RUN })
+      expect(screen.queryByText('Skipped: the site returned a generic page with no metadata')).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Copy skipped URLs' })).toBeNull()
+    })
+
+    it('shows the list and button after a cancel too', () => {
+      renderModal({
+        state: 'cancelled', progress: null, run: META_RUN, notProcessed: ['https://c.com'],
+        stats: { ...STATS, genericSkipped: SKIPPED },
+      })
+      expect(screen.getByText('Skipped: the site returned a generic page with no metadata')).toBeTruthy()
+      expect(screen.getByRole('button', { name: 'Copy skipped URLs' })).toBeTruthy()
+      expect(screen.getByRole('button', { name: 'Copy unprocessed URLs' })).toBeTruthy()
     })
   })
 

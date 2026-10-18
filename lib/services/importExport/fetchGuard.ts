@@ -97,7 +97,8 @@ export function createFetchGuard(deps: { now?: () => number; sleep?: Sleep; conf
     },
 
     /** Records a finished fetch (`null` = it threw). Returns why the group now looks
-     *  blocked, or `null` when it looks fine. A trip resets the empty streak. */
+     *  blocked, or `null` when it looks fine. A trip resets the empty streak. A generic
+     *  app-shell page leaves the streak unchanged: the host is answering, not blocking. */
     record(group: string, meta: ImportMeta | null): HostBlockReason | null {
       const state = stateOf(group)
       state.lastFetchEnd = now()
@@ -105,6 +106,7 @@ export function createFetchGuard(deps: { now?: () => number; sleep?: Sleep; conf
         state.emptyStreak = 0
         return 'rate_limited'
       }
+      if (meta?.generic) return null
       if (!isEmptyMeta(meta)) {
         state.emptyStreak = 0
         return null

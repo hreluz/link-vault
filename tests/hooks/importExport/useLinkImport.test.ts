@@ -856,6 +856,24 @@ describe('useLinkImport', () => {
           { url: 'bad', reason: 'invalid_url' },
           { url: 'https://c.com', reason: 'save_error' },
         ],
+        genericSkipped: [],
+      })
+    })
+
+    it('collects skipped_generic outcomes into genericSkipped', async () => {
+      emitOutcomes([
+        { url: 'https://instagram.com/p/1', status: 'skipped_generic' },
+        { url: 'https://a.com', status: 'imported', metaMissing: false },
+        { url: 'https://instagram.com/p/2', status: 'skipped_generic' },
+      ])
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.setUrlsText('https://a.com'))
+
+      await act(async () => { await result.current.handleImport() })
+
+      expect(result.current.importStats).toMatchObject({
+        imported: 1, failed: 0, metaMissing: 0,
+        genericSkipped: ['https://instagram.com/p/1', 'https://instagram.com/p/2'],
       })
     })
 

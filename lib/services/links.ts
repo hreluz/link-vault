@@ -408,6 +408,9 @@ export type ImportResult = {
   cancelled: boolean
   /** URLs of rows never started, in input order; `[]` when not cancelled. */
   notProcessed: string[]
+  /** URLs left out because the site returned a generic page, in input order.
+   *  Only set when a fetcher was supplied. */
+  genericSkipped?: string[]
 }
 
 export type ImportFailureReason = 'invalid_url' | 'save_error'
@@ -418,6 +421,7 @@ export type ImportRowOutcome =
   | { url: string; status: 'imported'; metaMissing: boolean }
   | { url: string; status: 'duplicate' }
   | { url: string; status: 'failed'; reason: ImportFailureReason }
+  | { url: string; status: 'skipped_generic' }
 
 /** Structurally matches `LinkMeta` from `app/dashboard/link/actions.ts`, so `fetchLinkMeta`
  *  can be passed straight in without this service importing from `app/`. */
@@ -428,6 +432,8 @@ export type ImportMeta = {
   duration: string | null
   /** True when the page (or YouTube oEmbed) answered HTTP 429. */
   rateLimited?: boolean
+  /** True when the page was an app shell with no real metadata (see `fetchLinkMeta`). */
+  generic?: boolean
 }
 export type ImportMetaFetcher = (url: string) => Promise<ImportMeta>
 
@@ -477,7 +483,8 @@ function mergeMeta(input: ImportLinkInput, meta: ImportMeta | null): ImportLinkI
 /** Fetches one row's metadata through the throttle/breaker. While the group looks blocked
  *  the row is held and `onHostBlocked` decides: retry the same row, skip the group's
  *  metadata (row imported as-is), or cancel. Returns `'cancelled'` when the row must not
- *  be inserted -- a cancel during the throttle wait or a 'cancel' decision. */
+ *  be inserted -- a cancel during the throttle wait or a 'cancel' decision -- and
+ *  `'generic'` when the site returned an app shell and the row has no title of its own. */
 async function fetchRowMeta(
   input: ImportLinkInput,
   url: string,
@@ -485,7 +492,7 @@ async function fetchRowMeta(
   guard: FetchGuard,
   fetchMeta: ImportMetaFetcher,
   options: ImportLinksOptions,
-): Promise<{ input: ImportLinkInput; metaMissing: boolean } | 'cancelled'> {
+): Promise<{ input: ImportLinkInput; metaMissing: boolean } | 'cancelled' | 'generic'> {
   const { signal, onHostBlocked, onThrottleWait, onFetching } = options
   let attempt = 0
 
@@ -510,6 +517,11 @@ async function fetchRowMeta(
     }
 
     const tripped = guard.record(group, meta)
+    // An app shell is an answer, not a block: never retried, never a breaker trip.
+    if (meta?.generic && !meta.rateLimited) {
+      if (attempt > 0) guard.resetGroup(group)
+      return isEmpty(input.title) ? 'generic' : { input, metaMissing: true }
+    }
     // On a retry, any 429 or empty result is still a block -- the streak doesn't apply.
     const reason = attempt === 0
       ? tripped
@@ -553,6 +565,7 @@ export async function importLinks(
   let metaMissing = 0
   let processed = 0
   const failures: ImportFailure[] = []
+  const genericSkipped: string[] = []
   let notProcessed: string[] = []
 
   for (const [index, rawInput] of inputs.entries()) {
@@ -595,6 +608,13 @@ export async function importLinks(
             // Nothing was written for this row, so it counts as not processed.
             notProcessed = inputs.slice(index).map(remaining => remaining.url.trim())
             break
+          }
+          if (fetched === 'generic') {
+            // Not saved: a link with no title is close to useless, so it is handed back
+            // in the summary for the user to save by hand.
+            genericSkipped.push(trimmedUrl)
+            outcome = { url: trimmedUrl, status: 'skipped_generic' }
+            continue
           }
           input = fetched.input
           rowMetaMissing = fetched.metaMissing
@@ -649,6 +669,6 @@ export async function importLinks(
   const skipped = failures.length
   const cancelled = notProcessed.length > 0
   return fetchMeta
-    ? { imported, skipped, duplicates, metaMissing, failures, cancelled, notProcessed }
+    ? { imported, skipped, duplicates, metaMissing, failures, cancelled, notProcessed, genericSkipped }
     : { imported, skipped, duplicates, failures, cancelled, notProcessed }
 }

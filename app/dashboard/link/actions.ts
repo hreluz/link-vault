@@ -7,6 +7,8 @@ export type LinkMeta = {
   duration: string | null
   /** True when the page (or YouTube oEmbed) answered HTTP 429. */
   rateLimited?: boolean
+  /** True when the page was an app shell: no og tags and a brand-only <title> (dropped). */
+  generic?: boolean
 }
 
 const NULL_META: LinkMeta = { title: null, description: null, image: null, duration: null }
@@ -28,7 +30,15 @@ function decodeHtmlEntities(s: string): string {
   })
 }
 
-function extractMeta(html: string, baseUrl: string): LinkMeta {
+type ExtractedMeta = {
+  meta: LinkMeta
+  /** At least one of og:title, og:description, og:image was found. */
+  hasOg: boolean
+  /** meta.title came from og:title, not from <title>. */
+  titleFromOg: boolean
+}
+
+function extractMeta(html: string, baseUrl: string): ExtractedMeta {
   const attr = (tag: string, prop: string) => {
     const re = new RegExp(
       `<meta[^>]+${prop}[^>]*content=["']([^"']+)["']|<meta[^>]+content=["']([^"']+)["'][^>]+${prop}`,
@@ -58,7 +68,44 @@ function extractMeta(html: string, baseUrl: string): LinkMeta {
     }
   }
 
-  return { title, description: ogDesc, image, duration: null }
+  return {
+    meta: { title, description: ogDesc, image, duration: null },
+    hasOg: ogTitle != null || ogDesc != null || ogImage != null,
+    titleFromOg: ogTitle != null,
+  }
+}
+
+// Separators between a brand and its tagline ("TikTok - Make Your Day"). Spaces are
+// required so hyphenated words ("Instagram-clone tutorial") are never split.
+const TITLE_SEPARATORS = [' - ', ' – ', ' — ', ' | ', ' · ', ': ']
+
+const normalizeBrand = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '')
+
+/** The hostname's second-to-last label (www.instagram.com → instagram). Multi-part TLDs
+ *  give a label that never matches (bbc.co.uk → co), so titles there are always kept. */
+function brandLabel(url: string): string | null {
+  try {
+    const labels = new URL(url).hostname.split('.').filter(Boolean)
+    return labels.length >= 2 ? normalizeBrand(labels[labels.length - 2]) || null : null
+  } catch {
+    return null
+  }
+}
+
+/** A <title> that is only the site's brand, or (with no og tags at all) brand + tagline. */
+function isGenericTitle(title: string, brand: string, hasOg: boolean): boolean {
+  if (normalizeBrand(title) === brand) return true
+  if (hasOg) return false
+  const cuts = TITLE_SEPARATORS.map(sep => title.indexOf(sep)).filter(i => i > 0)
+  return cuts.length > 0 && normalizeBrand(title.slice(0, Math.min(...cuts))) === brand
+}
+
+/** Drops a brand-only <title> fallback; with no og tags either, the page is flagged generic.
+ *  Titles from og:title are never filtered. */
+function finalizeMeta({ meta, hasOg, titleFromOg }: ExtractedMeta, url: string): LinkMeta {
+  const brand = brandLabel(url)
+  if (titleFromOg || !meta.title || !brand || !isGenericTitle(meta.title, brand, hasOg)) return meta
+  return hasOg ? { ...meta, title: null } : { ...meta, title: null, generic: true }
 }
 
 function extractYouTubeVideoId(url: string): string | null {
@@ -104,6 +151,31 @@ function parseIsoDuration(iso: string): string {
   return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`
 }
 
+const DEFAULT_USER_AGENT = 'Mozilla/5.0 (compatible; LinkVaultBot/1.0)'
+const CRAWLER_USER_AGENT = 'facebookexternalhit/1.1'
+
+/** Fetches a page with the given user agent. `extracted` is null when the response is
+ *  not OK, not HTML, or the request threw. */
+async function fetchPage(
+  url: string,
+  userAgent: string,
+): Promise<{ extracted: ExtractedMeta | null; rateLimited: boolean }> {
+  try {
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(5000),
+      headers: { 'User-Agent': userAgent },
+    })
+    const rateLimited = res.status === 429
+    if (!res.ok) return { extracted: null, rateLimited }
+    const contentType = res.headers.get('content-type') ?? ''
+    if (!contentType.includes('text/html')) return { extracted: null, rateLimited }
+    return { extracted: extractMeta(await res.text(), url), rateLimited }
+  } catch {
+    // fetch failed — meta stays empty
+    return { extracted: null, rateLimited: false }
+  }
+}
+
 export async function fetchLinkMeta(url: string): Promise<LinkMeta> {
   try {
     new URL(url)
@@ -124,22 +196,17 @@ export async function fetchLinkMeta(url: string): Promise<LinkMeta> {
     meta.image = oembed.image
     if (oembed.rateLimited) meta.rateLimited = true
   } else {
-    try {
-      const res = await fetch(url, {
-        signal: AbortSignal.timeout(5000),
-        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; LinkVaultBot/1.0)' },
-      })
-      if (res.status === 429) meta.rateLimited = true
-      if (res.ok) {
-        const contentType = res.headers.get('content-type') ?? ''
-        if (contentType.includes('text/html')) {
-          const html = await res.text()
-          Object.assign(meta, extractMeta(html, url))
-        }
-      }
-    } catch {
-      // og fetch failed — meta stays empty
+    const first = await fetchPage(url, DEFAULT_USER_AGENT)
+    let chosen = first.extracted
+    if (first.rateLimited) meta.rateLimited = true
+    // Some sites (e.g. TikTok) serve an app shell with no og tags to unknown agents but
+    // full og tags to link-preview crawlers, so a no-og page gets one crawler retry.
+    if (chosen && !chosen.hasOg) {
+      const retry = await fetchPage(url, CRAWLER_USER_AGENT)
+      if (retry.rateLimited) meta.rateLimited = true
+      if (retry.extracted?.hasOg) chosen = retry.extracted
     }
+    if (chosen) Object.assign(meta, finalizeMeta(chosen, url))
   }
 
   const apiKey = process.env.YOUTUBE_API_KEY

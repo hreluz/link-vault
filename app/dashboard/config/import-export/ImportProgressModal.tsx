@@ -205,7 +205,7 @@ export default function ImportProgressModal({
 
   if (!isOpen) return null
 
-  const processed = stats.imported + stats.duplicates + stats.failed
+  const processed = stats.imported + stats.duplicates + stats.failed + stats.genericSkipped.length
   // After a cancel the unprocessed rows stay as the bar's empty track.
   const total = Math.max(linksTotal, processed + (cancelled ? notProcessed.length : 0))
   const remaining = total - processed
@@ -237,6 +237,7 @@ export default function ImportProgressModal({
     { key: 'imported', value: stats.imported, className: 'bg-primary-600 dark:bg-primary-500' },
     { key: 'duplicates', value: stats.duplicates, className: 'bg-surface-400 dark:bg-surface-500' },
     { key: 'failed', value: stats.failed, className: 'bg-red-500' },
+    { key: 'genericSkipped', value: stats.genericSkipped.length, className: 'bg-amber-400' },
   ]
 
   const counters = [
@@ -244,7 +245,10 @@ export default function ImportProgressModal({
     { label: 'Already existed', value: stats.duplicates, swatch: 'bg-surface-400 dark:bg-surface-500' },
     { label: 'Failed', value: stats.failed, swatch: 'bg-red-500' },
     ...(run?.withMetadata
-      ? [{ label: 'Without metadata', value: stats.metaMissing, swatch: 'ring-2 ring-inset ring-amber-400 bg-transparent' }]
+      ? [
+          { label: 'Without metadata', value: stats.metaMissing, swatch: 'ring-2 ring-inset ring-amber-400 bg-transparent' },
+          { label: 'Skipped (generic page)', value: stats.genericSkipped.length, swatch: 'bg-amber-400' },
+        ]
       : []),
     ...(cancelled
       ? [{ label: 'Not processed', value: notProcessed.length, swatch: 'bg-surface-100 ring-1 ring-inset ring-surface-300 dark:bg-surface-800 dark:ring-surface-600' }]
@@ -271,7 +275,17 @@ export default function ImportProgressModal({
   const copyFailedUrls = () =>
     copyUrls(stats.failures.map(f => f.url), "Couldn't copy. Select the URLs in the list instead.")
   const copyUnprocessedUrls = () => copyUrls(notProcessed, "Couldn't copy the unprocessed URLs.")
-  const copyButtonWidth = cancelled ? 'flex-auto whitespace-nowrap' : 'flex-1'
+  const copySkippedUrls = () =>
+    copyUrls(stats.genericSkipped, "Couldn't copy. Select the URLs in the list instead.")
+
+  const showCopyFailed = stats.failures.length > 0
+  const showCopySkipped = stats.genericSkipped.length > 0
+  const showCopyUnprocessed = cancelled && notProcessed.length > 0
+  const copyButtonCount = [showCopyFailed, showCopySkipped, showCopyUnprocessed].filter(Boolean).length
+  // With more than one copy button (or after a cancel), they sit on their own wrapping row
+  // above a full-width Done, so up to three buttons still fit a 375px bottom sheet.
+  const stackCopyButtons = cancelled || copyButtonCount > 1
+  const copyButtonWidth = stackCopyButtons ? 'flex-auto whitespace-nowrap' : 'flex-1'
 
   return (
     <div
@@ -394,18 +408,36 @@ export default function ImportProgressModal({
             </section>
           )}
 
+          {!running && stats.genericSkipped.length > 0 && (
+            <section aria-labelledby="import-skipped-heading">
+              <h3 id="import-skipped-heading" className="text-sm font-medium text-surface-700 dark:text-surface-200">
+                Skipped: the site returned a generic page with no metadata
+              </h3>
+              <ul className="mt-2 max-h-48 divide-y divide-surface-100 overflow-y-auto rounded-xl ring-1 ring-surface-200 dark:divide-surface-800 dark:ring-surface-700">
+                {stats.genericSkipped.map((url, i) => (
+                  <li key={`${i}-${url}`} className="px-3 py-2">
+                    <span className="break-all text-sm text-surface-800 dark:text-surface-100">{url}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
           {!running && (
-            // When cancelled, the copy buttons sit on their own (wrapping) row above a
-            // full-width Done, so up to three buttons still fit a 375px bottom sheet.
-            <div className={cancelled ? 'flex flex-col gap-3' : 'flex gap-3'}>
-              {(stats.failures.length > 0 || (cancelled && notProcessed.length > 0)) && (
-                <div className={cancelled ? 'flex flex-wrap gap-3' : 'contents'}>
-                  {stats.failures.length > 0 && (
+            <div className={stackCopyButtons ? 'flex flex-col gap-3' : 'flex gap-3'}>
+              {copyButtonCount > 0 && (
+                <div className={stackCopyButtons ? 'flex flex-wrap gap-3' : 'contents'}>
+                  {showCopyFailed && (
                     <button type="button" onClick={copyFailedUrls} className={`${copyButtonWidth} ${SECONDARY_BUTTON}`}>
                       Copy failed URLs
                     </button>
                   )}
-                  {cancelled && notProcessed.length > 0 && (
+                  {showCopySkipped && (
+                    <button type="button" onClick={copySkippedUrls} className={`${copyButtonWidth} ${SECONDARY_BUTTON}`}>
+                      Copy skipped URLs
+                    </button>
+                  )}
+                  {showCopyUnprocessed && (
                     <button type="button" onClick={copyUnprocessedUrls} className={`${copyButtonWidth} ${SECONDARY_BUTTON}`}>
                       Copy unprocessed URLs
                     </button>
