@@ -436,6 +436,8 @@ export type HostBlockReason = 'rate_limited' | 'empty_responses'
 /** `attempt` starts at 1 and grows each time a retry of the same row is still blocked. */
 export type HostBlockInfo = { host: string; reason: HostBlockReason; attempt: number }
 export type HostBlockDecision = 'retry' | 'skip_host' | 'cancel'
+/** A same-host throttle wait: `host` is the host group, `until` the epoch ms the fetch may start. */
+export type ThrottleWait = { host: string; until: number }
 
 export type ImportLinksOptions = {
   onProgress?: (done: number, total: number, outcome: ImportRowOutcome) => void
@@ -447,6 +449,8 @@ export type ImportLinksOptions = {
   onHostBlocked?: (info: HostBlockInfo) => Promise<HostBlockDecision>
   /** Admin-configured gap and empty-streak limit for this run; defaults when absent. */
   guardConfig?: FetchGuardConfig
+  /** Called with the wait before a same-host gap of >= 1 s starts, and with null when it ends. */
+  onThrottleWait?: (wait: ThrottleWait | null) => void
 }
 
 const isEmpty = (value: string | null | undefined) => value == null || value === ''
@@ -478,11 +482,17 @@ async function fetchRowMeta(
   fetchMeta: ImportMetaFetcher,
   options: ImportLinksOptions,
 ): Promise<{ input: ImportLinkInput; metaMissing: boolean } | 'cancelled'> {
-  const { signal, onHostBlocked } = options
+  const { signal, onHostBlocked, onThrottleWait } = options
   let attempt = 0
 
   for (;;) {
-    await guard.waitTurn(group, signal)
+    let waitReported = false
+    await guard.waitTurn(group, signal, onThrottleWait && (until => {
+      waitReported = true
+      onThrottleWait({ host: group, until })
+    }))
+    // Cleared before the abort check so a cancel during the wait also clears it.
+    if (waitReported) onThrottleWait?.(null)
     if (signal?.aborted) return 'cancelled'
 
     let meta: ImportMeta | null

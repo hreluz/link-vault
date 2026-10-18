@@ -1248,6 +1248,67 @@ describe('importLinks', () => {
       expect(calls.map(c => c.url)).toEqual(['https://instagram.com/p/1'])
       expect(result).toMatchObject({ imported: 2, metaMissing: 2 })
     })
+
+    describe('onThrottleWait', () => {
+      it('reports one same-host wait with the host group and its end time, then null', async () => {
+        const { fetchMeta, calls } = scriptedFetcher({})
+        const onThrottleWait = vi.fn()
+
+        await settle(importLinks(
+          [{ url: 'https://youtu.be/a' }, { url: 'https://www.youtube.com/watch?v=b' }],
+          null, dek, { fetchMeta, onThrottleWait },
+        ))
+
+        expect(onThrottleWait).toHaveBeenCalledTimes(2)
+        expect(onThrottleWait.mock.calls[0][0]).toEqual({ host: 'youtube.com', until: expect.any(Number) })
+        expect(onThrottleWait.mock.calls[0][0].until - calls[0].at).toBeGreaterThanOrEqual(2000)
+        expect(onThrottleWait.mock.calls[1][0]).toBeNull()
+      })
+
+      it('is not called for rows on different hosts', async () => {
+        const { fetchMeta } = scriptedFetcher({})
+        const onThrottleWait = vi.fn()
+
+        await settle(importLinks(
+          [{ url: 'https://a.com/1' }, { url: 'https://b.com/1' }, { url: 'https://c.com/1' }],
+          null, dek, { fetchMeta, onThrottleWait },
+        ))
+
+        expect(onThrottleWait).not.toHaveBeenCalled()
+      })
+
+      it('is not called when the configured gap is 0', async () => {
+        const { fetchMeta } = scriptedFetcher({})
+        const onThrottleWait = vi.fn()
+
+        await settle(importLinks(
+          [{ url: 'https://a.com/1' }, { url: 'https://a.com/2' }],
+          null, dek, { fetchMeta, onThrottleWait, guardConfig: { gapMs: 0, emptyStreakLimit: 3 } },
+        ))
+
+        expect(onThrottleWait).not.toHaveBeenCalled()
+      })
+
+      it('still reports null when a cancel cuts the wait short', async () => {
+        const controller = new AbortController()
+        const { fetchMeta } = scriptedFetcher({})
+        const onThrottleWait = vi.fn()
+        const pending = importLinks(
+          [{ url: 'https://a.com/1' }, { url: 'https://a.com/2' }],
+          null, dek, { fetchMeta, signal: controller.signal, onThrottleWait },
+        )
+        while (onThrottleWait.mock.calls.length < 1) await new Promise(resolve => setImmediate(resolve))
+        controller.abort()
+
+        const result = await settle(pending)
+
+        expect(onThrottleWait.mock.calls).toEqual([
+          [{ host: 'a.com', until: expect.any(Number) }],
+          [null],
+        ])
+        expect(result).toMatchObject({ cancelled: true, notProcessed: ['https://a.com/2'] })
+      })
+    })
   })
 })
 

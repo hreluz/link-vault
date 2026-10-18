@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { useDialog } from '@/lib/hooks/shared/useDialog'
 import { useBackdropClose } from '@/lib/hooks/shared/useBackdropClose'
-import type { ImportFailureReason } from '@/lib/services/links'
+import type { ImportFailureReason, ThrottleWait } from '@/lib/services/links'
 import type { VaultImportPhase, VaultImportProgress } from '@/lib/services/importExport/importVault'
 import { formatEta } from '@/lib/services/importExport/importEstimate'
 import type {
@@ -61,6 +61,23 @@ function useNow(active: boolean) {
     return () => clearInterval(id)
   }, [active])
   return now
+}
+
+/** Seconds left until `until`, rounded up and clamped to [1, max]. */
+function throttleSecondsLeft(until: number, now: number, max: number) {
+  return Math.min(max, Math.max(1, Math.ceil((until - now) / 1000)))
+}
+
+/** `Next <host> link in N s` while the import waits out a same-host gap. Keyed by the
+ *  wait, so the starting value (the clamp's ceiling) is taken when each wait begins. */
+function ThrottleCountdown({ wait }: { wait: ThrottleWait }) {
+  const [initial] = useState(() => throttleSecondsLeft(wait.until, Date.now(), Infinity))
+  const now = useNow(true)
+  return (
+    <p className="mt-0.5 break-words text-xs tabular-nums text-surface-400 dark:text-surface-500">
+      Next {wait.host} link in {throttleSecondsLeft(wait.until, now, initial)} s
+    </p>
+  )
 }
 
 interface HostBlockNoticeProps {
@@ -124,6 +141,8 @@ interface Props {
   onClose: () => void
   /** Set while a host looks blocked and the import is paused for a decision. */
   hostBlock: HostBlockState | null
+  /** Set while the import waits out a same-host gap of >= 1 s. */
+  throttleWait?: ThrottleWait | null
   onBlockWait: () => void
   onBlockSkip: () => void
   onBlockLeave: () => void
@@ -134,7 +153,7 @@ interface Props {
 
 export default function ImportProgressModal({
   state, stats, run, progress, result, error, cancelling, notProcessed, etaMs = null, onCancel, onClose,
-  hostBlock, onBlockWait, onBlockSkip, onBlockLeave,
+  hostBlock, throttleWait = null, onBlockWait, onBlockSkip, onBlockLeave,
   retryWaitMs = DEFAULT_IMPORT_FETCH_SETTINGS.retryWaitSeconds * 1000,
   emptyStreakLimit = DEFAULT_IMPORT_FETCH_SETTINGS.emptyStreakLimit,
 }: Props) {
@@ -262,6 +281,9 @@ export default function ImportProgressModal({
               <p className="mt-0.5 text-xs tabular-nums text-surface-400 dark:text-surface-500">
                 {progress.done} of {progress.total}
               </p>
+            )}
+            {running && throttleWait && !hostBlock && (
+              <ThrottleCountdown key={`${throttleWait.host}-${throttleWait.until}`} wait={throttleWait} />
             )}
           </div>
 

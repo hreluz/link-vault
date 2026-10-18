@@ -345,6 +345,50 @@ describe('ImportProgressModal', () => {
     })
   })
 
+  describe('throttle wait', () => {
+    const LINKS_META_RUN = { isVault: false, withMetadata: true }
+    const LINE = /^Next .* link in \d+ s$/
+
+    beforeEach(() => { vi.useFakeTimers() })
+    afterEach(() => { vi.useRealTimers() })
+
+    it('renders the host and the seconds left, and ticks', () => {
+      renderModal({ run: LINKS_META_RUN, throttleWait: { host: 'youtube.com', until: Date.now() + 3000 } })
+      expect(screen.getByText('Next youtube.com link in 3 s')).toBeTruthy()
+
+      act(() => { vi.advanceTimersByTime(1000) })
+      expect(screen.getByText('Next youtube.com link in 2 s')).toBeTruthy()
+    })
+
+    it('never shows 0 s, even once the wait has run out', () => {
+      renderModal({ run: LINKS_META_RUN, throttleWait: { host: 'youtube.com', until: Date.now() + 1000 } })
+      expect(screen.getByText('Next youtube.com link in 1 s')).toBeTruthy()
+
+      act(() => { vi.advanceTimersByTime(3000) })
+      expect(screen.getByText('Next youtube.com link in 1 s')).toBeTruthy()
+      expect(screen.queryByText('Next youtube.com link in 0 s')).toBeNull()
+    })
+
+    it('is hidden while a host block pauses the import', () => {
+      renderModal({
+        run: LINKS_META_RUN,
+        throttleWait: { host: 'youtube.com', until: Date.now() + 3000 },
+        hostBlock: { host: 'youtube.com', reason: 'rate_limited', attempt: 1, retryAt: null },
+      })
+      expect(screen.queryByText(LINE)).toBeNull()
+    })
+
+    it('is hidden once the import has finished', () => {
+      renderModal({ state: 'finished', run: LINKS_META_RUN, throttleWait: { host: 'youtube.com', until: Date.now() + 3000 } })
+      expect(screen.queryByText(LINE)).toBeNull()
+    })
+
+    it('is hidden when no wait is in progress', () => {
+      renderModal({ run: LINKS_META_RUN, throttleWait: null })
+      expect(screen.queryByText(LINE)).toBeNull()
+    })
+  })
+
   describe('host blocked', () => {
     const BLOCK = { host: 'instagram.com', reason: 'rate_limited' as const, attempt: 1, retryAt: null }
     const LINKS_META_RUN = { isVault: false, withMetadata: true }
