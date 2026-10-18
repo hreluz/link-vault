@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUserRole } from '@/lib/services/users'
-import { isRegistrationEnabled, isRestartAccountEnabled } from '@/lib/services/appSettings'
+import { getImportFetchSettings, isRegistrationEnabled, isRestartAccountEnabled } from '@/lib/services/appSettings'
 import AdminSettingsForm from './AdminSettingsForm'
 
 export const metadata: Metadata = { title: 'Admin Settings — Link Vault' }
@@ -12,9 +12,10 @@ export default async function AdminSettingsPage() {
   const role = await getCurrentUserRole(supabase)
   if (role !== 'admin') redirect('/dashboard/config')
 
-  const [registrationEnabled, restartAccountEnabled] = await Promise.all([
+  const [registrationEnabled, restartAccountEnabled, importFetchSettings] = await Promise.all([
     isRegistrationEnabled(supabase),
     isRestartAccountEnabled(supabase),
+    getImportFetchSettings(supabase),
   ])
 
   const youtubeKey = process.env.YOUTUBE_API_KEY
@@ -27,6 +28,7 @@ export default async function AdminSettingsPage() {
     <AdminSettingsForm
       initialRegistrationEnabled={registrationEnabled}
       initialRestartAccountEnabled={restartAccountEnabled}
+      initialImportFetchSettings={importFetchSettings}
       youtubeKeyDebug={youtubeKeyDebug}
     />
   )

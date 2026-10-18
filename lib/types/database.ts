@@ -257,6 +257,9 @@ export interface Database {
           id: string
           registrations_enabled: boolean
           restart_account_enabled: boolean
+          import_fetch_gap_seconds: number
+          import_retry_wait_seconds: number
+          import_empty_streak_limit: number
           created_at: string
           updated_at: string
         }
@@ -264,12 +267,18 @@ export interface Database {
           id?: string
           registrations_enabled?: boolean
           restart_account_enabled?: boolean
+          import_fetch_gap_seconds?: number
+          import_retry_wait_seconds?: number
+          import_empty_streak_limit?: number
           created_at?: string
           updated_at?: string
         }
         Update: {
           registrations_enabled?: boolean
           restart_account_enabled?: boolean
+          import_fetch_gap_seconds?: number
+          import_retry_wait_seconds?: number
+          import_empty_streak_limit?: number
           updated_at?: string
         }
         Relationships: []

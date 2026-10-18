@@ -15,12 +15,14 @@ export type EstimateOptions = {
   withMetadata: boolean
   /** Host groups whose metadata fetch was skipped ("Import without metadata"). */
   skippedGroups?: ReadonlySet<string>
+  /** Same-host gap the import will use; defaults to `FETCH_GAP_MS`. */
+  gapMs?: number
 }
 
 /** Replays `importLinks`'s sequential loop on a virtual clock: one row at a time, and a
- *  metadata fetch waits until `FETCH_GAP_MS` after the previous fetch to the same host group
+ *  metadata fetch waits until the same-host gap after the previous fetch to the same host group
  *  ended. Assumes every row is new, so duplicates make the real import faster. */
-export function simulateImportMs(rows: readonly EstimateRow[], { withMetadata, skippedGroups }: EstimateOptions): number {
+export function simulateImportMs(rows: readonly EstimateRow[], { withMetadata, skippedGroups, gapMs = FETCH_GAP_MS }: EstimateOptions): number {
   let t = 0
   const lastFetchEnd = new Map<string, number>()
   for (const row of rows) {
@@ -28,7 +30,7 @@ export function simulateImportMs(rows: readonly EstimateRow[], { withMetadata, s
       const group = hostGroupOf(row.url)
       if (group && !skippedGroups?.has(group)) {
         const last = lastFetchEnd.get(group)
-        const start = last === undefined ? t : Math.max(t, last + FETCH_GAP_MS)
+        const start = last === undefined ? t : Math.max(t, last + gapMs)
         t = start + EST_FETCH_MS
         lastFetchEnd.set(group, t)
       }

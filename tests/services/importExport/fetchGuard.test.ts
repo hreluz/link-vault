@@ -4,6 +4,7 @@ import {
   hostGroupOf,
   FETCH_GAP_MS,
   EMPTY_STREAK_LIMIT,
+  type FetchGuardConfig,
 } from '@/lib/services/importExport/fetchGuard'
 import type { ImportMeta } from '@/lib/services/links'
 
@@ -11,10 +12,10 @@ const FULL: ImportMeta = { title: 'T', description: null, image: null, duration:
 const EMPTY: ImportMeta = { title: null, description: null, image: null, duration: null }
 const RATE_LIMITED: ImportMeta = { ...EMPTY, rateLimited: true }
 
-function makeGuard() {
+function makeGuard(config?: FetchGuardConfig) {
   let clock = 0
   const sleep = vi.fn(async (ms: number) => { clock += ms })
-  const guard = createFetchGuard({ now: () => clock, sleep })
+  const guard = createFetchGuard({ now: () => clock, sleep, config })
   return { guard, sleep, advance: (ms: number) => { clock += ms } }
 }
 
@@ -68,6 +69,22 @@ describe('createFetchGuard — throttle', () => {
   it('does not make a different group wait', async () => {
     const { guard, sleep } = makeGuard()
     guard.record('youtube.com', FULL)
+    await guard.waitTurn('example.com')
+    expect(sleep).not.toHaveBeenCalled()
+  })
+
+  it('uses the configured gap', async () => {
+    const { guard, sleep } = makeGuard({ gapMs: 5000, emptyStreakLimit: EMPTY_STREAK_LIMIT })
+    guard.record('example.com', FULL)
+    await guard.waitTurn('example.com')
+    expect(sleep).toHaveBeenCalledWith(5000, undefined)
+  })
+
+  it('never sleeps when the configured gap is 0', async () => {
+    const { guard, sleep } = makeGuard({ gapMs: 0, emptyStreakLimit: EMPTY_STREAK_LIMIT })
+    guard.record('example.com', FULL)
+    await guard.waitTurn('example.com')
+    guard.record('example.com', FULL)
     await guard.waitTurn('example.com')
     expect(sleep).not.toHaveBeenCalled()
   })
@@ -126,6 +143,17 @@ describe('createFetchGuard — breaker', () => {
     guard.record('instagram.com', EMPTY)
     guard.resetGroup('instagram.com')
     expect(guard.record('instagram.com', EMPTY)).toBeNull()
+  })
+
+  it('trips on the first empty fetch when the configured limit is 1', () => {
+    const { guard } = makeGuard({ gapMs: FETCH_GAP_MS, emptyStreakLimit: 1 })
+    expect(guard.record('instagram.com', EMPTY)).toBe('empty_responses')
+  })
+
+  it('waits for the configured limit of empty fetches', () => {
+    const { guard } = makeGuard({ gapMs: FETCH_GAP_MS, emptyStreakLimit: 5 })
+    for (let i = 0; i < 4; i++) expect(guard.record('instagram.com', EMPTY)).toBeNull()
+    expect(guard.record('instagram.com', EMPTY)).toBe('empty_responses')
   })
 
   it('skip marks only that group as skipped', () => {

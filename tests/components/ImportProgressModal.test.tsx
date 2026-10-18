@@ -408,6 +408,31 @@ describe('ImportProgressModal', () => {
       expect(screen.getByRole('button', { name: 'Retrying in 1:00' })).toBeTruthy()
     })
 
+    it.each([
+      [60_000, 'Wait 1 minute and retry'],
+      [45_000, 'Wait 45 s and retry'],
+      [120_000, 'Wait 2 minutes and retry'],
+      [90_000, 'Wait 1 min 30 s and retry'],
+    ])('labels a %i ms retry wait as "%s"', (retryWaitMs, label) => {
+      renderModal({ run: LINKS_META_RUN, hostBlock: BLOCK, retryWaitMs })
+      expect(screen.getByRole('button', { name: label })).toBeTruthy()
+    })
+
+    it('shows the configured empty-streak limit', () => {
+      renderModal({ run: LINKS_META_RUN, hostBlock: { ...BLOCK, reason: 'empty_responses' }, emptyStreakLimit: 5 })
+      expect(screen.getByText('The last 5 links from it came back empty.')).toBeTruthy()
+    })
+
+    it('uses the singular when the empty-streak limit is 1', () => {
+      renderModal({ run: LINKS_META_RUN, hostBlock: { ...BLOCK, reason: 'empty_responses' }, emptyStreakLimit: 1 })
+      expect(screen.getByText('The last link from it came back empty.')).toBeTruthy()
+    })
+
+    it('starts the countdown at the configured wait and never shows more', () => {
+      renderModal({ run: LINKS_META_RUN, hostBlock: { ...BLOCK, retryAt: Date.now() + 31_000 }, retryWaitMs: 30_000 })
+      expect(screen.getByRole('button', { name: 'Retrying in 0:30' })).toBeTruthy()
+    })
+
     it('does not close on Escape while paused', () => {
       const { props } = renderModal({ run: LINKS_META_RUN, hostBlock: BLOCK })
       fireEvent.keyDown(document, { key: 'Escape' })
