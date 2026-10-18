@@ -3,6 +3,8 @@
 import Link from 'next/link'
 import { toggleRegistrationAction, toggleRestartAccountAction } from './actions'
 import { useAsyncToggle } from '@/lib/hooks/shared/useAsyncToggle'
+import type { ImportFetchSettings } from '@/lib/services/appSettings'
+import ImportFetchSettingsCard from './ImportFetchSettingsCard'
 
 type YoutubeKeyDebug = {
   hasYouTubeKey: boolean
@@ -12,10 +14,12 @@ type YoutubeKeyDebug = {
 export default function AdminSettingsForm({
   initialRegistrationEnabled,
   initialRestartAccountEnabled,
+  initialImportFetchSettings,
   youtubeKeyDebug,
 }: {
   initialRegistrationEnabled: boolean
   initialRestartAccountEnabled: boolean
+  initialImportFetchSettings: ImportFetchSettings
   youtubeKeyDebug: YoutubeKeyDebug
 }) {
   const {
@@ -110,6 +114,8 @@ export default function AdminSettingsForm({
           </button>
         </div>
       </div>
+
+      <ImportFetchSettingsCard initialSettings={initialImportFetchSettings} />
 
       <div className="mt-6 rounded-2xl bg-surface-card p-6 shadow-sm ring-1 ring-surface-200 dark:bg-surface-900 dark:ring-surface-700">
         <p className="mb-4 font-medium text-surface-900 dark:text-surface-50">YouTube API key</p>

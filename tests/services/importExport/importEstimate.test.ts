@@ -20,6 +20,12 @@ describe('simulateImportMs', () => {
     expect(ms).toBe(EST_FETCH_MS + Math.max(EST_ROW_MS, FETCH_GAP_MS) + EST_FETCH_MS + EST_ROW_MS)
   })
 
+  it('uses the configured gap', () => {
+    const urls = rows('https://a.com/1', 'https://a.com/2')
+    expect(simulateImportMs(urls, { withMetadata: true, gapMs: 0 })).toBe(2 * (EST_FETCH_MS + EST_ROW_MS))
+    expect(simulateImportMs(urls, { withMetadata: true, gapMs: 5000 })).toBe(EST_FETCH_MS + 5000 + EST_FETCH_MS + EST_ROW_MS)
+  })
+
   it('does not wait between different hosts', () => {
     const ms = simulateImportMs(rows('https://a.com', 'https://b.com'), { withMetadata: true })
     expect(ms).toBe(2 * (EST_FETCH_MS + EST_ROW_MS))

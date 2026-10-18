@@ -1,9 +1,12 @@
 import type { HostBlockReason, ImportLinkInput, ImportMeta } from '@/lib/services/links'
 
-/** Minimum time between the end of one metadata fetch and the start of the next to the same group. */
+/** Default minimum time between the end of one metadata fetch and the start of the next to the same group. */
 export const FETCH_GAP_MS = 2000
-/** Consecutive empty fetches from one group that count as a soft block (e.g. a login wall). */
+/** Default number of consecutive empty fetches from one group that count as a soft block (e.g. a login wall). */
 export const EMPTY_STREAK_LIMIT = 3
+
+/** Admin-tunable guard values (SPEC 08); a guard without one uses the defaults above. */
+export type FetchGuardConfig = { gapMs: number; emptyStreakLimit: number }
 
 // Hostnames that hit the same infrastructure share one throttle and one breaker.
 const HOST_GROUPS: Record<string, string> = {
@@ -60,9 +63,11 @@ const isEmptyMeta = (meta: ImportMeta | null) =>
 type GroupState = { lastFetchEnd: number | null; emptyStreak: number; skipped: boolean }
 
 /** Per-import throttle + breaker state, one entry per host group. */
-export function createFetchGuard(deps: { now?: () => number; sleep?: Sleep } = {}) {
+export function createFetchGuard(deps: { now?: () => number; sleep?: Sleep; config?: FetchGuardConfig } = {}) {
   const now = deps.now ?? Date.now
   const sleep = deps.sleep ?? defaultSleep
+  const gapMs = deps.config?.gapMs ?? FETCH_GAP_MS
+  const emptyStreakLimit = deps.config?.emptyStreakLimit ?? EMPTY_STREAK_LIMIT
   const groups = new Map<string, GroupState>()
 
   function stateOf(group: string): GroupState {
@@ -75,12 +80,12 @@ export function createFetchGuard(deps: { now?: () => number; sleep?: Sleep } = {
   }
 
   return {
-    /** Waits until `FETCH_GAP_MS` has passed since this group's last fetch ended.
+    /** Waits until the configured gap has passed since this group's last fetch ended.
      *  Returns early when `signal` aborts; the caller checks `signal.aborted` afterwards. */
     async waitTurn(group: string, signal?: AbortSignal): Promise<void> {
       const { lastFetchEnd } = stateOf(group)
       if (lastFetchEnd === null) return
-      const wait = lastFetchEnd + FETCH_GAP_MS - now()
+      const wait = lastFetchEnd + gapMs - now()
       if (wait > 0) await sleep(wait, signal)
     },
 
@@ -98,7 +103,7 @@ export function createFetchGuard(deps: { now?: () => number; sleep?: Sleep } = {
         return null
       }
       state.emptyStreak++
-      if (state.emptyStreak < EMPTY_STREAK_LIMIT) return null
+      if (state.emptyStreak < emptyStreakLimit) return null
       state.emptyStreak = 0
       return 'empty_responses'
     },

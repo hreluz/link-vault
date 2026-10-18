@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/client'
 import { hmacFingerprint } from '@/lib/crypto/vault'
 import { toEncryptedColumns, fromEncryptedColumns } from '@/lib/crypto/encryptedRow'
 import { syncTagsByName } from '@/lib/services/tags/tags'
-import { createFetchGuard, hostGroupOf, needsMetaFetch, type FetchGuard } from '@/lib/services/importExport/fetchGuard'
+import { createFetchGuard, hostGroupOf, needsMetaFetch, type FetchGuard, type FetchGuardConfig } from '@/lib/services/importExport/fetchGuard'
 import type { LinkStatus } from '@/lib/types/database'
 import type { SortBy } from '@/app/dashboard/link/FilterSheet'
 
@@ -445,6 +445,8 @@ export type ImportLinksOptions = {
   /** Awaited when a host group trips the breaker; the import is paused until it resolves.
    *  When absent, behaves as 'skip_host'. Only consulted when fetchMeta is set. */
   onHostBlocked?: (info: HostBlockInfo) => Promise<HostBlockDecision>
+  /** Admin-configured gap and empty-streak limit for this run; defaults when absent. */
+  guardConfig?: FetchGuardConfig
 }
 
 const isEmpty = (value: string | null | undefined) => value == null || value === ''
@@ -517,8 +519,8 @@ export async function importLinks(
   dek: CryptoKey,
   options: ImportLinksOptions = {},
 ): Promise<ImportResult> {
-  const { onProgress, fetchMeta, signal } = options
-  const guard = fetchMeta ? createFetchGuard() : null
+  const { onProgress, fetchMeta, signal, guardConfig } = options
+  const guard = fetchMeta ? createFetchGuard({ config: guardConfig }) : null
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {

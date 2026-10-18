@@ -2,7 +2,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
-import { useLinkImport, HOST_BLOCK_RETRY_MS } from '@/lib/hooks/importExport/useLinkImport'
+import { useLinkImport } from '@/lib/hooks/importExport/useLinkImport'
 import type { VaultExportV2 } from '@/lib/types/importExport'
 
 const MOCK_CATEGORIES = [
@@ -14,8 +14,9 @@ const MOCK_CATEGORIES = [
 const {
   mockImportLinks, mockUseCategoryList, mockGetOrCreateCategoryByName, mockImportVaultExport,
   mockToastSuccess, mockToastError, mockToastWarning, mockRefetchTags, mockFetchLinkMeta,
-  mockGetCategoryIdByDomainMap,
+  mockGetCategoryIdByDomainMap, mockGetImportFetchSettings,
 } = vi.hoisted(() => ({
+  mockGetImportFetchSettings: vi.fn(),
   mockImportLinks: vi.fn(),
   mockUseCategoryList: vi.fn(),
   mockGetOrCreateCategoryByName: vi.fn(),
@@ -55,11 +56,21 @@ vi.mock('@/app/dashboard/link/actions', () => ({
   fetchLinkMeta: mockFetchLinkMeta,
 }))
 
+vi.mock('@/lib/supabase/client', () => ({ createClient: () => ({}) }))
+
+// Only the DB read is mocked; the defaults are the real ones.
+vi.mock('@/lib/services/appSettings', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/lib/services/appSettings')>()),
+  getImportFetchSettings: mockGetImportFetchSettings,
+}))
+
 vi.mock('@/lib/hooks/categories/useCategoryList', () => ({
   useCategoryList: mockUseCategoryList,
 }))
 
 const FAKE_DEK = {} as CryptoKey
+/** The guard config importLinks gets with the default admin settings (2 s gap, 3 empties). */
+const DEFAULT_GUARD = { gapMs: 2000, emptyStreakLimit: 3 }
 vi.mock('@/lib/context/VaultContext', () => ({
   useVault: () => ({ dek: FAKE_DEK, isUnlocked: true, unlock: vi.fn(), changePassword: vi.fn(), lock: vi.fn() }),
 }))
@@ -74,6 +85,7 @@ beforeEach(() => {
   mockImportLinks.mockResolvedValue({ imported: 2, skipped: 0, duplicates: 0 })
   mockGetOrCreateCategoryByName.mockResolvedValue('cat-resolved')
   mockGetCategoryIdByDomainMap.mockResolvedValue(new Map())
+  mockGetImportFetchSettings.mockResolvedValue({ fetchGapSeconds: 2, retryWaitSeconds: 60, emptyStreakLimit: 3 })
   mockImportVaultExport.mockResolvedValue({
     imported: 2, skipped: 0, duplicates: 0, categoriesCreated: 0, domainsCreated: 0, tagsCreated: 0,
   })
@@ -128,7 +140,7 @@ describe('useLinkImport', () => {
       })
       await act(async () => { await result.current.handleImport() })
 
-      expect(mockImportLinks).toHaveBeenCalledWith(expect.any(Array), 'cat-2', FAKE_DEK, { onProgress: expect.any(Function), fetchMeta: undefined, signal: expect.any(AbortSignal) })
+      expect(mockImportLinks).toHaveBeenCalledWith(expect.any(Array), 'cat-2', FAKE_DEK, { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal) })
     })
   })
 
@@ -192,7 +204,7 @@ describe('useLinkImport', () => {
         [{ url: 'https://example.com', tags: [] }, { url: 'https://github.com', tags: [] }],
         'cat-0',
         FAKE_DEK,
-        { onProgress: expect.any(Function), fetchMeta: undefined, signal: expect.any(AbortSignal) },
+        { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal) },
       )
     })
 
@@ -206,7 +218,7 @@ describe('useLinkImport', () => {
         [{ url: 'https://example.com', tags: [] }],
         expect.anything(),
         FAKE_DEK,
-        { onProgress: expect.any(Function), fetchMeta: undefined, signal: expect.any(AbortSignal) },
+        { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal) },
       )
     })
 
@@ -277,7 +289,7 @@ describe('useLinkImport', () => {
         [{ url: 'https://example.com', tags: ['react'] }],
         expect.anything(),
         FAKE_DEK,
-        { onProgress: expect.any(Function), fetchMeta: undefined, signal: expect.any(AbortSignal) },
+        { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal) },
       )
     })
 
@@ -309,7 +321,7 @@ describe('useLinkImport', () => {
         [{ url: 'https://example.com' }],
         expect.anything(),
         FAKE_DEK,
-        { onProgress: expect.any(Function), fetchMeta: undefined, signal: expect.any(AbortSignal) },
+        { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal) },
       )
     })
   })
@@ -340,7 +352,7 @@ describe('useLinkImport', () => {
         [{ url: 'https://example.com', tags: ['test'] }],
         expect.anything(),
         FAKE_DEK,
-        { onProgress: expect.any(Function), fetchMeta: undefined, signal: expect.any(AbortSignal) },
+        { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal) },
       )
     })
 
@@ -398,7 +410,7 @@ describe('useLinkImport', () => {
         ]),
         expect.anything(),
         FAKE_DEK,
-        { onProgress: expect.any(Function), fetchMeta: undefined, signal: expect.any(AbortSignal) },
+        { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal) },
       )
     })
 
@@ -420,7 +432,7 @@ describe('useLinkImport', () => {
         ]),
         expect.anything(),
         FAKE_DEK,
-        { onProgress: expect.any(Function), fetchMeta: undefined, signal: expect.any(AbortSignal) },
+        { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal) },
       )
       expect(mockGetOrCreateCategoryByName).not.toHaveBeenCalled()
     })
@@ -699,7 +711,7 @@ describe('useLinkImport', () => {
       await act(async () => { await result.current.handleImport() })
 
       expect(mockImportLinks).toHaveBeenCalledWith(
-        expect.any(Array), 'cat-0', FAKE_DEK, { onProgress: expect.any(Function), fetchMeta: undefined, signal: expect.any(AbortSignal) },
+        expect.any(Array), 'cat-0', FAKE_DEK, { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal) },
       )
     })
 
@@ -714,7 +726,7 @@ describe('useLinkImport', () => {
       expect(mockImportLinks).toHaveBeenCalledWith(
         expect.any(Array), 'cat-0', FAKE_DEK, {
           onProgress: expect.any(Function), fetchMeta: mockFetchLinkMeta, onHostBlocked: expect.any(Function),
-          signal: expect.any(AbortSignal),
+          guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal),
         },
       )
     })
@@ -1182,9 +1194,9 @@ describe('useLinkImport', () => {
       const start = Date.now()
 
       act(() => result.current.waitAndRetry())
-      expect(result.current.hostBlock?.retryAt).toBe(start + HOST_BLOCK_RETRY_MS)
+      expect(result.current.hostBlock?.retryAt).toBe(start + 60_000)
 
-      await act(async () => { await vi.advanceTimersByTimeAsync(HOST_BLOCK_RETRY_MS - 1) })
+      await act(async () => { await vi.advanceTimersByTimeAsync(60_000 - 1) })
       expect(getDecision()).toBeNull()
 
       await act(async () => { await vi.advanceTimersByTimeAsync(1) })
@@ -1249,6 +1261,40 @@ describe('useLinkImport', () => {
       expect(getDecision()).toBe('cancel')
     })
 
+    it("waitAndRetry uses the admin's retry wait snapshotted at import start", async () => {
+      mockGetImportFetchSettings.mockResolvedValue({ fetchGapSeconds: 2, retryWaitSeconds: 30, emptyStreakLimit: 3 })
+      const { result, getDecision, finish } = await startBlockedImport()
+      expect(result.current.retryWaitMs).toBe(30_000)
+      // A later admin change must not reach the running import.
+      mockGetImportFetchSettings.mockResolvedValue({ fetchGapSeconds: 2, retryWaitSeconds: 90, emptyStreakLimit: 3 })
+      vi.useFakeTimers()
+      const start = Date.now()
+
+      act(() => result.current.waitAndRetry())
+      expect(result.current.hostBlock?.retryAt).toBe(start + 30_000)
+      await act(async () => { await vi.advanceTimersByTimeAsync(29_999) })
+      expect(getDecision()).toBeNull()
+      await act(async () => { await vi.advanceTimersByTimeAsync(1) })
+      expect(getDecision()).toBe('retry')
+
+      vi.useRealTimers()
+      await finish()
+    })
+
+    it('falls back to a 60 s retry wait when reading the settings fails', async () => {
+      mockGetImportFetchSettings.mockRejectedValue(new Error('network down'))
+      const { result, finish } = await startBlockedImport()
+      vi.useFakeTimers()
+      const start = Date.now()
+
+      act(() => result.current.waitAndRetry())
+      expect(result.current.hostBlock?.retryAt).toBe(start + 60_000)
+      expect(result.current.emptyStreakLimit).toBe(3)
+
+      vi.useRealTimers()
+      await finish()
+    })
+
     it('passes no onHostBlocked when auto-fetch is off', async () => {
       const { result } = await renderWithDefaultCategory()
       act(() => result.current.setUrlsText('https://example.com'))
@@ -1256,6 +1302,44 @@ describe('useLinkImport', () => {
 
       const options = mockImportLinks.mock.calls[0][3]
       expect(options.onHostBlocked).toBeUndefined()
+    })
+  })
+
+  describe('admin fetch settings', () => {
+    it('passes the snapshotted gap and empty-streak limit to importLinks', async () => {
+      mockGetImportFetchSettings.mockResolvedValue({ fetchGapSeconds: 5, retryWaitSeconds: 60, emptyStreakLimit: 1 })
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.setAutoFetchOnImport(true))
+      act(() => result.current.setUrlsText('https://example.com'))
+      await act(async () => { await result.current.handleImport() })
+
+      expect(mockImportLinks.mock.calls[0][3].guardConfig).toEqual({ gapMs: 5000, emptyStreakLimit: 1 })
+      expect(result.current.emptyStreakLimit).toBe(1)
+    })
+
+    it('passes the default guard config when reading the settings fails', async () => {
+      mockGetImportFetchSettings.mockRejectedValue(new Error('network down'))
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.setUrlsText('https://example.com'))
+      await act(async () => { await result.current.handleImport() })
+
+      expect(mockImportLinks.mock.calls[0][3].guardConfig).toEqual({ gapMs: 2000, emptyStreakLimit: 3 })
+    })
+
+    it('uses the loaded gap in the pre-import estimate', async () => {
+      const urls = 'https://a.com/1\nhttps://a.com/2'
+      const { result: withDefault } = await renderWithDefaultCategory()
+      act(() => withDefault.current.setAutoFetchOnImport(true))
+      act(() => withDefault.current.setUrlsText(urls))
+      const defaultMs = withDefault.current.importEstimate!.ms
+
+      mockGetImportFetchSettings.mockResolvedValue({ fetchGapSeconds: 10, retryWaitSeconds: 60, emptyStreakLimit: 3 })
+      const { result } = await renderWithDefaultCategory()
+      await waitFor(() => expect(mockGetImportFetchSettings).toHaveBeenCalledTimes(2))
+      act(() => result.current.setAutoFetchOnImport(true))
+      act(() => result.current.setUrlsText(urls))
+
+      await waitFor(() => expect(result.current.importEstimate!.ms).toBe(defaultMs + 8000))
     })
   })
 })

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { simulateImportMs, type EstimateRow } from '@/lib/services/importExport/importEstimate'
-import { hostGroupOf, needsMetaFetch } from '@/lib/services/importExport/fetchGuard'
+import { FETCH_GAP_MS, hostGroupOf, needsMetaFetch } from '@/lib/services/importExport/fetchGuard'
 import type { ImportRowOutcome } from '@/lib/services/links'
 
 /** Rows finished (after the first progress event) before the estimate is calibrated to real speed.
@@ -18,6 +18,8 @@ const MAX_RATIO = 4
 type Run = {
   rows: readonly EstimateRow[]
   withMetadata: boolean
+  /** Same-host gap this run uses (the admin setting snapshotted at import start). */
+  gapMs: number
   skippedGroups: Set<string>
   /** Per row index: whether the finished row did a metadata fetch. */
   fetched: boolean[]
@@ -47,9 +49,9 @@ export function useImportEta(paused: boolean, now: () => number = Date.now) {
     }
   }, [paused, now])
 
-  const start = useCallback((rows: readonly EstimateRow[], withMetadata: boolean) => {
+  const start = useCallback((rows: readonly EstimateRow[], withMetadata: boolean, gapMs: number = FETCH_GAP_MS) => {
     runRef.current = {
-      rows, withMetadata, skippedGroups: new Set(), fetched: [],
+      rows, withMetadata, gapMs, skippedGroups: new Set(), fetched: [],
       fetchedSinceAnchor: 0, anchor: null, pausedMs: 0, pausedAt: null,
     }
     setEtaMs(null)
@@ -86,7 +88,7 @@ export function useImportEta(paused: boolean, now: () => number = Date.now) {
     }
 
     const remaining = simulateImportMs(run.rows.slice(done), {
-      withMetadata: run.withMetadata, skippedGroups: run.skippedGroups,
+      withMetadata: run.withMetadata, skippedGroups: run.skippedGroups, gapMs: run.gapMs,
     })
 
     const sampleRows = run.withMetadata ? run.fetchedSinceAnchor : done - run.anchor.done
@@ -96,7 +98,7 @@ export function useImportEta(paused: boolean, now: () => number = Date.now) {
       // Finished rows are predicted with what they actually did, so duplicates cost a row, not a fetch.
       const start = run.anchor.done
       const finished = run.rows.slice(start, done).map((r, i) => ({ ...r, noFetch: !run.fetched[start + i] }))
-      const predicted = simulateImportMs(finished, { withMetadata: run.withMetadata })
+      const predicted = simulateImportMs(finished, { withMetadata: run.withMetadata, gapMs: run.gapMs })
       if (predicted > 0) ratio = Math.min(MAX_RATIO, Math.max(MIN_RATIO, activeMs / predicted))
     }
     setEtaMs(remaining * ratio)

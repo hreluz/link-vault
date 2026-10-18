@@ -7,10 +7,10 @@ import { useBackdropClose } from '@/lib/hooks/shared/useBackdropClose'
 import type { ImportFailureReason } from '@/lib/services/links'
 import type { VaultImportPhase, VaultImportProgress } from '@/lib/services/importExport/importVault'
 import { formatEta } from '@/lib/services/importExport/importEstimate'
-import {
-  HOST_BLOCK_RETRY_MS,
-  type HostBlockState, type ImportLastResult, type ImportModalState, type ImportRun, type ImportStats,
+import type {
+  HostBlockState, ImportLastResult, ImportModalState, ImportRun, ImportStats,
 } from '@/lib/hooks/importExport/useLinkImport'
+import { DEFAULT_IMPORT_FETCH_SETTINGS } from '@/lib/services/appSettings'
 
 const REASON_LABELS: Record<ImportFailureReason, string> = {
   invalid_url: 'Invalid URL',
@@ -35,10 +35,20 @@ function plural(n: number, word: string, pluralWord = `${word}s`) {
   return `${n} ${n === 1 ? word : pluralWord}`
 }
 
+/** The retry wait as button copy: `45 s`, `1 minute`, `2 minutes`, `1 min 30 s`. */
+export function formatWait(ms: number) {
+  const total = Math.round(ms / 1000)
+  const minutes = Math.floor(total / 60)
+  const seconds = total % 60
+  if (minutes === 0) return `${seconds} s`
+  if (seconds === 0) return plural(minutes, 'minute')
+  return `${minutes} min ${seconds} s`
+}
+
 /** `m:ss` until `retryAt`, clamped to [0, the retry wait] -- `now` may predate the click by
- *  up to one tick, which would otherwise read as more than a minute. */
-function formatCountdown(retryAt: number, now: number) {
-  const seconds = Math.min(Math.ceil(HOST_BLOCK_RETRY_MS / 1000), Math.max(0, Math.ceil((retryAt - now) / 1000)))
+ *  up to one tick, which would otherwise read as more than the wait. */
+function formatCountdown(retryAt: number, now: number, retryWaitMs: number) {
+  const seconds = Math.min(Math.ceil(retryWaitMs / 1000), Math.max(0, Math.ceil((retryAt - now) / 1000)))
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
 }
 
@@ -55,13 +65,15 @@ function useNow(active: boolean) {
 
 interface HostBlockNoticeProps {
   block: HostBlockState
+  retryWaitMs: number
+  emptyStreakLimit: number
   onWait: () => void
   onSkip: () => void
   onLeave: () => void
 }
 
 /** Shown in place of Cancel while a host looks blocked and the import is paused. */
-function HostBlockNotice({ block, onWait, onSkip, onLeave }: HostBlockNoticeProps) {
+function HostBlockNotice({ block, retryWaitMs, emptyStreakLimit, onWait, onSkip, onLeave }: HostBlockNoticeProps) {
   const counting = block.retryAt !== null
   const now = useNow(counting)
 
@@ -74,12 +86,14 @@ function HostBlockNotice({ block, onWait, onSkip, onLeave }: HostBlockNoticeProp
         <p className="mt-1">
           {block.reason === 'rate_limited'
             ? 'It answered "Too many requests".'
-            : 'The last 3 links from it came back empty.'}
+            : emptyStreakLimit === 1
+              ? 'The last link from it came back empty.'
+              : `The last ${emptyStreakLimit} links from it came back empty.`}
         </p>
         {block.attempt > 1 && <p className="mt-1">Still blocked (attempt {block.attempt}).</p>}
       </div>
       <button type="button" onClick={onWait} disabled={counting} className={`w-full tabular-nums ${PRIMARY_BUTTON}`}>
-        {counting ? `Retrying in ${formatCountdown(block.retryAt!, now)}` : 'Wait 1 minute and retry'}
+        {counting ? `Retrying in ${formatCountdown(block.retryAt!, now, retryWaitMs)}` : `Wait ${formatWait(retryWaitMs)} and retry`}
       </button>
       <div className="flex flex-wrap gap-3">
         <button type="button" onClick={onSkip} className={`flex-auto whitespace-nowrap ${SECONDARY_BUTTON}`}>
@@ -113,11 +127,16 @@ interface Props {
   onBlockWait: () => void
   onBlockSkip: () => void
   onBlockLeave: () => void
+  /** The running import's retry wait and empty-streak limit (admin settings); defaults when omitted. */
+  retryWaitMs?: number
+  emptyStreakLimit?: number
 }
 
 export default function ImportProgressModal({
   state, stats, run, progress, result, error, cancelling, notProcessed, etaMs = null, onCancel, onClose,
   hostBlock, onBlockWait, onBlockSkip, onBlockLeave,
+  retryWaitMs = DEFAULT_IMPORT_FETCH_SETTINGS.retryWaitSeconds * 1000,
+  emptyStreakLimit = DEFAULT_IMPORT_FETCH_SETTINGS.emptyStreakLimit,
 }: Props) {
   const isOpen = state !== 'closed'
   const running = state === 'running'
@@ -283,7 +302,9 @@ export default function ImportProgressModal({
           </dl>
 
           {running && hostBlock && (
-            <HostBlockNotice block={hostBlock} onWait={onBlockWait} onSkip={onBlockSkip} onLeave={onBlockLeave} />
+            <HostBlockNotice
+              block={hostBlock} retryWaitMs={retryWaitMs} emptyStreakLimit={emptyStreakLimit}
+              onWait={onBlockWait} onSkip={onBlockSkip} onLeave={onBlockLeave} />
           )}
 
           {running && !hostBlock && (

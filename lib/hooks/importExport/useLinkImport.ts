@@ -17,6 +17,10 @@ import { useCategoryList } from '@/lib/hooks/categories/useCategoryList'
 import { parseCSV, type ParsedRow } from '@/lib/utils/linksCsv'
 import { fetchLinkMeta } from '@/app/dashboard/link/actions'
 import { useImportEta } from '@/lib/hooks/importExport/useImportEta'
+import { createClient } from '@/lib/supabase/client'
+import {
+  getImportFetchSettings, DEFAULT_IMPORT_FETCH_SETTINGS, type ImportFetchSettings,
+} from '@/lib/services/appSettings'
 
 export type ImportTab = 'urls' | 'json' | 'file'
 
@@ -30,8 +34,6 @@ export type ImportStats = {
 export type ImportModalState = 'closed' | 'running' | 'finished' | 'cancelled' | 'error'
 /** Fixed at the start of an import, since the inputs it was derived from are cleared on success. */
 export type ImportRun = { isVault: boolean; withMetadata: boolean }
-/** How long "Wait 1 minute and retry" waits before re-fetching the blocked row. */
-export const HOST_BLOCK_RETRY_MS = 60_000
 /** A host that looks blocked while the import is paused; `retryAt` is set during the countdown. */
 export type HostBlockState = HostBlockInfo & { retryAt: number | null }
 
@@ -95,6 +97,15 @@ async function applyDomainCategories(inputs: ImportLinkInput[], dek: CryptoKey):
 }
 
 type VaultExportDetection = { data: VaultExportV2 | null; error: string | null }
+
+/** The admin's import guard settings; the defaults on any failure, so a settings outage never blocks an import. */
+async function readFetchSettings(): Promise<ImportFetchSettings> {
+  try {
+    return await getImportFetchSettings(createClient())
+  } catch {
+    return DEFAULT_IMPORT_FETCH_SETTINGS
+  }
+}
 
 /** The rows a pasted JSON / uploaded file would import, for the pre-import estimate only. */
 function previewRowsFromText(text: string, isCsv: boolean): EstimateRow[] {
@@ -160,6 +171,17 @@ export function useLinkImport() {
   // Only file contents need reading asynchronously; the text tabs are derived during render.
   const [fileRows, setFileRows] = useState<EstimateRow[]>([])
   const eta = useImportEta(hostBlock !== null)
+  // Latest known admin settings, for the pre-import estimate; refreshed at each import start.
+  const [fetchSettings, setFetchSettings] = useState<ImportFetchSettings>(DEFAULT_IMPORT_FETCH_SETTINGS)
+  // The snapshot the running import uses from start to finish (null when no import has started).
+  const [runFetchSettings, setRunFetchSettings] = useState<ImportFetchSettings | null>(null)
+  const runFetchSettingsRef = useRef<ImportFetchSettings>(DEFAULT_IMPORT_FETCH_SETTINGS)
+
+  useEffect(() => {
+    let cancelled = false
+    readFetchSettings().then(settings => { if (!cancelled) setFetchSettings(settings) })
+    return () => { cancelled = true }
+  }, [])
 
   useEffect(() => {
     if (categories.length > 0 && !defaultCategorySet.current) {
@@ -242,12 +264,13 @@ export function useLinkImport() {
 
   function waitAndRetry() {
     if (!hostBlockResolverRef.current || retryTimerRef.current) return
-    const retryAt = Date.now() + HOST_BLOCK_RETRY_MS
+    const retryWaitMs = runFetchSettingsRef.current.retryWaitSeconds * 1000
+    const retryAt = Date.now() + retryWaitMs
     setHostBlock(block => block && { ...block, retryAt })
     retryTimerRef.current = setTimeout(() => {
       retryTimerRef.current = null
       resolveHostBlock('retry')
-    }, HOST_BLOCK_RETRY_MS)
+    }, retryWaitMs)
   }
 
   function skipBlockedHost() {
@@ -307,8 +330,9 @@ export function useLinkImport() {
     if (previewRows.length === 0) return null
     // Vault exports never fetch metadata (the switch is disabled for them).
     const withMetadata = autoFetchOnImport && !detectedVaultExport
-    return { count: previewRows.length, ms: simulateImportMs(previewRows, { withMetadata }) }
-  }, [previewRows, autoFetchOnImport, detectedVaultExport])
+    const gapMs = fetchSettings.fetchGapSeconds * 1000
+    return { count: previewRows.length, ms: simulateImportMs(previewRows, { withMetadata, gapMs }) }
+  }, [previewRows, autoFetchOnImport, detectedVaultExport, fetchSettings])
 
   function handleProgress(p: VaultImportProgress) {
     setProgress(p)
@@ -397,7 +421,13 @@ export function useLinkImport() {
       // CSV category names are created here, so this runs after the modal opens ("Preparing…").
       if (csvRows) inputs = await resolveCsvCategories(csvRows, dek)
       inputs = await applyDomainCategories(inputs, dek)
-      eta.start(inputs, autoFetchOnImport)
+      // Snapshot: this run keeps these values even if the admin changes them mid-import.
+      const settings = await readFetchSettings()
+      runFetchSettingsRef.current = settings
+      setRunFetchSettings(settings)
+      setFetchSettings(settings)
+      const gapMs = settings.fetchGapSeconds * 1000
+      eta.start(inputs, autoFetchOnImport, gapMs)
 
       const result = await importLinks(
         inputs, catId, dek,
@@ -405,6 +435,7 @@ export function useLinkImport() {
           onProgress: (done, total, outcome) => handleProgress({ phase: 'links', done, total, outcome }),
           fetchMeta: autoFetchOnImport ? fetchLinkMeta : undefined,
           onHostBlocked: autoFetchOnImport ? handleHostBlocked : undefined,
+          guardConfig: { gapMs, emptyStreakLimit: settings.emptyStreakLimit },
           signal,
         },
       )
@@ -442,6 +473,9 @@ export function useLinkImport() {
     }
   }
 
+  // The modal shows the running import's values; between imports, the latest known ones.
+  const shownFetchSettings = runFetchSettings ?? fetchSettings
+
   return {
     importTab, switchTab,
     isDragging, selectedFile,
@@ -457,6 +491,8 @@ export function useLinkImport() {
     importModalState, importStats, importError, importRun, closeImportModal,
     cancelling, notProcessed, cancelImport,
     hostBlock, waitAndRetry, skipBlockedHost, leaveImport,
+    retryWaitMs: shownFetchSettings.retryWaitSeconds * 1000,
+    emptyStreakLimit: shownFetchSettings.emptyStreakLimit,
     fileInputRef,
     hasImportContent,
     handleDragOver, handleDragLeave, handleDrop, handleFileChange,

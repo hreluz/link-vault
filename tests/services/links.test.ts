@@ -1211,6 +1211,32 @@ describe('importLinks', () => {
       expect(result).toMatchObject({ imported: 1, cancelled: true, notProcessed: ['https://a.com/2'] })
     })
 
+    it('uses guardConfig for the gap and the empty-streak limit', async () => {
+      const { fetchMeta, calls } = scriptedFetcher({ 'https://instagram.com/p/1': EMPTY_META })
+      const onHostBlocked = vi.fn().mockResolvedValue('skip_host')
+
+      await settle(importLinks([
+        { url: 'https://instagram.com/p/1' },
+        { url: 'https://youtu.be/a' },
+        { url: 'https://youtu.be/b' },
+      ], null, dek, { fetchMeta, onHostBlocked, guardConfig: { gapMs: 5000, emptyStreakLimit: 1 } }))
+
+      expect(onHostBlocked).toHaveBeenCalledWith({ host: 'instagram.com', reason: 'empty_responses', attempt: 1 })
+      const at = Object.fromEntries(calls.map(c => [c.url, c.at]))
+      expect(at['https://youtu.be/b'] - at['https://youtu.be/a']).toBeGreaterThanOrEqual(5000)
+    })
+
+    it('adds no wait between same-group fetches when the configured gap is 0', async () => {
+      const { fetchMeta, calls } = scriptedFetcher({})
+
+      await settle(importLinks(
+        [{ url: 'https://a.com/1' }, { url: 'https://a.com/2' }],
+        null, dek, { fetchMeta, guardConfig: { gapMs: 0, emptyStreakLimit: 3 } },
+      ))
+
+      expect(calls[1].at - calls[0].at).toBe(0)
+    })
+
     it('behaves as skip_host when no onHostBlocked is given', async () => {
       const { fetchMeta, calls } = scriptedFetcher({ 'https://instagram.com/p/1': RATE_LIMITED })
 
