@@ -726,7 +726,8 @@ describe('useLinkImport', () => {
       expect(mockImportLinks).toHaveBeenCalledWith(
         expect.any(Array), 'cat-0', FAKE_DEK, {
           onProgress: expect.any(Function), fetchMeta: mockFetchLinkMeta, onHostBlocked: expect.any(Function),
-          onThrottleWait: expect.any(Function), guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal),
+          onThrottleWait: expect.any(Function), onFetching: expect.any(Function), guardConfig: DEFAULT_GUARD,
+          signal: expect.any(AbortSignal),
         },
       )
     })
@@ -1373,6 +1374,72 @@ describe('useLinkImport', () => {
 
       const options = mockImportLinks.mock.calls[0][3]
       expect(options.onThrottleWait).toBeUndefined()
+    })
+  })
+
+  describe('fetching', () => {
+    const FETCHING = { host: 'youtube.com', startedAt: 1_000_000 }
+
+    /** Starts an auto-fetch import whose importLinks stays pending; exposes the
+     *  onFetching it received and a resolver to finish the import. */
+    async function startImport() {
+      let onFetching: ((fetching: typeof FETCHING | null) => void) | undefined
+      let resolveImport: (v: unknown) => void = () => {}
+      mockImportLinks.mockImplementation((
+        _inputs: unknown, _cat: unknown, _dek: unknown,
+        options: { onFetching?: (fetching: typeof FETCHING | null) => void },
+      ) => {
+        onFetching = options.onFetching
+        return new Promise(resolve => { resolveImport = resolve })
+      })
+      const utils = await renderWithDefaultCategory()
+      act(() => utils.result.current.setAutoFetchOnImport(true))
+      act(() => utils.result.current.setUrlsText('https://youtu.be/a'))
+
+      let importPromise!: Promise<void>
+      act(() => { importPromise = utils.result.current.handleImport() })
+      await waitFor(() => expect(onFetching).toBeDefined())
+
+      return {
+        ...utils,
+        report: (fetching: typeof FETCHING | null) => act(() => onFetching?.(fetching)),
+        finish: async () => {
+          await act(async () => {
+            resolveImport({ imported: 1, skipped: 0, duplicates: 0 })
+            await importPromise
+          })
+        },
+      }
+    }
+
+    it('exposes a reported fetch, and clears it when the fetch ends', async () => {
+      const { result, report, finish } = await startImport()
+      expect(result.current.fetching).toBeNull()
+
+      report(FETCHING)
+      expect(result.current.fetching).toEqual(FETCHING)
+
+      report(null)
+      expect(result.current.fetching).toBeNull()
+      await finish()
+    })
+
+    it('is null after the import finishes, even if no null was reported', async () => {
+      const { result, report, finish } = await startImport()
+      report(FETCHING)
+
+      await finish()
+
+      expect(result.current.fetching).toBeNull()
+    })
+
+    it('passes no onFetching when auto-fetch is off', async () => {
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.setUrlsText('https://example.com'))
+      await act(async () => { await result.current.handleImport() })
+
+      const options = mockImportLinks.mock.calls[0][3]
+      expect(options.onFetching).toBeUndefined()
     })
   })
 

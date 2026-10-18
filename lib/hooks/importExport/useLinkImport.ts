@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import {
   importLinks,
   type ImportLinkInput, type ImportFailure, type ImportRowOutcome, type HostBlockInfo, type HostBlockDecision,
-  type ThrottleWait,
+  type ThrottleWait, type ImportFetching,
 } from '@/lib/services/links'
 import { getOrCreateCategoryByName, PROTECTED_CATEGORY_NAME } from '@/lib/services/categories'
 import { getCategoryIdByDomainMap, lookupCategoryIdByUrl } from '@/lib/services/category-domains'
@@ -170,6 +170,8 @@ export function useLinkImport() {
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Set while the import waits out a same-host gap of >= 1 s before the next fetch.
   const [throttleWait, setThrottleWait] = useState<ThrottleWait | null>(null)
+  // Set while a link's metadata fetch is in flight.
+  const [fetching, setFetching] = useState<ImportFetching | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   // Only file contents need reading asynchronously; the text tabs are derived during render.
   const [fileRows, setFileRows] = useState<EstimateRow[]>([])
@@ -439,6 +441,7 @@ export function useLinkImport() {
           fetchMeta: autoFetchOnImport ? fetchLinkMeta : undefined,
           onHostBlocked: autoFetchOnImport ? handleHostBlocked : undefined,
           onThrottleWait: autoFetchOnImport ? setThrottleWait : undefined,
+          onFetching: autoFetchOnImport ? setFetching : undefined,
           guardConfig: { gapMs, emptyStreakLimit: settings.emptyStreakLimit },
           signal,
         },
@@ -471,6 +474,7 @@ export function useLinkImport() {
       hostBlockResolverRef.current = null
       setHostBlock(null)
       setThrottleWait(null)
+      setFetching(null)
       eta.stop()
       setImporting(false)
       setCancelling(false)
@@ -497,6 +501,7 @@ export function useLinkImport() {
     cancelling, notProcessed, cancelImport,
     hostBlock, waitAndRetry, skipBlockedHost, leaveImport,
     throttleWait,
+    fetching,
     retryWaitMs: shownFetchSettings.retryWaitSeconds * 1000,
     emptyStreakLimit: shownFetchSettings.emptyStreakLimit,
     fileInputRef,

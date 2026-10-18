@@ -389,6 +389,64 @@ describe('ImportProgressModal', () => {
     })
   })
 
+  describe('fetching indicator', () => {
+    const LINKS_META_RUN = { isVault: false, withMetadata: true }
+    const LINE = /^(Fetching|Still waiting on) .*…$/
+
+    beforeEach(() => { vi.useFakeTimers() })
+    afterEach(() => { vi.useRealTimers() })
+
+    it('renders Fetching <host>… for an in-flight fetch', () => {
+      renderModal({ run: LINKS_META_RUN, fetching: { host: 'youtube.com', startedAt: Date.now() } })
+      expect(screen.getByText('Fetching youtube.com…')).toBeTruthy()
+    })
+
+    it('still reads Fetching… at 9 000 ms', () => {
+      renderModal({ run: LINKS_META_RUN, fetching: { host: 'youtube.com', startedAt: Date.now() } })
+
+      act(() => { vi.advanceTimersByTime(9000) })
+      expect(screen.getByText('Fetching youtube.com…')).toBeTruthy()
+      expect(screen.queryByText('Still waiting on youtube.com…')).toBeNull()
+    })
+
+    it('switches to Still waiting on <host>… after 10 000 ms', () => {
+      renderModal({ run: LINKS_META_RUN, fetching: { host: 'youtube.com', startedAt: Date.now() } })
+
+      act(() => { vi.advanceTimersByTime(10_000) })
+      expect(screen.getByText('Still waiting on youtube.com…')).toBeTruthy()
+      expect(screen.queryByText('Fetching youtube.com…')).toBeNull()
+    })
+
+    it('is hidden while a host block pauses the import', () => {
+      renderModal({
+        run: LINKS_META_RUN,
+        fetching: { host: 'youtube.com', startedAt: Date.now() },
+        hostBlock: { host: 'youtube.com', reason: 'rate_limited', attempt: 1, retryAt: null },
+      })
+      expect(screen.queryByText(LINE)).toBeNull()
+    })
+
+    it('is hidden once the import has finished', () => {
+      renderModal({ state: 'finished', run: LINKS_META_RUN, fetching: { host: 'youtube.com', startedAt: Date.now() } })
+      expect(screen.queryByText(LINE)).toBeNull()
+    })
+
+    it('is hidden when no fetch is in progress', () => {
+      renderModal({ run: LINKS_META_RUN, fetching: null })
+      expect(screen.queryByText(LINE)).toBeNull()
+    })
+
+    it('yields to the countdown when both are set', () => {
+      renderModal({
+        run: LINKS_META_RUN,
+        throttleWait: { host: 'youtube.com', until: Date.now() + 3000 },
+        fetching: { host: 'youtube.com', startedAt: Date.now() },
+      })
+      expect(screen.getByText('Next youtube.com link in 3 s')).toBeTruthy()
+      expect(screen.queryByText(LINE)).toBeNull()
+    })
+  })
+
   describe('host blocked', () => {
     const BLOCK = { host: 'instagram.com', reason: 'rate_limited' as const, attempt: 1, retryAt: null }
     const LINKS_META_RUN = { isVault: false, withMetadata: true }

@@ -1309,6 +1309,105 @@ describe('importLinks', () => {
         expect(result).toMatchObject({ cancelled: true, notProcessed: ['https://a.com/2'] })
       })
     })
+
+    describe('onFetching', () => {
+      it('reports the fetch before fetchMeta is called, then null after it returns', async () => {
+        const events: unknown[] = []
+        const fetchMeta = vi.fn(async (url: string) => {
+          events.push(['fetchMeta', url])
+          return META
+        })
+        const onFetching = vi.fn((fetching: unknown) => { events.push(['onFetching', fetching]) })
+
+        await settle(importLinks(
+          [{ url: 'https://www.youtube.com/watch?v=a' }],
+          null, dek, { fetchMeta, onFetching },
+        ))
+
+        expect(events).toEqual([
+          ['onFetching', { host: 'youtube.com', startedAt: expect.any(Number) }],
+          ['fetchMeta', 'https://www.youtube.com/watch?v=a'],
+          ['onFetching', null],
+        ])
+      })
+
+      it('reports the host group for a youtu.be link', async () => {
+        const { fetchMeta } = scriptedFetcher({})
+        const onFetching = vi.fn()
+
+        await settle(importLinks([{ url: 'https://youtu.be/a' }], null, dek, { fetchMeta, onFetching }))
+
+        expect(onFetching.mock.calls[0][0]).toEqual({ host: 'youtube.com', startedAt: expect.any(Number) })
+      })
+
+      it('still reports null when fetchMeta throws', async () => {
+        const fetchMeta = vi.fn().mockRejectedValue(new Error('network'))
+        const onFetching = vi.fn()
+
+        await settle(importLinks([{ url: 'https://a.com/1' }], null, dek, { fetchMeta, onFetching }))
+
+        expect(onFetching.mock.calls).toEqual([
+          [{ host: 'a.com', startedAt: expect.any(Number) }],
+          [null],
+        ])
+      })
+
+      it("reports a second fetch/null pair when a blocked host is retried", async () => {
+        const { fetchMeta } = scriptedFetcher({ 'https://instagram.com/p/1': [RATE_LIMITED, META] })
+        const onHostBlocked = vi.fn().mockResolvedValue('retry')
+        const onFetching = vi.fn()
+
+        await settle(importLinks(
+          [{ url: 'https://instagram.com/p/1' }],
+          null, dek, { fetchMeta, onHostBlocked, onFetching },
+        ))
+
+        const fetching = { host: 'instagram.com', startedAt: expect.any(Number) }
+        expect(onFetching.mock.calls).toEqual([[fetching], [null], [fetching], [null]])
+      })
+
+      it('is never called when auto-fetch is off (no fetchMeta)', async () => {
+        const onFetching = vi.fn()
+
+        await settle(importLinks([{ url: 'https://a.com/1' }], null, dek, { onFetching }))
+
+        expect(onFetching).not.toHaveBeenCalled()
+      })
+
+      it('is never called for duplicate or invalid-URL rows', async () => {
+        mockDupCheck.mockResolvedValue({ data: [{ id: 'existing-id' }] })
+        const { fetchMeta } = scriptedFetcher({})
+        const onFetching = vi.fn()
+
+        await settle(importLinks(
+          [{ url: 'https://a.com/1' }, { url: 'not-a-url' }],
+          null, dek, { fetchMeta, onFetching },
+        ))
+
+        expect(onFetching).not.toHaveBeenCalled()
+      })
+
+      it("clears the throttle wait before the next same-host row's fetch starts", async () => {
+        const { fetchMeta } = scriptedFetcher({})
+        const events: unknown[] = []
+        const onThrottleWait = vi.fn((wait: unknown) => { events.push(['wait', wait]) })
+        const onFetching = vi.fn((fetching: unknown) => { events.push(['fetching', fetching]) })
+
+        await settle(importLinks(
+          [{ url: 'https://a.com/1' }, { url: 'https://a.com/2' }],
+          null, dek, { fetchMeta, onThrottleWait, onFetching },
+        ))
+
+        expect(events).toEqual([
+          ['fetching', { host: 'a.com', startedAt: expect.any(Number) }],
+          ['fetching', null],
+          ['wait', { host: 'a.com', until: expect.any(Number) }],
+          ['wait', null],
+          ['fetching', { host: 'a.com', startedAt: expect.any(Number) }],
+          ['fetching', null],
+        ])
+      })
+    })
   })
 })
 

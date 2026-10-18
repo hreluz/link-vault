@@ -4,9 +4,10 @@ import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { useDialog } from '@/lib/hooks/shared/useDialog'
 import { useBackdropClose } from '@/lib/hooks/shared/useBackdropClose'
-import type { ImportFailureReason, ThrottleWait } from '@/lib/services/links'
+import type { ImportFailureReason, ImportFetching, ThrottleWait } from '@/lib/services/links'
 import type { VaultImportPhase, VaultImportProgress } from '@/lib/services/importExport/importVault'
 import { formatEta } from '@/lib/services/importExport/importEstimate'
+import { SLOW_FETCH_HINT_MS } from '@/lib/services/importExport/fetchGuard'
 import type {
   HostBlockState, ImportLastResult, ImportModalState, ImportRun, ImportStats,
 } from '@/lib/hooks/importExport/useLinkImport'
@@ -80,6 +81,22 @@ function ThrottleCountdown({ wait }: { wait: ThrottleWait }) {
   )
 }
 
+/** `Fetching <host>…` with a spinner while a link's metadata is fetched; the text becomes
+ *  `Still waiting on <host>…` once the fetch passes SLOW_FETCH_HINT_MS, in place. */
+function FetchingIndicator({ fetching }: { fetching: ImportFetching }) {
+  const now = useNow(true)
+  const slow = now - fetching.startedAt >= SLOW_FETCH_HINT_MS
+  return (
+    <p className="mt-0.5 break-words text-xs text-surface-400 dark:text-surface-500">
+      <span
+        aria-hidden
+        className="mr-1.5 inline-block size-3 animate-spin rounded-full border-2 border-primary-500 border-t-transparent align-[-2px] motion-reduce:animate-none"
+      />
+      {slow ? `Still waiting on ${fetching.host}…` : `Fetching ${fetching.host}…`}
+    </p>
+  )
+}
+
 interface HostBlockNoticeProps {
   block: HostBlockState
   retryWaitMs: number
@@ -143,6 +160,8 @@ interface Props {
   hostBlock: HostBlockState | null
   /** Set while the import waits out a same-host gap of >= 1 s. */
   throttleWait?: ThrottleWait | null
+  /** Set while a link's metadata fetch is in flight; shares the countdown's slot. */
+  fetching?: ImportFetching | null
   onBlockWait: () => void
   onBlockSkip: () => void
   onBlockLeave: () => void
@@ -153,7 +172,7 @@ interface Props {
 
 export default function ImportProgressModal({
   state, stats, run, progress, result, error, cancelling, notProcessed, etaMs = null, onCancel, onClose,
-  hostBlock, throttleWait = null, onBlockWait, onBlockSkip, onBlockLeave,
+  hostBlock, throttleWait = null, fetching = null, onBlockWait, onBlockSkip, onBlockLeave,
   retryWaitMs = DEFAULT_IMPORT_FETCH_SETTINGS.retryWaitSeconds * 1000,
   emptyStreakLimit = DEFAULT_IMPORT_FETCH_SETTINGS.emptyStreakLimit,
 }: Props) {
@@ -284,6 +303,9 @@ export default function ImportProgressModal({
             )}
             {running && throttleWait && !hostBlock && (
               <ThrottleCountdown key={`${throttleWait.host}-${throttleWait.until}`} wait={throttleWait} />
+            )}
+            {running && fetching && !hostBlock && !throttleWait && (
+              <FetchingIndicator key={`${fetching.host}-${fetching.startedAt}`} fetching={fetching} />
             )}
           </div>
 
