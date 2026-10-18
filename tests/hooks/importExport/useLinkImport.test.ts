@@ -549,6 +549,90 @@ describe('useLinkImport', () => {
     })
   })
 
+  describe('import tags', () => {
+    const CSV_HEADER = 'url,title,description,site_name,image_url,duration,category,status,is_favorite,notes,tags,created_at,updated_at'
+
+    function importedInputs() {
+      return mockImportLinks.mock.calls[0][0]
+    }
+
+    it('adds the import tags to every pasted URL', async () => {
+      const { result } = await renderWithDefaultCategory()
+      act(() => {
+        result.current.setUrlsText('https://example.com/a\nhttps://example.com/b')
+        result.current.setImportTags('inbox, to-watch')
+      })
+
+      await act(async () => { await result.current.handleImport() })
+
+      expect(importedInputs()).toEqual([
+        { url: 'https://example.com/a', tags: ['inbox', 'to-watch'] },
+        { url: 'https://example.com/b', tags: ['inbox', 'to-watch'] },
+      ])
+    })
+
+    it('appends the import tags after a CSV row\'s own tags, dropping kebab-case repeats', async () => {
+      const csv = [CSV_HEADER, 'https://example.com,,,,,,,,false,,react|video,2026-01-01,2026-01-01'].join('\n')
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.switchTab('file'))
+      act(() => result.current.handleFileChange(fileChangeEvent(new File([csv], 'links.csv', { type: 'text/csv' }))))
+      act(() => result.current.setImportTags('inbox, React'))
+
+      await act(async () => { await result.current.handleImport() })
+
+      expect(importedInputs()[0].tags).toEqual(['react', 'video', 'inbox'])
+    })
+
+    it('keeps a JSON row\'s own spelling when an import tag repeats it', async () => {
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.switchTab('json'))
+      act(() => {
+        result.current.setJsonText('[{"url":"https://example.com","tags":["Inbox"]}]')
+        result.current.setImportTags('inbox')
+      })
+
+      await act(async () => { await result.current.handleImport() })
+
+      expect(importedInputs()[0].tags).toEqual(['Inbox'])
+    })
+
+    it('passes inputs unchanged when the field is empty', async () => {
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.setUrlsText('https://example.com/a'))
+
+      await act(async () => { await result.current.handleImport() })
+
+      expect(importedInputs()).toEqual([{ url: 'https://example.com/a', tags: [] }])
+    })
+
+    it('ignores the import tags for a v2 import', async () => {
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.switchTab('json'))
+      act(() => {
+        result.current.setJsonText(JSON.stringify(VAULT_EXPORT))
+        result.current.setImportTags('inbox')
+      })
+      await waitFor(() => expect(result.current.detectedVaultExport).not.toBeNull())
+
+      await act(async () => { await result.current.handleImport() })
+
+      expect(mockImportVaultExport.mock.calls[0][0]).toEqual(VAULT_EXPORT)
+      expect(mockImportLinks).not.toHaveBeenCalled()
+    })
+
+    it('keeps the import tags after an import finishes', async () => {
+      const { result } = await renderWithDefaultCategory()
+      act(() => {
+        result.current.setUrlsText('https://example.com/a')
+        result.current.setImportTags('inbox')
+      })
+
+      await act(async () => { await result.current.handleImport() })
+
+      expect(result.current.importTags).toBe('inbox')
+    })
+  })
+
   describe('full-vault (v2) import', () => {
     it('detects a v2 export pasted into the JSON tab and does not fall back to importLinks', async () => {
       const { result } = await renderWithDefaultCategory()

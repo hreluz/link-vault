@@ -7,6 +7,7 @@ import type { VaultImportPhase } from '@/lib/services/importExport/importVault'
 import { formatEta } from '@/lib/services/importExport/importEstimate'
 import { buildCsvTemplate, buildMinimalCsvTemplate } from '@/lib/utils/linksCsv'
 import { triggerDownload } from '@/lib/utils/downloadFile'
+import TagChipsInput from '@/components/TagChipsInput'
 import ImportProgressModal from './ImportProgressModal'
 
 const TAB_LABELS: Record<ImportTab, string> = {
@@ -41,6 +42,7 @@ export default function ImportExportClient() {
     urlsText, setUrlsText,
     jsonText, setJsonText,
     defaultCategoryId, setDefaultCategoryId,
+    importTags, setImportTags,
     categories,
     importing, lastResult, progress,
     detectedVaultExport, vaultExportError,
@@ -290,6 +292,21 @@ export default function ImportExportClient() {
                 </option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <TagChipsInput
+              label="Tags for imported links (optional)"
+              value={importTags}
+              onChange={setImportTags}
+              disabled={!!detectedVaultExport}
+              describedBy="import-tags-hint"
+            />
+            <p id="import-tags-hint" className="mt-1 text-xs text-surface-500 dark:text-surface-400">
+              {detectedVaultExport
+                ? 'Not available for full vault exports — they keep their own tags.'
+                : 'Added to every imported link, on top of any tags in the file.'}
+            </p>
           </div>
 
           <div>
