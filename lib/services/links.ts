@@ -438,6 +438,8 @@ export type HostBlockInfo = { host: string; reason: HostBlockReason; attempt: nu
 export type HostBlockDecision = 'retry' | 'skip_host' | 'cancel'
 /** A same-host throttle wait: `host` is the host group, `until` the epoch ms the fetch may start. */
 export type ThrottleWait = { host: string; until: number }
+/** An in-flight metadata fetch: `host` is the host group, `startedAt` the epoch ms it began. */
+export type ImportFetching = { host: string; startedAt: number }
 
 export type ImportLinksOptions = {
   onProgress?: (done: number, total: number, outcome: ImportRowOutcome) => void
@@ -451,6 +453,8 @@ export type ImportLinksOptions = {
   guardConfig?: FetchGuardConfig
   /** Called with the wait before a same-host gap of >= 1 s starts, and with null when it ends. */
   onThrottleWait?: (wait: ThrottleWait | null) => void
+  /** Called with the fetch right before each fetchMeta call, and with null when it ends. */
+  onFetching?: (fetching: ImportFetching | null) => void
 }
 
 const isEmpty = (value: string | null | undefined) => value == null || value === ''
@@ -482,7 +486,7 @@ async function fetchRowMeta(
   fetchMeta: ImportMetaFetcher,
   options: ImportLinksOptions,
 ): Promise<{ input: ImportLinkInput; metaMissing: boolean } | 'cancelled'> {
-  const { signal, onHostBlocked, onThrottleWait } = options
+  const { signal, onHostBlocked, onThrottleWait, onFetching } = options
   let attempt = 0
 
   for (;;) {
@@ -496,10 +500,13 @@ async function fetchRowMeta(
     if (signal?.aborted) return 'cancelled'
 
     let meta: ImportMeta | null
+    onFetching?.({ host: group, startedAt: Date.now() })
     try {
       meta = await fetchMeta(url)
     } catch {
       meta = null
+    } finally {
+      onFetching?.(null)
     }
 
     const tripped = guard.record(group, meta)

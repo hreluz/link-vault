@@ -6,6 +6,8 @@ export const FETCH_GAP_MS = 2000
 export const EMPTY_STREAK_LIMIT = 3
 /** Waits shorter than this are not reported to the UI. */
 export const THROTTLE_NOTICE_MIN_MS = 1000
+/** After this long, the progress modal's fetching line reads "Still waiting on <host>…". */
+export const SLOW_FETCH_HINT_MS = 10_000
 
 /** Admin-tunable guard values (SPEC 08); a guard without one uses the defaults above. */
 export type FetchGuardConfig = { gapMs: number; emptyStreakLimit: number }
