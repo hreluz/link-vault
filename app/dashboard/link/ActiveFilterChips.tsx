@@ -14,9 +14,9 @@ export default function ActiveFilterChips() {
     sortBy, setSortBy,
     category, setCategory,
     selectedTagIds, setSelectedTagIds,
-    resetFilters,
+    resetFilters, refreshKey,
   } = useLinkListContext()
-  const { categories } = useCategoryList()
+  const { categories } = useCategoryList(refreshKey)
   const availableTags = useAvailableTagsWithIds()
   const activeCategory = categories.find(c => c.id === category)
 

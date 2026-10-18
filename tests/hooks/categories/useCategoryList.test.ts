@@ -60,4 +60,18 @@ describe('useCategoryList', () => {
 
     expect(result.current.categories).toEqual([])
   })
+
+  it('refetches when reloadKey changes', async () => {
+    mockGetCategories.mockResolvedValue(MOCK_CATEGORIES)
+    const { result, rerender } = renderHook(({ key }) => useCategoryList(key), { initialProps: { key: 0 } })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(mockGetCategories).toHaveBeenCalledOnce()
+
+    const renamed = [{ ...MOCK_CATEGORIES[0], name: 'Reading' }, MOCK_CATEGORIES[1]]
+    mockGetCategories.mockResolvedValue(renamed)
+    rerender({ key: 1 })
+
+    await waitFor(() => expect(result.current.categories).toEqual(renamed))
+    expect(mockGetCategories).toHaveBeenCalledTimes(2)
+  })
 })

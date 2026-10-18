@@ -8,6 +8,7 @@ import { useLinkList } from '@/lib/hooks/links/list/useLinkList'
 import type { LinkWithTags, LinkFilterParams } from '@/lib/services/links'
 
 const mockAddToast = vi.fn()
+const mockRefetchTags = vi.fn()
 
 const { LINK_A, LINK_B, LINK_C } = vi.hoisted(() => {
   const base = { user_id: 'user-1', description: '', notes: null, image_url: null, deleted_at: null, duration: null }
@@ -66,7 +67,7 @@ vi.mock('@/lib/context/UnlockedTagsContext', () => ({
 }))
 
 vi.mock('@/lib/context/TagsContext', () => ({
-  useTagsContext: () => ({ tags: [], loading: false, refetchTags: vi.fn() }),
+  useTagsContext: () => ({ tags: [], loading: false, refetchTags: mockRefetchTags }),
 }))
 
 vi.mock('@/lib/context/VaultContext', () => ({
@@ -276,6 +277,78 @@ describe('useLinkList (integration)', () => {
 
       expect(result.current.links[0].id).toBe('99')
       expect(result.current.links).toHaveLength(4)
+    })
+  })
+
+  describe('handleRefresh', () => {
+    it('calls refetchTags, reloads page 1 and bumps refreshKey', async () => {
+      const { result } = await renderLoaded()
+      expect(result.current.refreshKey).toBe(0)
+      mockGetLinksPage.mockClear()
+
+      const LINK_NEW: LinkWithTags = { ...LINK_A, id: '4', title: 'Delta' }
+      mockGetLinksPage.mockResolvedValueOnce({ links: [LINK_NEW, LINK_A, LINK_B, LINK_C], totalCount: 4 })
+      await act(async () => { await result.current.handleRefresh() })
+
+      expect(mockRefetchTags).toHaveBeenCalledOnce()
+      expect(mockGetLinksPage).toHaveBeenCalledOnce()
+      expect(mockGetPrivateTagIds).toHaveBeenCalledTimes(2)
+      expect(result.current.links.map(l => l.id)).toEqual(['4', '1', '2', '3'])
+      expect(result.current.totalCount).toBe(4)
+      expect(result.current.refreshKey).toBe(1)
+      expect(result.current.refreshing).toBe(false)
+      expect(mockAddToast).not.toHaveBeenCalled()
+    })
+
+    it('shows a destructive toast and keeps the list when the refresh fails', async () => {
+      const { result } = await renderLoaded()
+
+      mockGetLinksPage.mockRejectedValueOnce(new Error('offline'))
+      await act(async () => { await result.current.handleRefresh() })
+
+      expect(mockAddToast).toHaveBeenCalledWith('Failed to refresh links', 'destructive')
+      expect(result.current.links).toHaveLength(3)
+      expect(result.current.totalCount).toBe(3)
+      expect(result.current.refreshing).toBe(false)
+      expect(result.current.refreshKey).toBe(0)
+    })
+
+    it('ignores a second call while a refresh is in flight', async () => {
+      const { result } = await renderLoaded()
+      mockGetLinksPage.mockClear()
+
+      await act(async () => {
+        const first = result.current.handleRefresh()
+        const second = result.current.handleRefresh()
+        await Promise.all([first, second])
+      })
+
+      expect(mockRefetchTags).toHaveBeenCalledOnce()
+      expect(mockGetLinksPage).toHaveBeenCalledOnce()
+    })
+
+    it('leaves filters and unlocked private tags untouched', async () => {
+      const unlocked = { unlockedTagIds: new Set(['secret']), unlockTag: vi.fn(), lockTag: vi.fn(), lockAll: vi.fn() }
+      mockUseUnlockedTags.mockReturnValue(unlocked)
+      const { result } = await renderLoaded()
+
+      act(() => {
+        result.current.setCategory('cat-article')
+        result.current.setSortBy('oldest')
+        result.current.setFavoritesOnly(false)
+      })
+      await waitFor(() => expect(result.current.links.map(l => l.id)).toEqual(['1', '3']))
+      const before = result.current.filterParams
+
+      await act(async () => { await result.current.handleRefresh() })
+
+      expect(result.current.filterParams).toEqual(before)
+      expect(result.current.category).toBe('cat-article')
+      expect(result.current.sortBy).toBe('oldest')
+      expect(result.current.links.map(l => l.id)).toEqual(['1', '3'])
+      expect(unlocked.lockAll).not.toHaveBeenCalled()
+      expect(unlocked.lockTag).not.toHaveBeenCalled()
+      expect(unlocked.unlockedTagIds).toEqual(new Set(['secret']))
     })
   })
 })

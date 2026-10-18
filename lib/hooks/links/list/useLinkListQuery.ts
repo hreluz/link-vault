@@ -80,7 +80,17 @@ export function useLinkListQuery(filterParams: LinkFilterParams, dek: CryptoKey 
   const {
     items: rawLinks, setItems: setRawLinks,
     totalCount, hasMore, loading, loadingMore, loadMore,
+    refresh: refreshPage, refreshing,
   } = usePaginatedQuery(filterParams, fetchPage, PAGE_SIZE)
+
+  // Drops the Branch B candidate cache so search / alphabetical sort re-fetch
+  // and re-decrypt, re-reads which tags are private, then reloads page 1.
+  const refresh = useCallback(async () => {
+    contentCacheRef.current = null
+    const ids = await getPrivateTagIds()
+    setPrivateTagIds(new Set(ids))
+    await refreshPage()
+  }, [refreshPage])
 
   // Defense-in-depth: the server already excludes locked private tags from
   // every query, but re-check on the (small) loaded page too, given the
@@ -89,5 +99,5 @@ export function useLinkListQuery(filterParams: LinkFilterParams, dek: CryptoKey 
     link.tags.every(tagId => isTagVisible(privateTagIds.has(tagId), tagId, unlockedTagIds))
   )
 
-  return { links, rawLinks, setRawLinks, totalCount, hasMore, loading, loadingMore, loadMore }
+  return { links, rawLinks, setRawLinks, totalCount, hasMore, loading, loadingMore, loadMore, refresh, refreshing }
 }

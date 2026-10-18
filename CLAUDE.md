@@ -221,6 +221,7 @@ The dashboard link list is server-side paginated, not a single full fetch. Since
 - `useLinks` (`lib/hooks/links/list/useLinks.ts`) composes `useLinkListQuery` (fetch/search/sort/private-tag filtering), `useLinkMutations`, and `useLinkBulkMutations` — one hook per concern, same pattern as [Splitting overloaded hooks](#splitting-overloaded-hooks). `useLinkListQuery` in turn composes the generic `usePaginatedQuery` hook (`lib/hooks/shared/usePaginatedQuery.ts`) — domain-agnostic, intended for reuse by future paginated lists (e.g. Trash) — plus `useDebouncedValue` and `useInfiniteScrollSentinel` (also in `lib/hooks/shared/`).
 - `getLinks()` (unpaginated, fetches and decrypts everything) still exists but is used **only** by Import/Export — never use it for the main list.
 - Bulk "Select all" selects all links matching the current filter (not just loaded ones), capped at 2000 ids (`getMatchingLinkIds`, `SELECT_ALL_MATCHING_CAP` in `lib/services/links.ts`).
+- A ↻ button in the list header (`LinkListHeader`, hidden in selection mode) reloads page 1, the tags cache and categories in place, keeping the vault unlocked and private tags unlocked (`handleRefresh` in `useLinkList` → `refresh()` in `useLinkListQuery`/`usePaginatedQuery`, `refreshKey` → `useCategoryList(reloadKey)`).
 - Adding a new filter dimension requires updating both the client `LinkFilterParams` type and the `filtered_links` SQL function together.
 
 ### Tag privacy

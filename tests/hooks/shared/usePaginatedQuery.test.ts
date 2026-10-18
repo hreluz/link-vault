@@ -128,4 +128,95 @@ describe('usePaginatedQuery', () => {
       expect(result.current.items).toEqual([{ id: 10 }, { id: 20 }])
     })
   })
+
+  describe('refresh', () => {
+    it('after loadMore, leaves exactly page 1 with the new totalCount', async () => {
+      const all = [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }]
+      const fetchPage = makeFetchPage(all)
+      const { result } = await renderLoaded(fetchPage, {}, 2)
+
+      await act(async () => { result.current.loadMore() })
+      expect(result.current.items).toHaveLength(4)
+
+      all.unshift({ id: 0 })
+      await act(async () => { await result.current.refresh() })
+
+      expect(fetchPage).toHaveBeenLastCalledWith({}, 2, 0)
+      expect(result.current.items).toEqual([{ id: 0 }, { id: 1 }])
+      expect(result.current.totalCount).toBe(5)
+      expect(result.current.hasMore).toBe(true)
+      expect(result.current.refreshing).toBe(false)
+
+      await act(async () => { result.current.loadMore() })
+      expect(fetchPage).toHaveBeenLastCalledWith({}, 2, 2)
+      expect(result.current.items).toEqual([{ id: 0 }, { id: 1 }, { id: 2 }, { id: 3 }])
+    })
+
+    it('keeps items visible and loading false while refreshing', async () => {
+      let resolveFetch: (v: PageResult<Item>) => void
+      const fetchPage = vi.fn()
+        .mockResolvedValueOnce({ items: [{ id: 1 }], totalCount: 1 })
+        .mockImplementationOnce(() => new Promise(resolve => { resolveFetch = resolve }))
+      const { result } = await renderLoaded(fetchPage, {}, 2)
+
+      let refreshPromise: Promise<void>
+      act(() => { refreshPromise = result.current.refresh() })
+
+      expect(result.current.refreshing).toBe(true)
+      expect(result.current.loading).toBe(false)
+      expect(result.current.items).toEqual([{ id: 1 }])
+
+      await act(async () => {
+        resolveFetch!({ items: [{ id: 2 }, { id: 1 }], totalCount: 2 })
+        await refreshPromise
+      })
+      expect(result.current.refreshing).toBe(false)
+      expect(result.current.items).toEqual([{ id: 2 }, { id: 1 }])
+      expect(result.current.totalCount).toBe(2)
+    })
+
+    it('keeps the old items, clears refreshing and rejects when the fetch fails', async () => {
+      const fetchPage = vi.fn()
+        .mockResolvedValueOnce({ items: [{ id: 1 }], totalCount: 1 })
+        .mockRejectedValueOnce(new Error('offline'))
+      const { result } = await renderLoaded(fetchPage, {}, 2)
+
+      await act(async () => {
+        await expect(result.current.refresh()).rejects.toThrow('offline')
+      })
+
+      expect(result.current.refreshing).toBe(false)
+      expect(result.current.items).toEqual([{ id: 1 }])
+      expect(result.current.totalCount).toBe(1)
+    })
+
+    it('discards its result when params change during the refresh', async () => {
+      let resolveRefresh: (v: PageResult<Item>) => void
+      const fetchPage = vi.fn(async (params: { q: string }): Promise<PageResult<Item>> =>
+        params.q === 'a' ? { items: [{ id: 1 }], totalCount: 1 } : { items: [{ id: 9 }], totalCount: 1 },
+      )
+      const utils = renderHook(
+        ({ p }) => usePaginatedQuery(p, fetchPage, 2),
+        { initialProps: { p: { q: 'a' } } },
+      )
+      await waitFor(() => expect(utils.result.current.loading).toBe(false))
+
+      fetchPage.mockImplementationOnce(() => new Promise(resolve => { resolveRefresh = resolve }))
+      let refreshPromise: Promise<void>
+      act(() => { refreshPromise = utils.result.current.refresh() })
+      expect(utils.result.current.refreshing).toBe(true)
+
+      utils.rerender({ p: { q: 'b' } })
+      expect(utils.result.current.refreshing).toBe(false)
+      await waitFor(() => expect(utils.result.current.loading).toBe(false))
+      expect(utils.result.current.items).toEqual([{ id: 9 }])
+
+      await act(async () => {
+        resolveRefresh!({ items: [{ id: 1 }, { id: 2 }], totalCount: 2 })
+        await refreshPromise
+      })
+      expect(utils.result.current.items).toEqual([{ id: 9 }])
+      expect(utils.result.current.totalCount).toBe(1)
+    })
+  })
 })

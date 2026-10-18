@@ -8,11 +8,11 @@ import LinkCard from './LinkCard'
 export default function LinkGrid() {
   const {
     loading, links: results, hasActiveFilters, favoritesOnly,
-    hasMore, loadingMore, loadMore,
+    hasMore, loadingMore, loadMore, refreshKey,
     setActiveLink, handleFavoriteToggle, handleLinkOpen, handleDeleteById, resetFilters,
     isSelectionMode, isSelected, toggleSelected, enterSelectionMode,
   } = useLinkListContext()
-  const { categories } = useCategoryList()
+  const { categories } = useCategoryList(refreshKey)
   const sentinelRef = useInfiniteScrollSentinel(loadMore, hasMore && !loading && !loadingMore)
 
   if (loading) {

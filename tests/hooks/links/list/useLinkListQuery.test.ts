@@ -180,4 +180,36 @@ describe('useLinkListQuery', () => {
       expect(mockGetMatchingLinkIds).toHaveBeenCalledTimes(2)
     })
   })
+
+  describe('refresh', () => {
+    it('re-fetches and re-decrypts candidates when a text search is active', async () => {
+      const params: LinkFilterParams = { ...FILTER_PARAMS, textSearch: 'alpha' }
+      const { result } = await renderLoaded(params)
+      expect(mockGetMatchingLinkIds).toHaveBeenCalledOnce()
+      expect(mockGetLinksByIds).toHaveBeenCalledOnce()
+
+      const LINK_NEW: LinkWithTags = { ...LINK_A, id: '9', title: 'Alpha two' }
+      mockGetMatchingLinkIds.mockResolvedValue({ ids: ['1', '2', '9'], totalCount: 3 })
+      mockGetLinksByIds.mockResolvedValue([LINK_A, LINK_B, LINK_NEW])
+      await act(async () => { await result.current.refresh() })
+
+      expect(mockGetMatchingLinkIds).toHaveBeenCalledTimes(2)
+      expect(mockGetLinksByIds).toHaveBeenCalledTimes(2)
+      expect(result.current.links.map(l => l.id)).toEqual(['1', '9'])
+      expect(result.current.totalCount).toBe(2)
+    })
+
+    it('re-reads the private tag ids', async () => {
+      mockGetLinksPage.mockResolvedValue({ links: [LINK_A, LINK_PRIVATE], totalCount: 2 })
+      const { result } = await renderLoaded()
+      expect(mockGetPrivateTagIds).toHaveBeenCalledOnce()
+      expect(result.current.links).toHaveLength(2)
+
+      mockGetPrivateTagIds.mockResolvedValue(['private-stuff'])
+      await act(async () => { await result.current.refresh() })
+
+      expect(mockGetPrivateTagIds).toHaveBeenCalledTimes(2)
+      expect(result.current.links.map(l => l.id)).toEqual(['1'])
+    })
+  })
 })
