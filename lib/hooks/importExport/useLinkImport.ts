@@ -469,6 +469,7 @@ export function useLinkImport() {
           onFetching: autoFetchOnImport ? setFetching : undefined,
           guardConfig: { gapMs, emptyStreakLimit: settings.emptyStreakLimit },
           signal,
+          titleFromUrl: true,
         },
       )
       setLastResult(result)

@@ -85,6 +85,12 @@ describe('importVaultExport', () => {
     expect(result.imported).toBe(1)
   })
 
+  it('does not ask importLinks to fill missing titles from the url, so a restore keeps null titles', async () => {
+    await importVaultExport(makeExport(), { defaultCategoryId: 'cat-default', applyPreferences: false }, FAKE_DEK)
+
+    expect(mockImportLinks.mock.calls[0][3]).not.toHaveProperty('titleFromUrl')
+  })
+
   it('throws a descriptive error and never touches the DB when the export is malformed', async () => {
     // Cast through unknown: the whole point is testing a runtime shape TS wouldn't allow.
     const malformed = makeExport({ categories: 'oops' as unknown as never })

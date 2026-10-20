@@ -4,6 +4,7 @@ import { toEncryptedColumns, fromEncryptedColumns } from '@/lib/crypto/encrypted
 import { syncTagsByName } from '@/lib/services/tags/tags'
 import { createFetchGuard, hostGroupOf, needsMetaFetch, type FetchGuard, type FetchGuardConfig } from '@/lib/services/importExport/fetchGuard'
 import type { LinkStatus } from '@/lib/types/database'
+import { titleFromUrl } from '@/lib/utils/urlTitle'
 import type { SortBy } from '@/app/dashboard/link/FilterSheet'
 
 export type LinkContent = {
@@ -461,6 +462,8 @@ export type ImportLinksOptions = {
   onThrottleWait?: (wait: ThrottleWait | null) => void
   /** Called with the fetch right before each fetchMeta call, and with null when it ends. */
   onFetching?: (fetching: ImportFetching | null) => void
+  /** Save the URL's path (or hostname) as the title when a row ends up with none. Off for v2 restores. */
+  titleFromUrl?: boolean
 }
 
 const isEmpty = (value: string | null | undefined) => value == null || value === ''
@@ -548,7 +551,7 @@ export async function importLinks(
   dek: CryptoKey,
   options: ImportLinksOptions = {},
 ): Promise<ImportResult> {
-  const { onProgress, fetchMeta, signal, guardConfig } = options
+  const { onProgress, fetchMeta, signal, guardConfig, titleFromUrl: fillTitleFromUrl } = options
   const guard = fetchMeta ? createFetchGuard({ config: guardConfig }) : null
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -625,7 +628,8 @@ export async function importLinks(
       const category_id = input.category_id ?? defaultCategoryId
       const content: LinkContent = {
         url: trimmedUrl,
-        title: input.title ?? null,
+        // Applied after any fetch, so the path is only a last resort behind the file's and the fetched title.
+        title: fillTitleFromUrl && !input.title?.trim() ? titleFromUrl(trimmedUrl) : (input.title ?? null),
         description: input.description ?? null,
         site_name: input.site_name ?? new URL(trimmedUrl).hostname,
         image_url: input.image_url ?? null,

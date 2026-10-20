@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import type { LinkStatus } from '@/lib/types/database'
+import { titleFromUrl } from '@/lib/utils/urlTitle'
 
 function parseTags(raw: string): string[] {
   return raw.split(',').map(t => t.trim()).filter(Boolean)
@@ -90,6 +91,6 @@ export function useLinkForm(initial: Fields = DEFAULT_FIELDS) {
     reset,
     wrapSubmit,
     parsedTags: parseTags(form.tags),
-    resolvedTitle: form.title.trim() || form.url.replace(/^https?:\/\//, '').slice(0, 30),
+    resolvedTitle: form.title.trim() || titleFromUrl(form.url),
   }
 }

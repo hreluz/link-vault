@@ -186,14 +186,14 @@ describe('useEditLinkForm', () => {
       expect(mockUpdateLink).toHaveBeenCalledWith(expect.objectContaining({ id: '1' }), FAKE_DEK)
     })
 
-    it('uses the first 30 chars of the url without protocol as title when title is empty', async () => {
+    it('uses the url path as title when title is empty', async () => {
       const { result } = renderHook(() => useEditLinkForm({ ...LINK, url: 'https://example.com/some/very/long/path/here' }))
 
       act(() => result.current.setTitle(''))
       await act(async () => { await result.current.handleSubmit() })
 
       expect(mockUpdateLink).toHaveBeenCalledWith(expect.objectContaining({
-        title: 'example.com/some/very/long/pat',
+        title: 'some/very/long/path/here',
       }), FAKE_DEK)
     })
 

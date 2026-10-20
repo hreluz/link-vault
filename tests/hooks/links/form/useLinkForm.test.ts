@@ -105,17 +105,22 @@ describe('useLinkForm', () => {
       expect(result.current.resolvedTitle).toBe('My Title')
     })
 
-    it('falls back to url without protocol when title is empty', () => {
+    it('falls back to the url path when title is empty', () => {
       const { result } = render()
       act(() => result.current.setUrl('https://example.com/path'))
-      expect(result.current.resolvedTitle).toBe('example.com/path')
+      expect(result.current.resolvedTitle).toBe('path')
     })
 
-    it('truncates fallback title to 30 characters', () => {
+    it('returns a long fallback path in full', () => {
       const { result } = render()
       act(() => result.current.setUrl('https://example.com/a/very/long/path/that/goes/on'))
-      expect(result.current.resolvedTitle).toHaveLength(30)
-      expect(result.current.resolvedTitle).toBe('example.com/a/very/long/path/t')
+      expect(result.current.resolvedTitle).toBe('a/very/long/path/that/goes/on')
+    })
+
+    it('falls back to the hostname when the url has no path', () => {
+      const { result } = render()
+      act(() => result.current.setUrl('https://example.com'))
+      expect(result.current.resolvedTitle).toBe('example.com')
     })
   })
 
