@@ -217,6 +217,17 @@ describe('useLinkList (integration)', () => {
 
       expect(result.current.links.find(l => l.id === '3')?.status).toBe('watching')
     })
+
+    it('records the opened link as lastOpenedId, replacing the previous one', async () => {
+      const { result } = await renderLoaded()
+      expect(result.current.lastOpenedId).toBeNull()
+
+      act(() => result.current.handleLinkOpen('2', 'read'))
+      expect(result.current.lastOpenedId).toBe('2')
+
+      act(() => result.current.handleLinkOpen('3', 'watching'))
+      expect(result.current.lastOpenedId).toBe('3')
+    })
   })
 
   describe('handleEdit', () => {

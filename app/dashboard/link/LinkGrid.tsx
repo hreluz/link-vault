@@ -2,6 +2,7 @@
 
 import { useCategoryList } from '@/lib/hooks/categories/useCategoryList'
 import { useInfiniteScrollSentinel } from '@/lib/hooks/shared/useInfiniteScrollSentinel'
+import { useReturnPulse } from '@/lib/hooks/shared/useReturnPulse'
 import { useLinkListContext } from './LinkListContext'
 import LinkCard from './LinkCard'
 
@@ -9,11 +10,12 @@ export default function LinkGrid() {
   const {
     loading, links: results, hasActiveFilters, favoritesOnly,
     hasMore, loadingMore, loadMore, refreshKey,
-    setActiveLink, handleFavoriteToggle, handleLinkOpen, handleDeleteById, resetFilters,
+    setActiveLink, handleFavoriteToggle, handleLinkOpen, lastOpenedId, handleDeleteById, resetFilters,
     isSelectionMode, isSelected, toggleSelected, enterSelectionMode,
   } = useLinkListContext()
   const { categories } = useCategoryList(refreshKey)
   const sentinelRef = useInfiniteScrollSentinel(loadMore, hasMore && !loading && !loadingMore)
+  const pulse = useReturnPulse(lastOpenedId !== null)
 
   if (loading) {
     return (
@@ -72,6 +74,8 @@ export default function LinkGrid() {
             onMenuOpen={() => setActiveLink(link)}
             onFavoriteToggle={() => handleFavoriteToggle(link.id)}
             onOpen={() => handleLinkOpen(link.id, link.status)}
+            isLastOpened={link.id === lastOpenedId}
+            pulse={pulse && link.id === lastOpenedId}
             onDelete={() => handleDeleteById(link.id)}
             isSelectionMode={isSelectionMode}
             isSelected={isSelected(link.id)}
