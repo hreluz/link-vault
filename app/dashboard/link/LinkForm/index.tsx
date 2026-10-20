@@ -88,10 +88,10 @@ export default function LinkForm({ scrollable = false, collapsible = false }: Pr
         )}
 
         <TagsField />
+        <TitleField />
 
         {expanded && (
           <>
-            <TitleField />
             <DescriptionField />
             <CategoryStatusRow />
             <DurationField />
