@@ -140,7 +140,7 @@ describe('useLinkImport', () => {
       })
       await act(async () => { await result.current.handleImport() })
 
-      expect(mockImportLinks).toHaveBeenCalledWith(expect.any(Array), 'cat-2', FAKE_DEK, { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal) })
+      expect(mockImportLinks).toHaveBeenCalledWith(expect.any(Array), 'cat-2', FAKE_DEK, { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal), titleFromUrl: true })
     })
   })
 
@@ -204,7 +204,7 @@ describe('useLinkImport', () => {
         [{ url: 'https://example.com', tags: [] }, { url: 'https://github.com', tags: [] }],
         'cat-0',
         FAKE_DEK,
-        { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal) },
+        { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal), titleFromUrl: true },
       )
     })
 
@@ -218,7 +218,7 @@ describe('useLinkImport', () => {
         [{ url: 'https://example.com', tags: [] }],
         expect.anything(),
         FAKE_DEK,
-        { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal) },
+        { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal), titleFromUrl: true },
       )
     })
 
@@ -289,7 +289,7 @@ describe('useLinkImport', () => {
         [{ url: 'https://example.com', tags: ['react'] }],
         expect.anything(),
         FAKE_DEK,
-        { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal) },
+        { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal), titleFromUrl: true },
       )
     })
 
@@ -321,7 +321,7 @@ describe('useLinkImport', () => {
         [{ url: 'https://example.com' }],
         expect.anything(),
         FAKE_DEK,
-        { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal) },
+        { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal), titleFromUrl: true },
       )
     })
   })
@@ -352,7 +352,7 @@ describe('useLinkImport', () => {
         [{ url: 'https://example.com', tags: ['test'] }],
         expect.anything(),
         FAKE_DEK,
-        { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal) },
+        { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal), titleFromUrl: true },
       )
     })
 
@@ -410,7 +410,7 @@ describe('useLinkImport', () => {
         ]),
         expect.anything(),
         FAKE_DEK,
-        { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal) },
+        { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal), titleFromUrl: true },
       )
     })
 
@@ -432,7 +432,7 @@ describe('useLinkImport', () => {
         ]),
         expect.anything(),
         FAKE_DEK,
-        { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal) },
+        { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal), titleFromUrl: true },
       )
       expect(mockGetOrCreateCategoryByName).not.toHaveBeenCalled()
     })
@@ -795,7 +795,7 @@ describe('useLinkImport', () => {
       await act(async () => { await result.current.handleImport() })
 
       expect(mockImportLinks).toHaveBeenCalledWith(
-        expect.any(Array), 'cat-0', FAKE_DEK, { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal) },
+        expect.any(Array), 'cat-0', FAKE_DEK, { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal), titleFromUrl: true },
       )
     })
 
@@ -811,9 +811,24 @@ describe('useLinkImport', () => {
         expect.any(Array), 'cat-0', FAKE_DEK, {
           onProgress: expect.any(Function), fetchMeta: mockFetchLinkMeta, onHostBlocked: expect.any(Function),
           onThrottleWait: expect.any(Function), onFetching: expect.any(Function), guardConfig: DEFAULT_GUARD,
-          signal: expect.any(AbortSignal),
+          signal: expect.any(AbortSignal), titleFromUrl: true,
         },
       )
+    })
+
+    it('asks importLinks to fill missing titles from the url, with auto-fetch on or off', async () => {
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.setUrlsText('https://example.com/a'))
+      await act(async () => { await result.current.handleImport() })
+
+      act(() => result.current.setAutoFetchOnImport(true))
+      act(() => result.current.setUrlsText('https://example.com/b'))
+      await act(async () => { await result.current.handleImport() })
+
+      expect(mockImportLinks).toHaveBeenCalledTimes(2)
+      for (const call of mockImportLinks.mock.calls) {
+        expect(call[3]).toMatchObject({ titleFromUrl: true })
+      }
     })
 
     it('never fetches for a detected v2 export, even when turned on', async () => {

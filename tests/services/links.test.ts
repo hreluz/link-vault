@@ -989,6 +989,61 @@ describe('importLinks', () => {
       expect(result).not.toHaveProperty('metaMissing')
       expect(result).not.toHaveProperty('genericSkipped')
     })
+
+    describe('titleFromUrl option', () => {
+      const INSTAGRAM = 'https://www.instagram.com/reel/DPwciDeD86l/'
+      const EMPTY_META = { title: null, description: null, image: null, duration: null }
+
+      it('saves the url path as the title when auto-fetch is off', async () => {
+        await importLinks([{ url: INSTAGRAM }], null, dek, { titleFromUrl: true })
+
+        expect((await insertedContent()).title).toBe('reel/DPwciDeD86l')
+      })
+
+      it('treats a whitespace-only title as empty', async () => {
+        await importLinks([{ url: INSTAGRAM, title: '   ' }], null, dek, { titleFromUrl: true })
+
+        expect((await insertedContent()).title).toBe('reel/DPwciDeD86l')
+      })
+
+      it("keeps the row's own title", async () => {
+        await importLinks([{ url: INSTAGRAM, title: 'From the file' }], null, dek, { titleFromUrl: true })
+
+        expect((await insertedContent()).title).toBe('From the file')
+      })
+
+      it('prefers a fetched title over the path', async () => {
+        const fetchMeta = vi.fn().mockResolvedValue(FULL_META)
+
+        await importLinks([{ url: INSTAGRAM }], null, dek, { fetchMeta, titleFromUrl: true })
+
+        expect((await insertedContent()).title).toBe('Fetched title')
+      })
+
+      it('uses the path after an empty fetch and still counts the row in metaMissing', async () => {
+        const fetchMeta = vi.fn().mockResolvedValue(EMPTY_META)
+
+        const result = await importLinks([{ url: INSTAGRAM }], null, dek, { fetchMeta, titleFromUrl: true })
+
+        expect(result).toMatchObject({ imported: 1, metaMissing: 1 })
+        expect((await insertedContent()).title).toBe('reel/DPwciDeD86l')
+      })
+
+      it('still skips a generic row with no title instead of saving it with the path', async () => {
+        const fetchMeta = vi.fn().mockResolvedValue({ ...EMPTY_META, generic: true })
+
+        const result = await importLinks([{ url: INSTAGRAM }], null, dek, { fetchMeta, titleFromUrl: true })
+
+        expect(mockLinksInsert).not.toHaveBeenCalled()
+        expect(result).toMatchObject({ imported: 0, genericSkipped: [INSTAGRAM] })
+      })
+
+      it('saves a null title when the option is off', async () => {
+        await importLinks([{ url: INSTAGRAM }], null, dek)
+
+        expect((await insertedContent()).title).toBeNull()
+      })
+    })
   })
 
   describe('signal', () => {

@@ -290,14 +290,14 @@ describe('useAddLinkForm', () => {
       expect(result.current.submitting).toBe(false)
     })
 
-    it('uses the first 30 chars of the url without protocol as title when title is empty', async () => {
+    it('uses the url path as title when title is empty', async () => {
       const { result } = renderHook(() => useAddLinkForm())
 
       act(() => { result.current.setUrl('https://example.com/some/very/long/path/here'); result.current.setCategoryId('cat-1') })
       await act(async () => { await result.current.handleSubmit() })
 
       expect(mockCreateLink).toHaveBeenCalledWith(expect.objectContaining({
-        title: 'example.com/some/very/long/pat',
+        title: 'some/very/long/path/here',
       }), FAKE_DEK)
     })
 
