@@ -25,7 +25,6 @@ export default function LinkModals() {
     handleEdit,
     handleDelete,
     handleStatusChange,
-    handleFavoriteToggle,
     resetFilters,
     addToast,
     pendingCapture, setPendingCapture,
@@ -71,8 +70,6 @@ export default function LinkModals() {
       <BottomSheet
         link={activeLink}
         onStatusChange={handleStatusChange}
-        onFavoriteToggle={() => activeLink && handleFavoriteToggle(activeLink.id)}
-        onEdit={() => setEditingLink(activeLink)}
         onDelete={handleDelete}
         onClose={() => setActiveLink(null)}
       />

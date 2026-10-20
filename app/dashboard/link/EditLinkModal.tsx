@@ -26,9 +26,8 @@ export default function EditLinkModal({ link, onSave, onClose }: Props) {
   const dialog = useDialog({
     isOpen: link !== null,
     onClose: form.submitting ? () => {} : guard.confirming ? guard.keepEditing : guard.requestClose,
-    // Edit opens from the bottom sheet's Edit button, which is gone by the time this
-    // closes, so send focus back to the card's "Link options" button instead.
-    returnFocus: () => link && document.querySelector<HTMLElement>(`[data-link-options="${CSS.escape(link.id)}"]`),
+    // Edit opens from the card's pencil button; send focus back to it on close.
+    returnFocus: () => link && document.querySelector<HTMLElement>(`[data-link-edit="${CSS.escape(link.id)}"]`),
   })
 
   if (!link) return null
@@ -56,7 +55,7 @@ export default function EditLinkModal({ link, onSave, onClose }: Props) {
           <h2 id={dialog.titleId} className="text-base font-semibold text-surface-900 dark:text-surface-50">Edit link</h2>
         </div>
         <LinkFormContext.Provider value={{ ...form, mode: 'edit', categories, onSubmit: handleSave, onCancel: guard.requestClose, submitLabel: 'Save changes', discardPrompt }}>
-          <LinkForm scrollable />
+          <LinkForm scrollable collapsible />
         </LinkFormContext.Provider>
       </div>
     </div>

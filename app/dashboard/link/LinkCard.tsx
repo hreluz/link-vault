@@ -12,6 +12,7 @@ interface Props {
   category?: Category | null
   onMenuOpen: () => void
   onFavoriteToggle: () => void
+  onEdit?: () => void
   onOpen?: () => void
   onDelete?: () => void
   isSelectionMode?: boolean
@@ -23,7 +24,7 @@ interface Props {
 }
 
 export default function LinkCard({
-  link, category, onMenuOpen, onFavoriteToggle, onOpen, onDelete,
+  link, category, onMenuOpen, onFavoriteToggle, onEdit, onOpen, onDelete,
   isSelectionMode, isSelected, onSelect, onLongPress, isLastOpened, pulse,
 }: Props) {
   const status = STATUS_CONFIG[link.status]
@@ -123,10 +124,22 @@ export default function LinkCard({
                 >
                   {link.is_favorite ? '⭐' : '☆'}
                 </button>
+                {onEdit && (
+                  <button
+                    onClick={onEdit}
+                    aria-label="Edit link"
+                    data-link-edit={link.id}
+                    title="Edit"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-surface-400 transition hover:bg-surface-100 hover:text-surface-700 active:bg-surface-200 lg:h-10 lg:w-10 dark:text-surface-500 dark:hover:bg-surface-800 dark:hover:text-surface-200"
+                  >
+                    <svg aria-hidden="true" className="h-4 w-4 lg:h-5 lg:w-5" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M13.5 3.5l3 3L7 16H4v-3l9.5-9.5z" />
+                    </svg>
+                  </button>
+                )}
                 <button
                   onClick={onMenuOpen}
                   aria-label="Link options"
-                  data-link-options={link.id}
                   className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-100 text-sm text-surface-500 transition hover:bg-surface-200 hover:text-surface-700 active:bg-surface-200 lg:h-10 lg:w-10 lg:text-xl dark:bg-surface-800 dark:text-surface-400 dark:hover:bg-surface-700 dark:hover:text-surface-200"
                 >
                   ···
