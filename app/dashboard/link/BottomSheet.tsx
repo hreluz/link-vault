@@ -16,13 +16,11 @@ const STATUS_ICONS: Record<LinkStatus, string> = {
 interface Props {
   link: LinkWithTags | null
   onStatusChange: (id: string, status: LinkStatus) => void
-  onFavoriteToggle: () => void
-  onEdit: () => void
   onDelete: () => void
   onClose: () => void
 }
 
-export default function BottomSheet({ link, onStatusChange, onFavoriteToggle, onEdit, onDelete, onClose }: Props) {
+export default function BottomSheet({ link, onStatusChange, onDelete, onClose }: Props) {
   const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   function handleClose() {
@@ -59,62 +57,31 @@ export default function BottomSheet({ link, onStatusChange, onFavoriteToggle, on
           </button>
         </div>
 
-        {/* quick actions */}
-        <div className="grid grid-cols-3 gap-2 border-b border-surface-100 p-4 dark:border-surface-800">
-          <a
-            href={link.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={handleClose}
-            className="flex items-center justify-center gap-1.5 rounded-xl border border-surface-200 py-2.5 text-sm font-medium text-surface-600 transition hover:bg-surface-50 dark:border-surface-700 dark:text-surface-400 dark:hover:bg-surface-800"
-          >
-            <span aria-hidden="true">↗</span> Open
-          </a>
-          <button
-            onClick={() => { onEdit(); handleClose() }}
-            className="flex items-center justify-center gap-1.5 rounded-xl border border-surface-200 py-2.5 text-sm font-medium text-surface-600 transition hover:bg-surface-50 dark:border-surface-700 dark:text-surface-400 dark:hover:bg-surface-800"
-          >
-            <span aria-hidden="true">✏️</span> Edit
-          </button>
-          <button
-            onClick={() => { onFavoriteToggle(); handleClose() }}
-            title={link.is_favorite ? 'Favorite (delete-protected) — click to remove' : 'Favorite — also protects from deletion'}
-            className={`flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-sm font-medium transition ${
-              link.is_favorite
-                ? 'border-amber-200 bg-amber-50 text-amber-600 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
-                : 'border-surface-200 text-surface-600 hover:bg-surface-50 dark:border-surface-700 dark:text-surface-400 dark:hover:bg-surface-800'
-            }`}
-          >
-            <span aria-hidden="true">{link.is_favorite ? '⭐' : '☆'}</span>
-            {link.is_favorite ? 'Unstar' : 'Star'}
-          </button>
-        </div>
-
-        {/* status options */}
-        <ul className="py-2">
-          <li className="px-5 pb-1 pt-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-surface-400 dark:text-surface-500">Status</p>
-          </li>
-          {(Object.keys(STATUS_CONFIG) as LinkStatus[]).map(s => {
-            const active = link.status === s
-            return (
-              <li key={s}>
+        {/* status */}
+        <div className="px-4 py-4">
+          <p id="sheet-status-label" className="mb-2 text-xs font-semibold uppercase tracking-wide text-surface-400 dark:text-surface-500">Status</p>
+          <div role="radiogroup" aria-labelledby="sheet-status-label" className="grid grid-cols-4 gap-1 rounded-xl bg-surface-100 p-1 dark:bg-surface-800">
+            {(Object.keys(STATUS_CONFIG) as LinkStatus[]).map(s => {
+              const active = link.status === s
+              return (
                 <button
-                  onClick={() => { onStatusChange(link.id, s); handleClose() }}
-                  className={`flex w-full items-center gap-4 px-5 py-3.5 text-left transition active:bg-surface-100 dark:active:bg-surface-800 ${
-                    active ? 'bg-surface-50 dark:bg-surface-800' : 'hover:bg-surface-50 dark:hover:bg-surface-800'
+                  key={s}
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => { if (!active) onStatusChange(link.id, s); handleClose() }}
+                  className={`flex min-h-9 items-center justify-center gap-1 rounded-lg px-1 text-xs font-medium transition ${
+                    active
+                      ? 'bg-surface-card text-primary-600 shadow-sm dark:bg-surface-900 dark:text-primary-400'
+                      : 'text-surface-500 hover:text-surface-800 dark:text-surface-400 dark:hover:text-surface-200'
                   }`}
                 >
-                  <span className="text-lg" aria-hidden="true">{STATUS_ICONS[s]}</span>
-                  <span className={`text-sm font-medium ${active ? 'text-primary-600 dark:text-primary-400' : 'text-surface-700 dark:text-surface-300'}`}>
-                    {STATUS_CONFIG[s].label}
-                  </span>
-                  {active && <span className="ml-auto text-sm font-semibold text-primary-600 dark:text-primary-400">✓</span>}
+                  <span aria-hidden="true">{STATUS_ICONS[s]}</span>
+                  <span className="truncate">{STATUS_CONFIG[s].label}</span>
                 </button>
-              </li>
-            )
-          })}
-        </ul>
+              )
+            })}
+          </div>
+        </div>
 
         {/* delete */}
         <div className="border-t border-surface-100 p-4 dark:border-surface-800">

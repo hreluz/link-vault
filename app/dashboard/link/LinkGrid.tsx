@@ -10,7 +10,7 @@ export default function LinkGrid() {
   const {
     loading, links: results, hasActiveFilters, favoritesOnly,
     hasMore, loadingMore, loadMore, refreshKey,
-    setActiveLink, handleFavoriteToggle, handleLinkOpen, lastOpenedId, handleDeleteById, resetFilters,
+    setActiveLink, setEditingLink, handleFavoriteToggle, handleLinkOpen, lastOpenedId, handleDeleteById, resetFilters,
     isSelectionMode, isSelected, toggleSelected, enterSelectionMode,
   } = useLinkListContext()
   const { categories } = useCategoryList(refreshKey)
@@ -73,6 +73,7 @@ export default function LinkGrid() {
             category={categories.find(c => c.id === link.category_id) ?? null}
             onMenuOpen={() => setActiveLink(link)}
             onFavoriteToggle={() => handleFavoriteToggle(link.id)}
+            onEdit={() => setEditingLink(link)}
             onOpen={() => handleLinkOpen(link.id, link.status)}
             isLastOpened={link.id === lastOpenedId}
             pulse={pulse && link.id === lastOpenedId}
