@@ -81,16 +81,19 @@ function comesBefore(a: HTMLElement, b: HTMLElement) {
 }
 
 describe('LinkForm Tags placement', () => {
-  it('shows the Tags input in the collapsed add form', () => {
+  it('shows the Tags and Title inputs in the collapsed add form', () => {
     renderForm({ mode: 'add', url: '' }, true)
     expect(screen.getByLabelText('Tags').tagName).toBe('INPUT')
-    expect(screen.queryByLabelText('Title')).toBeNull()
+    expect(screen.getByLabelText('Title').tagName).toBe('INPUT')
+    expect(comesBefore(screen.getByLabelText('Tags'), screen.getByLabelText('Title'))).toBe(true)
+    expect(screen.queryByLabelText('Description')).toBeNull()
   })
 
-  it('keeps a single Tags input above Title once the add form is expanded', () => {
+  it('keeps a single Tags input above a single Title once the add form is expanded', () => {
     renderForm({ mode: 'add', url: '' }, true)
     fireEvent.click(screen.getByRole('button', { name: 'More options' }))
     expect(screen.getAllByLabelText('Tags')).toHaveLength(1)
+    expect(screen.getAllByLabelText('Title')).toHaveLength(1)
     expect(comesBefore(screen.getByLabelText('Tags'), screen.getByLabelText('Title'))).toBe(true)
   })
 
