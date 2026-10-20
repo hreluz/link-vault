@@ -18,13 +18,16 @@ interface Props {
   isSelected?: boolean
   onSelect?: (id: string) => void
   onLongPress?: (id: string) => void
+  isLastOpened?: boolean
+  pulse?: boolean
 }
 
 export default function LinkCard({
   link, category, onMenuOpen, onFavoriteToggle, onOpen, onDelete,
-  isSelectionMode, isSelected, onSelect, onLongPress,
+  isSelectionMode, isSelected, onSelect, onLongPress, isLastOpened, pulse,
 }: Props) {
   const status = STATUS_CONFIG[link.status]
+  const showLastOpened = isLastOpened && !isSelectionMode
   const tagNameById = useTagNameLookup()
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -53,7 +56,9 @@ export default function LinkCard({
       <article
         className={`relative flex h-full flex-col bg-surface-card transition dark:bg-surface-900 ${
           isSelectionMode ? 'cursor-pointer select-none' : ''
-        } ${isSelected ? 'ring-2 ring-primary-500 ring-inset rounded-2xl' : ''}`}
+        } ${isSelected ? 'ring-2 ring-primary-500 ring-inset rounded-2xl' : ''} ${
+          showLastOpened ? 'ring-2 ring-primary-500/60 ring-inset rounded-2xl' : ''
+        } ${showLastOpened && pulse ? 'motion-safe:animate-pulse' : ''}`}
         onPointerDown={startLongPress}
         onPointerUp={cancelLongPress}
         onPointerLeave={cancelLongPress}
@@ -140,6 +145,7 @@ export default function LinkCard({
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={onOpen}
+                  aria-current={showLastOpened ? 'true' : undefined}
                   className="after:absolute after:inset-0 after:rounded-2xl after:content-[''] focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-primary-500"
                 >
                   {link.title}
@@ -162,6 +168,11 @@ export default function LinkCard({
             <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${status.badge}`}>
               {status.label}
             </span>
+            {showLastOpened && (
+              <span className="inline-flex items-center rounded-full bg-primary-50 px-2.5 py-0.5 text-xs font-medium text-primary-700 dark:bg-primary-900/30 dark:text-primary-300">
+                Last opened
+              </span>
+            )}
             {link.tags.map(tagId => (
               <span key={tagId} className="rounded-full bg-surface-100 px-2.5 py-0.5 text-xs text-surface-500 dark:bg-surface-800 dark:text-surface-400">
                 {tagNameById.get(tagId) ?? tagId}

@@ -30,6 +30,7 @@ export function useLinkList(autoFetchDefault = true) {
   const [selectingAllMatching, setSelectingAllMatching] = useState(false)
   const { refetchTags } = useTagsContext()
   const [refreshKey, setRefreshKey] = useState(0)
+  const [lastOpenedId, setLastOpenedId] = useState<string | null>(null)
   // `refreshing` only turns true once page 1 starts loading, so a ref guards
   // the private-tag re-read that runs first against a second click.
   const refreshInFlightRef = useRef(false)
@@ -55,6 +56,7 @@ export function useLinkList(autoFetchDefault = true) {
   }
 
   function handleLinkOpen(id: string, currentStatus: LinkStatus) {
+    setLastOpenedId(id)
     if (currentStatus === 'unread') changeStatus(id, 'watching')
   }
 
@@ -132,6 +134,7 @@ export function useLinkList(autoFetchDefault = true) {
     selectingAllMatching,
     handleStatusChange,
     handleLinkOpen,
+    lastOpenedId,
     handleEdit,
     handleDelete,
     handleDeleteById,
