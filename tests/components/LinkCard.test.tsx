@@ -41,10 +41,12 @@ describe('LinkCard last-opened marker', () => {
 
   it('pulses only while pulse is set', () => {
     const { container, rerender } = renderCard({ isLastOpened: true, pulse: true })
-    expect(container.querySelector('article')?.className).toContain('motion-safe:animate-pulse')
+    expect(screen.getByTestId('last-opened-pulse')).toBeTruthy()
+    // Fading the card itself would reveal the swipe-delete backdrop beneath it.
+    expect(container.querySelector('article')?.className).not.toContain('animate-pulse')
 
     rerender(<LinkCard link={LINK} onMenuOpen={vi.fn()} onFavoriteToggle={vi.fn()} isLastOpened />)
-    expect(container.querySelector('article')?.className).not.toContain('motion-safe:animate-pulse')
+    expect(screen.queryByTestId('last-opened-pulse')).toBeNull()
   })
 
   it('hides the marker in selection mode', () => {

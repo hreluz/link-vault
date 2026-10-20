@@ -59,12 +59,21 @@ export default function LinkCard({
           isSelectionMode ? 'cursor-pointer select-none' : ''
         } ${isSelected ? 'ring-2 ring-primary-500 ring-inset rounded-2xl' : ''} ${
           showLastOpened ? 'ring-2 ring-primary-500/60 ring-inset rounded-2xl' : ''
-        } ${showLastOpened && pulse ? 'motion-safe:animate-pulse' : ''}`}
+        }`}
         onPointerDown={startLongPress}
         onPointerUp={cancelLongPress}
         onPointerLeave={cancelLongPress}
         onClick={handleCardClick}
       >
+        {/* Pulse a ring overlay, not the card: fading the card's opacity would
+            reveal SwipeableCard's delete backdrop underneath. */}
+        {showLastOpened && pulse && (
+          <span
+            aria-hidden="true"
+            data-testid="last-opened-pulse"
+            className="pointer-events-none absolute inset-0 z-10 rounded-2xl ring-2 ring-inset ring-primary-500 motion-safe:animate-pulse"
+          />
+        )}
         {isSelectionMode && (
           <div className="absolute left-3 top-3 z-20">
             <div
