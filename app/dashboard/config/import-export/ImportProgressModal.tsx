@@ -70,6 +70,13 @@ export function formatTimeAgo(at: number, now: number) {
   return rest === 0 ? `${hours} h ago` : `${hours} h ${rest} min ago`
 }
 
+/** The "last link imported" line, shared by the running view and the host-block notice. */
+function lastImportedText(at: number | null, now: number) {
+  return at === null
+    ? 'No links imported yet in this run.'
+    : `Last link imported at ${formatClock(at)} (${formatTimeAgo(at, now)}).`
+}
+
 /** Re-renders every second while `active`, returning the current time. */
 function useNow(active: boolean) {
   const [now, setNow] = useState(() => Date.now())
@@ -94,6 +101,16 @@ function ThrottleCountdown({ wait }: { wait: ThrottleWait }) {
   return (
     <p className="mt-0.5 break-words text-xs tabular-nums text-surface-400 dark:text-surface-500">
       Next {wait.host} link in {throttleSecondsLeft(wait.until, now, initial)} s
+    </p>
+  )
+}
+
+/** When the running import last saved a link; replaced by the host-block notice's own copy while paused. */
+function LastImportedLine({ at }: { at: number | null }) {
+  const now = useNow(true)
+  return (
+    <p className="mt-0.5 text-xs tabular-nums text-surface-400 dark:text-surface-500">
+      {lastImportedText(at, now)}
     </p>
   )
 }
@@ -128,7 +145,7 @@ interface HostBlockNoticeProps {
 /** Shown in place of Cancel while a host looks blocked and the import is paused. */
 function HostBlockNotice({ block, lastImportedAt, retryWaitMs, emptyStreakLimit, onWait, onSkip, onLeave }: HostBlockNoticeProps) {
   const counting = block.retryAt !== null
-  // Ticks for the whole pause: the countdown and the "last link imported" line both read it.
+  // Ticks for the whole pause: the countdown and the last-imported line both read it.
   const now = useNow(true)
 
   return (
@@ -145,11 +162,7 @@ function HostBlockNotice({ block, lastImportedAt, retryWaitMs, emptyStreakLimit,
               : `The last ${emptyStreakLimit} links from it came back empty.`}
         </p>
         {block.attempt > 1 && <p className="mt-1">Still blocked (attempt {block.attempt}).</p>}
-        <p className="mt-1 tabular-nums">
-          {lastImportedAt === null
-            ? 'No links imported yet in this run.'
-            : `Last link imported at ${formatClock(lastImportedAt)} (${formatTimeAgo(lastImportedAt, now)}).`}
-        </p>
+        <p className="mt-1 tabular-nums">{lastImportedText(lastImportedAt, now)}</p>
       </div>
       <button type="button" onClick={onWait} disabled={counting} className={`w-full tabular-nums ${PRIMARY_BUTTON}`}>
         {counting ? `Retrying in ${formatCountdown(block.retryAt!, now, retryWaitMs)}` : `Wait ${formatWait(retryWaitMs)} and retry`}
@@ -183,7 +196,7 @@ interface Props {
   onClose: () => void
   /** Set while a host looks blocked and the import is paused for a decision. */
   hostBlock: HostBlockState | null
-  /** When this run last saved a link; shown in the host-block notice. */
+  /** When this run last saved a link; shown under the status line, or in the host-block notice while paused. */
   lastImportedAt: number | null
   /** Set while the import waits out a same-host gap of >= 1 s. */
   throttleWait?: ThrottleWait | null
@@ -342,6 +355,7 @@ export default function ImportProgressModal({
                 {progress.done} of {progress.total}
               </p>
             )}
+            {running && !hostBlock && <LastImportedLine at={lastImportedAt} />}
             {running && throttleWait && !hostBlock && (
               <ThrottleCountdown key={`${throttleWait.host}-${throttleWait.until}`} wait={throttleWait} />
             )}

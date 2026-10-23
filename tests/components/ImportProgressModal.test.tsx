@@ -405,6 +405,40 @@ describe('ImportProgressModal', () => {
     })
   })
 
+  describe('last link imported (running view)', () => {
+    const clock = (at: number) =>
+      new Date(at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+
+    afterEach(() => { vi.useRealTimers() })
+
+    it('shows the clock time and how long ago under the status line, and ticks', () => {
+      vi.useFakeTimers()
+      const at = Date.now() - 3 * 60_000
+      renderModal({ lastImportedAt: at })
+      expect(screen.getByText(`Last link imported at ${clock(at)} (3 min ago).`)).toBeTruthy()
+
+      act(() => { vi.advanceTimersByTime(60_000) })
+
+      expect(screen.getByText(`Last link imported at ${clock(at)} (4 min ago).`)).toBeTruthy()
+    })
+
+    it('says no links were imported yet before the first save', () => {
+      renderModal({ lastImportedAt: null })
+      expect(screen.getByText('No links imported yet in this run.')).toBeTruthy()
+    })
+
+    it('shows during a vault import too', () => {
+      renderModal({ run: { isVault: true, withMetadata: false }, progress: { phase: 'categories', done: 1, total: 3 } })
+      expect(screen.getByText('No links imported yet in this run.')).toBeTruthy()
+    })
+
+    it.each(['finished', 'cancelled'] as const)('is not shown in the %s view', state => {
+      renderModal({ state, lastImportedAt: Date.now() })
+      expect(screen.queryByText(/Last link imported/)).toBeNull()
+      expect(screen.queryByText('No links imported yet in this run.')).toBeNull()
+    })
+  })
+
   describe('throttle wait', () => {
     const LINKS_META_RUN = { isVault: false, withMetadata: true }
     const LINE = /^Next .* link in \d+ s$/
@@ -622,10 +656,12 @@ describe('ImportProgressModal', () => {
         expect(screen.getByText('No links imported yet in this run.')).toBeTruthy()
       })
 
-      it('is not rendered while running without a host block', () => {
-        renderModal({ run: LINKS_META_RUN, hostBlock: null, lastImportedAt: Date.now() })
-        expect(screen.queryByText(/Last link imported/)).toBeNull()
-        expect(screen.queryByText('No links imported yet in this run.')).toBeNull()
+      it('appears once, inside the notice, while paused', () => {
+        vi.useFakeTimers()
+        const at = Date.now() - 3 * 60_000
+        renderModal({ run: LINKS_META_RUN, hostBlock: BLOCK, lastImportedAt: at })
+        expect(screen.getAllByText(/Last link imported/)).toHaveLength(1)
+        expect(screen.getByRole('status').textContent).toContain(`Last link imported at ${clock(at)}`)
       })
     })
 
