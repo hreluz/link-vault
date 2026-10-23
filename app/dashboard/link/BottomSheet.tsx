@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import type { LinkWithTags } from '@/lib/services/links'
 import type { LinkStatus } from '@/lib/types/database'
 import { useBackdropClose } from '@/lib/hooks/shared/useBackdropClose'
@@ -21,14 +20,7 @@ interface Props {
 }
 
 export default function BottomSheet({ link, onStatusChange, onDelete, onClose }: Props) {
-  const [confirmingDelete, setConfirmingDelete] = useState(false)
-
-  function handleClose() {
-    setConfirmingDelete(false)
-    onClose()
-  }
-
-  const backdrop = useBackdropClose(handleClose)
+  const backdrop = useBackdropClose(onClose)
 
   if (!link) return null
 
@@ -49,7 +41,7 @@ export default function BottomSheet({ link, onStatusChange, onDelete, onClose }:
             <p className="mt-0.5 text-xs text-surface-400 dark:text-surface-500">{link.site_name}</p>
           </div>
           <button
-            onClick={handleClose}
+            onClick={onClose}
             aria-label="Close"
             className="hidden h-7 w-7 shrink-0 items-center justify-center rounded-lg text-surface-400 transition hover:bg-surface-100 hover:text-surface-600 lg:flex dark:text-surface-500 dark:hover:bg-surface-800 dark:hover:text-surface-300"
           >
@@ -68,7 +60,7 @@ export default function BottomSheet({ link, onStatusChange, onDelete, onClose }:
                   key={s}
                   role="radio"
                   aria-checked={active}
-                  onClick={() => { if (!active) onStatusChange(link.id, s); handleClose() }}
+                  onClick={() => { if (!active) onStatusChange(link.id, s); onClose() }}
                   className={`flex min-h-9 items-center justify-center gap-1 rounded-lg px-1 text-xs font-medium transition ${
                     active
                       ? 'bg-surface-card text-primary-600 shadow-sm dark:bg-surface-900 dark:text-primary-400'
@@ -89,25 +81,9 @@ export default function BottomSheet({ link, onStatusChange, onDelete, onClose }:
             <p className="flex w-full cursor-not-allowed items-center justify-center gap-2 py-2.5 text-sm font-medium text-surface-400 dark:text-surface-600">
               <span aria-hidden="true">🔒</span> Unfavorite to delete
             </p>
-          ) : confirmingDelete ? (
-            <div className="flex items-center gap-3">
-              <p className="flex-1 text-sm text-surface-600 dark:text-surface-400">Delete this link?</p>
-              <button
-                onClick={() => setConfirmingDelete(false)}
-                className="rounded-xl border border-surface-200 px-4 py-2 text-sm font-medium text-surface-600 transition hover:bg-surface-50 dark:border-surface-700 dark:text-surface-400 dark:hover:bg-surface-800"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => { onDelete(); handleClose() }}
-                className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-500"
-              >
-                Delete
-              </button>
-            </div>
           ) : (
             <button
-              onClick={() => setConfirmingDelete(true)}
+              onClick={() => { onDelete(); onClose() }}
               className="flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-medium text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
             >
               <span aria-hidden="true">🗑️</span> Delete link
