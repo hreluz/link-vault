@@ -53,6 +53,23 @@ function formatCountdown(retryAt: number, now: number, retryWaitMs: number) {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
 }
 
+/** `at` as the user's local clock time, with seconds. */
+function formatClock(at: number) {
+  return new Date(at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+}
+
+/** How long ago `at` was: `just now`, `42 s ago`, `3 min ago`, `1 h 5 min ago`, `1 h ago`. */
+export function formatTimeAgo(at: number, now: number) {
+  const seconds = Math.max(0, Math.floor((now - at) / 1000))
+  if (seconds < 5) return 'just now'
+  if (seconds < 60) return `${seconds} s ago`
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes} min ago`
+  const hours = Math.floor(minutes / 60)
+  const rest = minutes % 60
+  return rest === 0 ? `${hours} h ago` : `${hours} h ${rest} min ago`
+}
+
 /** Re-renders every second while `active`, returning the current time. */
 function useNow(active: boolean) {
   const [now, setNow] = useState(() => Date.now())
@@ -99,6 +116,8 @@ function FetchingIndicator({ fetching }: { fetching: ImportFetching }) {
 
 interface HostBlockNoticeProps {
   block: HostBlockState
+  /** When this run last saved a link; null before the first one. */
+  lastImportedAt: number | null
   retryWaitMs: number
   emptyStreakLimit: number
   onWait: () => void
@@ -107,9 +126,10 @@ interface HostBlockNoticeProps {
 }
 
 /** Shown in place of Cancel while a host looks blocked and the import is paused. */
-function HostBlockNotice({ block, retryWaitMs, emptyStreakLimit, onWait, onSkip, onLeave }: HostBlockNoticeProps) {
+function HostBlockNotice({ block, lastImportedAt, retryWaitMs, emptyStreakLimit, onWait, onSkip, onLeave }: HostBlockNoticeProps) {
   const counting = block.retryAt !== null
-  const now = useNow(counting)
+  // Ticks for the whole pause: the countdown and the "last link imported" line both read it.
+  const now = useNow(true)
 
   return (
     <section aria-labelledby="host-block-heading" className="flex flex-col gap-3">
@@ -125,6 +145,11 @@ function HostBlockNotice({ block, retryWaitMs, emptyStreakLimit, onWait, onSkip,
               : `The last ${emptyStreakLimit} links from it came back empty.`}
         </p>
         {block.attempt > 1 && <p className="mt-1">Still blocked (attempt {block.attempt}).</p>}
+        <p className="mt-1 tabular-nums">
+          {lastImportedAt === null
+            ? 'No links imported yet in this run.'
+            : `Last link imported at ${formatClock(lastImportedAt)} (${formatTimeAgo(lastImportedAt, now)}).`}
+        </p>
       </div>
       <button type="button" onClick={onWait} disabled={counting} className={`w-full tabular-nums ${PRIMARY_BUTTON}`}>
         {counting ? `Retrying in ${formatCountdown(block.retryAt!, now, retryWaitMs)}` : `Wait ${formatWait(retryWaitMs)} and retry`}
@@ -158,6 +183,8 @@ interface Props {
   onClose: () => void
   /** Set while a host looks blocked and the import is paused for a decision. */
   hostBlock: HostBlockState | null
+  /** When this run last saved a link; shown in the host-block notice. */
+  lastImportedAt: number | null
   /** Set while the import waits out a same-host gap of >= 1 s. */
   throttleWait?: ThrottleWait | null
   /** Set while a link's metadata fetch is in flight; shares the countdown's slot. */
@@ -172,7 +199,7 @@ interface Props {
 
 export default function ImportProgressModal({
   state, stats, run, progress, result, error, cancelling, notProcessed, etaMs = null, onCancel, onClose,
-  hostBlock, throttleWait = null, fetching = null, onBlockWait, onBlockSkip, onBlockLeave,
+  hostBlock, lastImportedAt, throttleWait = null, fetching = null, onBlockWait, onBlockSkip, onBlockLeave,
   retryWaitMs = DEFAULT_IMPORT_FETCH_SETTINGS.retryWaitSeconds * 1000,
   emptyStreakLimit = DEFAULT_IMPORT_FETCH_SETTINGS.emptyStreakLimit,
 }: Props) {
@@ -361,7 +388,7 @@ export default function ImportProgressModal({
 
           {running && hostBlock && (
             <HostBlockNotice
-              block={hostBlock} retryWaitMs={retryWaitMs} emptyStreakLimit={emptyStreakLimit}
+              block={hostBlock} lastImportedAt={lastImportedAt} retryWaitMs={retryWaitMs} emptyStreakLimit={emptyStreakLimit}
               onWait={onBlockWait} onSkip={onBlockSkip} onLeave={onBlockLeave} />
           )}
 

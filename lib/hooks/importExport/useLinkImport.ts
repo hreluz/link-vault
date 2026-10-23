@@ -182,6 +182,8 @@ export function useLinkImport() {
   const [progress, setProgress] = useState<VaultImportProgress | null>(null)
   const [importModalState, setImportModalState] = useState<ImportModalState>('closed')
   const [importStats, setImportStats] = useState<ImportStats>(EMPTY_STATS)
+  // Date.now() of the last saved link in this run, shown in the host-block notice.
+  const [lastImportedAt, setLastImportedAt] = useState<number | null>(null)
   const [importError, setImportError] = useState<string | null>(null)
   const [importRun, setImportRun] = useState<ImportRun | null>(null)
   // True from the Cancel click until the import returns (the current row still finishes).
@@ -368,6 +370,7 @@ export function useLinkImport() {
     if (p.phase === 'links') eta.recordProgress(p.done, p.outcome)
     const outcome = p.outcome
     if (outcome) setImportStats(stats => applyOutcome(stats, outcome))
+    if (outcome?.status === 'imported') setLastImportedAt(Date.now())
   }
 
   async function handleImport() {
@@ -385,6 +388,7 @@ export function useLinkImport() {
       abortControllerRef.current = new AbortController()
       setImportRun(run)
       setImportStats(EMPTY_STATS)
+      setLastImportedAt(null)
       setImportError(null)
       setNotProcessed([])
       setImportModalState('running')
@@ -524,7 +528,7 @@ export function useLinkImport() {
     applyPreferences, setApplyPreferences,
     autoFetchOnImport, setAutoFetchOnImport,
     importEstimate, importEtaMs: eta.etaMs,
-    importModalState, importStats, importError, importRun, closeImportModal,
+    importModalState, importStats, lastImportedAt, importError, importRun, closeImportModal,
     cancelling, notProcessed, cancelImport,
     hostBlock, waitAndRetry, skipBlockedHost, leaveImport,
     throttleWait,

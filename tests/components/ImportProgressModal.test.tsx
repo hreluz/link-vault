@@ -3,7 +3,7 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, cleanup, act } from '@testing-library/react'
-import ImportProgressModal from '@/app/dashboard/config/import-export/ImportProgressModal'
+import ImportProgressModal, { formatTimeAgo } from '@/app/dashboard/config/import-export/ImportProgressModal'
 import type { ImportStats } from '@/lib/hooks/importExport/useLinkImport'
 
 const { mockToastSuccess, mockToastError } = vi.hoisted(() => ({
@@ -38,6 +38,7 @@ function renderModal(overrides: Partial<Props> = {}) {
     onCancel: vi.fn(),
     onClose: vi.fn(),
     hostBlock: null,
+    lastImportedAt: null,
     onBlockWait: vi.fn(),
     onBlockSkip: vi.fn(),
     onBlockLeave: vi.fn(),
@@ -594,6 +595,40 @@ describe('ImportProgressModal', () => {
       expect(screen.getByRole('button', { name: 'Retrying in 0:30' })).toBeTruthy()
     })
 
+    describe('last link imported', () => {
+      const clock = (at: number) =>
+        new Date(at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+
+      it('shows the clock time and how long ago the last link was saved', () => {
+        vi.useFakeTimers()
+        const now = Date.now()
+        const at = now - 3 * 60_000
+        renderModal({ run: LINKS_META_RUN, hostBlock: BLOCK, lastImportedAt: at })
+        expect(screen.getByText(`Last link imported at ${clock(at)} (3 min ago).`)).toBeTruthy()
+      })
+
+      it('updates the relative part as time passes, without a countdown running', () => {
+        vi.useFakeTimers()
+        const at = Date.now() - 3 * 60_000
+        renderModal({ run: LINKS_META_RUN, hostBlock: BLOCK, lastImportedAt: at })
+
+        act(() => { vi.advanceTimersByTime(60_000) })
+
+        expect(screen.getByText(`Last link imported at ${clock(at)} (4 min ago).`)).toBeTruthy()
+      })
+
+      it('says no links were imported yet when none was saved', () => {
+        renderModal({ run: LINKS_META_RUN, hostBlock: BLOCK, lastImportedAt: null })
+        expect(screen.getByText('No links imported yet in this run.')).toBeTruthy()
+      })
+
+      it('is not rendered while running without a host block', () => {
+        renderModal({ run: LINKS_META_RUN, hostBlock: null, lastImportedAt: Date.now() })
+        expect(screen.queryByText(/Last link imported/)).toBeNull()
+        expect(screen.queryByText('No links imported yet in this run.')).toBeNull()
+      })
+    })
+
     it('does not close on Escape while paused', () => {
       const { props } = renderModal({ run: LINKS_META_RUN, hostBlock: BLOCK })
       fireEvent.keyDown(document, { key: 'Escape' })
@@ -601,5 +636,21 @@ describe('ImportProgressModal', () => {
       expect(props.onBlockLeave).not.toHaveBeenCalled()
       expect(screen.getByRole('dialog')).toBeTruthy()
     })
+  })
+})
+
+describe('formatTimeAgo', () => {
+  const AT = 1_000_000
+  const SEC = 1000
+  const MIN = 60 * SEC
+
+  it.each([
+    [2 * SEC, 'just now'],
+    [42 * SEC, '42 s ago'],
+    [3 * MIN + 10 * SEC, '3 min ago'],
+    [65 * MIN, '1 h 5 min ago'],
+    [60 * MIN, '1 h ago'],
+  ])('%i ms ago reads %s', (elapsed, expected) => {
+    expect(formatTimeAgo(AT, AT + elapsed)).toBe(expected)
   })
 })
