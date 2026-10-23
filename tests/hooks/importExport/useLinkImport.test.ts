@@ -1494,6 +1494,89 @@ describe('useLinkImport', () => {
     })
   })
 
+  describe('last imported at', () => {
+    type Outcome = Record<string, unknown>
+
+    /** Starts an import whose importLinks stays pending; exposes its onProgress
+     *  and a resolver to finish the import. Only Date is faked, so waitFor still polls. */
+    async function startImport(utils?: Awaited<ReturnType<typeof renderWithDefaultCategory>>) {
+      let onProgress: ((done: number, total: number, outcome: Outcome) => void) | undefined
+      let resolveImport: (v: unknown) => void = () => {}
+      mockImportLinks.mockImplementation((
+        _inputs: unknown, _cat: unknown, _dek: unknown,
+        options: { onProgress?: (done: number, total: number, outcome: Outcome) => void },
+      ) => {
+        onProgress = options.onProgress
+        return new Promise(resolve => { resolveImport = resolve })
+      })
+      const rendered = utils ?? await renderWithDefaultCategory()
+      act(() => rendered.result.current.setUrlsText('https://a.com\nhttps://b.com'))
+
+      let importPromise!: Promise<void>
+      act(() => { importPromise = rendered.result.current.handleImport() })
+      await waitFor(() => expect(onProgress).toBeDefined())
+
+      return {
+        ...rendered,
+        emit: (outcome: Outcome) => act(() => onProgress?.(1, 2, outcome)),
+        finish: async () => {
+          await act(async () => {
+            resolveImport({ imported: 0, skipped: 0, duplicates: 0, failures: [] })
+            await importPromise
+          })
+        },
+      }
+    }
+
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(1_000_000)
+    })
+    afterEach(() => { vi.useRealTimers() })
+
+    it('is null before any outcome', async () => {
+      const { result, finish } = await startImport()
+      expect(result.current.lastImportedAt).toBeNull()
+      await finish()
+    })
+
+    it('is set to the current time by an imported outcome, with or without metadata', async () => {
+      const { result, emit, finish } = await startImport()
+
+      emit({ url: 'https://a.com', status: 'imported', metaMissing: false })
+      expect(result.current.lastImportedAt).toBe(1_000_000)
+
+      vi.setSystemTime(1_005_000)
+      emit({ url: 'https://b.com', status: 'imported', metaMissing: true })
+      expect(result.current.lastImportedAt).toBe(1_005_000)
+      await finish()
+    })
+
+    it('is left unchanged by duplicate, failed and skipped_generic outcomes', async () => {
+      const { result, emit, finish } = await startImport()
+      emit({ url: 'https://a.com', status: 'imported', metaMissing: false })
+
+      vi.setSystemTime(1_005_000)
+      emit({ url: 'https://dup.com', status: 'duplicate' })
+      emit({ url: 'bad', status: 'failed', reason: 'invalid_url' })
+      emit({ url: 'https://instagram.com/p/1', status: 'skipped_generic' })
+
+      expect(result.current.lastImportedAt).toBe(1_000_000)
+      await finish()
+    })
+
+    it('is reset to null when a second import starts', async () => {
+      const first = await startImport()
+      first.emit({ url: 'https://a.com', status: 'imported', metaMissing: false })
+      await first.finish()
+      act(() => first.result.current.closeImportModal())
+
+      const second = await startImport(first)
+      expect(second.result.current.lastImportedAt).toBeNull()
+      await second.finish()
+    })
+  })
+
   describe('fetching', () => {
     const FETCHING = { host: 'youtube.com', startedAt: 1_000_000 }
 
