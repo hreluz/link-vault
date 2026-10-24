@@ -10,8 +10,10 @@ export function useLinks(filterParams: LinkFilterParams) {
   const { dek } = useVault()
   const {
     links, rawLinks, setRawLinks, totalCount, hasMore, loading, loadingMore, loadMore, refresh, refreshing,
+    shiftServerOffset,
   } = useLinkListQuery(filterParams, dek)
-  const mutations = useLinkMutations(rawLinks, setRawLinks, filterParams)
+  // A saved move takes one loaded link out of the server order ahead of the next page.
+  const mutations = useLinkMutations(rawLinks, setRawLinks, filterParams, { onMovedToEnd: () => shiftServerOffset(-1) })
   const bulkMutations = useLinkBulkMutations(rawLinks, setRawLinks, filterParams, dek)
 
   return {

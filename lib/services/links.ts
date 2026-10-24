@@ -26,6 +26,7 @@ export type LinkWithTags = LinkContent & {
   created_at: string
   updated_at: string
   deleted_at: string | null
+  moved_to_end_at: string | null
   tags: string[] // tag ids
 }
 
@@ -52,6 +53,7 @@ type LinkRow = {
   created_at: string
   updated_at: string
   deleted_at: string | null
+  moved_to_end_at: string | null
   enc_payload: string
   enc_iv: string
 }
@@ -133,7 +135,7 @@ export async function createLink(input: CreateLinkInput, dek: CryptoKey): Promis
 
   return { ...content, id: link.id, user_id: link.user_id, category_id: link.category_id, status: link.status,
     is_favorite: link.is_favorite, created_at: link.created_at, updated_at: link.updated_at,
-    deleted_at: link.deleted_at, tags: tagIds }
+    deleted_at: link.deleted_at, moved_to_end_at: link.moved_to_end_at, tags: tagIds }
 }
 
 export type UpdateLinkInput = {
@@ -154,6 +156,26 @@ export async function toggleLinkFavorite(id: string, isFavorite: boolean): Promi
   const { error } = await supabase
     .from('links')
     .update({ is_favorite: isFavorite })
+    .eq('id', id)
+  return !error
+}
+
+/** Saves the new status; true on success. */
+export async function updateLinkStatus(id: string, status: LinkStatus): Promise<boolean> {
+  const supabase = createClient()
+  const { error } = await supabase
+    .from('links')
+    .update({ status })
+    .eq('id', id)
+  return !error
+}
+
+/** Sets moved_to_end_at to `at` (ISO string); true on success. */
+export async function markLinkMovedToEnd(id: string, at: string): Promise<boolean> {
+  const supabase = createClient()
+  const { error } = await supabase
+    .from('links')
+    .update({ moved_to_end_at: at })
     .eq('id', id)
   return !error
 }
@@ -201,7 +223,7 @@ export async function updateLink(input: UpdateLinkInput, dek: CryptoKey): Promis
 
   return { ...content, id: link.id, user_id: link.user_id, category_id: link.category_id, status: link.status,
     is_favorite: link.is_favorite, created_at: link.created_at, updated_at: link.updated_at,
-    deleted_at: link.deleted_at, tags: tagIds }
+    deleted_at: link.deleted_at, moved_to_end_at: link.moved_to_end_at, tags: tagIds }
 }
 
 /** Unpaginated -- used only by Import/Export, never the main list. */

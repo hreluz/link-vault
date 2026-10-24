@@ -12,7 +12,7 @@ const { LINK_A, LINK_B } = vi.hoisted(() => {
     url: 'https://example.com', description: 'desc', notes: null,
     user_id: 'user-1', category_id: null, status: 'unread' as const,
     is_favorite: false, image_url: null, duration: null, created_at: '2026-01-01T00:00:00Z',
-    updated_at: '2026-01-01T00:00:00Z', deleted_at: '2026-06-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z', deleted_at: '2026-06-01T00:00:00Z', moved_to_end_at: null,
   }
   const LINK_A: TrashedLink = { ...base, id: '1', title: 'Alpha Article', site_name: 'alpha.com', tags: ['react'] }
   const LINK_B: TrashedLink = { ...base, id: '2', title: 'Beta Post', site_name: 'beta.com', tags: ['vue'], description: 'Vue tutorial' }

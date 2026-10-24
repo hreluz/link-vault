@@ -2,7 +2,7 @@
 // Integration tests for useLinkList — verifies the composition of the sub-hooks.
 // Detailed behavior is covered in useLinks, useLinkFilters, and useLinkModals tests.
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { useLinkList } from '@/lib/hooks/links/list/useLinkList'
 import type { LinkWithTags, LinkFilterParams } from '@/lib/services/links'
@@ -11,7 +11,7 @@ const mockAddToast = vi.fn()
 const mockRefetchTags = vi.fn()
 
 const { LINK_A, LINK_B, LINK_C } = vi.hoisted(() => {
-  const base = { user_id: 'user-1', description: '', notes: null, image_url: null, deleted_at: null, duration: null }
+  const base = { user_id: 'user-1', description: '', notes: null, image_url: null, deleted_at: null, moved_to_end_at: null, duration: null }
   const LINK_A: LinkWithTags = {
     ...base, id: '1', title: 'Alpha Article', site_name: 'alpha.com',
     category_id: 'cat-article', status: 'unread', is_favorite: false,
@@ -49,6 +49,8 @@ vi.mock('@/lib/services/links', () => ({
   SELECT_ALL_MATCHING_CAP: 2000,
   deleteLink: vi.fn().mockResolvedValue('deleted'),
   toggleLinkFavorite: vi.fn().mockResolvedValue(true),
+  markLinkMovedToEnd: vi.fn().mockResolvedValue(true),
+  updateLinkStatus: vi.fn().mockResolvedValue(true),
   bulkUpdateStatus: vi.fn().mockResolvedValue(true),
   bulkSoftDelete: vi.fn().mockResolvedValue({ deletedIds: [] }),
   bulkUpdateCategory: vi.fn().mockResolvedValue(true),
@@ -74,9 +76,10 @@ vi.mock('@/lib/context/VaultContext', () => ({
   useVault: () => ({ dek: {} as CryptoKey, isUnlocked: true, unlock: vi.fn(), changePassword: vi.fn(), lock: vi.fn() }),
 }))
 
-import { getLinksPage } from '@/lib/services/links'
+import { getLinksPage, markLinkMovedToEnd } from '@/lib/services/links'
 import { getPrivateTagIds } from '@/lib/services/tags/tags'
 const mockGetLinksPage = vi.mocked(getLinksPage)
+const mockMarkLinkMovedToEnd = vi.mocked(markLinkMovedToEnd)
 const mockGetPrivateTagIds = vi.mocked(getPrivateTagIds)
 
 function fakeSearchLinks(params: LinkFilterParams) {
@@ -227,6 +230,167 @@ describe('useLinkList (integration)', () => {
 
       act(() => result.current.handleLinkOpen('3', 'watching'))
       expect(result.current.lastOpenedId).toBe('3')
+    })
+  })
+
+  describe('move opened link to end', () => {
+    afterEach(() => vi.useRealTimers())
+
+    // Load with real timers (waitFor), then switch so the 30 s timers are fake.
+    async function renderLoadedWithFakeTimers() {
+      const utils = await renderLoaded()
+      vi.useFakeTimers()
+      return utils
+    }
+
+    async function advance(ms: number) {
+      await act(async () => { await vi.advanceTimersByTimeAsync(ms) })
+    }
+
+    const ids = (links: LinkWithTags[]) => links.map(l => l.id)
+
+    it('moves an opened link to the end after 30 s, saves it, and keeps it as lastOpenedId', async () => {
+      const { result } = await renderLoadedWithFakeTimers()
+
+      act(() => result.current.handleLinkOpen('1', 'unread'))
+      await advance(29_999)
+      expect(ids(result.current.links)).toEqual(['1', '2', '3'])
+
+      await advance(1)
+      expect(ids(result.current.links)).toEqual(['2', '3', '1'])
+      expect(mockMarkLinkMovedToEnd).toHaveBeenCalledWith('1', expect.any(String))
+      expect(result.current.lastOpenedId).toBe('1')
+    })
+
+    it('moves a link whatever its status', async () => {
+      const { result } = await renderLoadedWithFakeTimers()
+
+      act(() => result.current.handleLinkOpen('2', 'read'))
+      await advance(30_000)
+
+      expect(ids(result.current.links)).toEqual(['1', '3', '2'])
+    })
+
+    it('does not move while the edit modal is open, then moves 30 s after it closes', async () => {
+      const { result } = await renderLoadedWithFakeTimers()
+
+      act(() => result.current.handleLinkOpen('1', 'unread'))
+      act(() => result.current.setEditingLink(LINK_C))
+      await advance(60_000)
+      expect(ids(result.current.links)).toEqual(['1', '2', '3'])
+
+      act(() => result.current.setEditingLink(null))
+      await advance(29_999)
+      expect(mockMarkLinkMovedToEnd).not.toHaveBeenCalled()
+      await advance(1)
+      expect(ids(result.current.links)).toEqual(['2', '3', '1'])
+    })
+
+    it("pauses only the link whose menu is open; another opened link still moves", async () => {
+      const { result } = await renderLoadedWithFakeTimers()
+
+      act(() => result.current.handleLinkOpen('1', 'unread'))
+      act(() => result.current.handleLinkOpen('2', 'read'))
+      act(() => result.current.setActiveLink(LINK_A))
+      await advance(30_000)
+      expect(ids(result.current.links)).toEqual(['1', '3', '2'])
+      expect(mockMarkLinkMovedToEnd).toHaveBeenCalledTimes(1)
+
+      act(() => result.current.setActiveLink(null))
+      await advance(30_000)
+      expect(ids(result.current.links)).toEqual(['3', '2', '1'])
+    })
+
+    it('does not move while selection mode is active, then moves 30 s after leaving it', async () => {
+      const { result } = await renderLoadedWithFakeTimers()
+
+      act(() => result.current.handleLinkOpen('1', 'unread'))
+      act(() => result.current.enterSelectionMode())
+      await advance(60_000)
+      expect(mockMarkLinkMovedToEnd).not.toHaveBeenCalled()
+
+      act(() => result.current.exitSelectionMode())
+      await advance(30_000)
+      expect(ids(result.current.links)).toEqual(['2', '3', '1'])
+    })
+
+    it('a filter change before 30 s cancels the move and saves nothing', async () => {
+      const { result } = await renderLoadedWithFakeTimers()
+
+      act(() => result.current.handleLinkOpen('1', 'unread'))
+      act(() => result.current.setCategory('cat-article'))
+      await advance(60_000)
+
+      expect(mockMarkLinkMovedToEnd).not.toHaveBeenCalled()
+      expect(ids(result.current.links)).toEqual(['1', '3'])
+    })
+
+    it('handleRefresh before 30 s cancels the move and saves nothing', async () => {
+      const { result } = await renderLoadedWithFakeTimers()
+
+      act(() => result.current.handleLinkOpen('1', 'unread'))
+      await act(async () => { await result.current.handleRefresh() })
+      await advance(60_000)
+
+      expect(mockMarkLinkMovedToEnd).not.toHaveBeenCalled()
+      expect(ids(result.current.links)).toEqual(['1', '2', '3'])
+    })
+
+    it('opening A, then B 10 s later, moves A at 30 s and B at 40 s', async () => {
+      const { result } = await renderLoadedWithFakeTimers()
+
+      act(() => result.current.handleLinkOpen('1', 'unread'))
+      await advance(10_000)
+      act(() => result.current.handleLinkOpen('2', 'read'))
+
+      await advance(20_000)
+      expect(ids(result.current.links)).toEqual(['2', '3', '1'])
+
+      await advance(10_000)
+      expect(ids(result.current.links)).toEqual(['3', '1', '2'])
+    })
+
+    it('reopening a moved link moves it to the very end again with a newer move time', async () => {
+      const { result } = await renderLoadedWithFakeTimers()
+
+      act(() => result.current.handleLinkOpen('1', 'unread'))
+      await advance(30_000)
+      act(() => result.current.handleLinkOpen('2', 'read'))
+      await advance(30_000)
+      expect(ids(result.current.links)).toEqual(['3', '1', '2'])
+
+      act(() => result.current.handleLinkOpen('1', 'watching'))
+      await advance(30_000)
+      expect(ids(result.current.links)).toEqual(['3', '2', '1'])
+
+      const movesOfA = mockMarkLinkMovedToEnd.mock.calls.filter(([id]) => id === '1').map(([, at]) => Date.parse(at))
+      expect(movesOfA).toHaveLength(2)
+      expect(movesOfA[1]).toBeGreaterThan(movesOfA[0])
+    })
+
+    it('cancels the pending move when the link leaves the list, even if it comes back (undo delete)', async () => {
+      const { result } = await renderLoadedWithFakeTimers()
+
+      act(() => result.current.handleLinkOpen('1', 'unread'))
+      act(() => result.current.handleDeleteById('1'))
+      const undo = mockAddToast.mock.calls.find(([msg]) => msg === 'Link deleted, tap to undo')![2].onClick
+      act(() => undo())
+      expect(ids(result.current.links)).toEqual(['1', '2', '3'])
+
+      await advance(60_000)
+      expect(mockMarkLinkMovedToEnd).not.toHaveBeenCalled()
+      expect(ids(result.current.links)).toEqual(['1', '2', '3'])
+    })
+
+    it('a link deleted before 30 s does not come back and saves nothing', async () => {
+      const { result } = await renderLoadedWithFakeTimers()
+
+      act(() => result.current.handleLinkOpen('1', 'unread'))
+      act(() => result.current.handleDeleteById('1'))
+      await advance(60_000)
+
+      expect(mockMarkLinkMovedToEnd).not.toHaveBeenCalled()
+      expect(ids(result.current.links)).toEqual(['2', '3'])
     })
   })
 

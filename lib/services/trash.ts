@@ -14,6 +14,7 @@ type LinkRow = {
   created_at: string
   updated_at: string
   deleted_at: string | null
+  moved_to_end_at: string | null
   enc_payload: string
   enc_iv: string
 }
