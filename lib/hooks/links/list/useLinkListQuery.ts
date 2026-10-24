@@ -13,6 +13,16 @@ function isContentFiltered(params: LinkFilterParams): boolean {
   return params.textSearch.length > 0 || params.sortBy === 'alphabetical'
 }
 
+/** Unmoved links first (current order kept), then moved ones by move time, oldest move first -- same rule as the search_links RPC. */
+function movedLinksLast(links: LinkWithTags[]): LinkWithTags[] {
+  return [...links].sort((a, b) => {
+    if (a.moved_to_end_at === b.moved_to_end_at) return 0
+    if (a.moved_to_end_at === null) return -1
+    if (b.moved_to_end_at === null) return 1
+    return Date.parse(a.moved_to_end_at) - Date.parse(b.moved_to_end_at)
+  })
+}
+
 /** Everything except textSearch -- used to decide whether the Branch B candidate cache is still valid. */
 function structuralKey(params: LinkFilterParams): string {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- destructured only to omit it from the key
@@ -34,12 +44,25 @@ export function useLinkListQuery(filterParams: LinkFilterParams, dek: CryptoKey 
   // never re-fetches or re-decrypts -- see ENCRYPTION.md.
   const contentCacheRef = useRef<{ key: string; items: LinkWithTags[] } | null>(null)
 
+  // Each saved move-to-end pulls one already-loaded link out of the server
+  // order ahead of the next page, so later Branch A offsets are corrected by
+  // this much. Declared before usePaginatedQuery so the reset effect runs
+  // before its page-1 fetch on a params change.
+  const serverOffsetShiftRef = useRef(0)
+  const paramsKey = JSON.stringify(filterParams)
+  useEffect(() => { serverOffsetShiftRef.current = 0 }, [paramsKey])
+
+  const shiftServerOffset = useCallback((delta: number) => {
+    serverOffsetShiftRef.current += delta
+  }, [])
+
   const fetchPage = useCallback(
     async (params: LinkFilterParams, limit: number, offset: number) => {
       if (!dek) return { items: [], totalCount: 0 }
 
       if (!isContentFiltered(params)) {
-        const { links: items, totalCount } = await getLinksPage(params, limit, offset, dek)
+        const shiftedOffset = Math.max(0, offset + serverOffsetShiftRef.current)
+        const { links: items, totalCount } = await getLinksPage(params, limit, shiftedOffset, dek)
         return { items, totalCount }
       }
 
@@ -71,6 +94,7 @@ export function useLinkListQuery(filterParams: LinkFilterParams, dek: CryptoKey 
       if (params.sortBy === 'alphabetical') {
         filtered = [...filtered].sort((a, b) => (a.title ?? '').localeCompare(b.title ?? ''))
       }
+      filtered = movedLinksLast(filtered)
 
       return { items: filtered.slice(offset, offset + limit), totalCount: filtered.length }
     },
@@ -87,6 +111,7 @@ export function useLinkListQuery(filterParams: LinkFilterParams, dek: CryptoKey 
   // and re-decrypt, re-reads which tags are private, then reloads page 1.
   const refresh = useCallback(async () => {
     contentCacheRef.current = null
+    serverOffsetShiftRef.current = 0
     const ids = await getPrivateTagIds()
     setPrivateTagIds(new Set(ids))
     await refreshPage()
@@ -99,5 +124,8 @@ export function useLinkListQuery(filterParams: LinkFilterParams, dek: CryptoKey 
     link.tags.every(tagId => isTagVisible(privateTagIds.has(tagId), tagId, unlockedTagIds))
   )
 
-  return { links, rawLinks, setRawLinks, totalCount, hasMore, loading, loadingMore, loadMore, refresh, refreshing }
+  return {
+    links, rawLinks, setRawLinks, totalCount, hasMore, loading, loadingMore, loadMore, refresh, refreshing,
+    shiftServerOffset,
+  }
 }

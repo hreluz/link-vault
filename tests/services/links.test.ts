@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, beforeAll, afterEach } from 'vitest'
 import {
-  getLinks, getLinksByIds, createLink, updateLink, toggleLinkFavorite, deleteLink, importLinks,
+  getLinks, getLinksByIds, createLink, updateLink, toggleLinkFavorite, updateLinkStatus, markLinkMovedToEnd,
+  deleteLink, importLinks,
   getLinksPage, getMatchingLinkIds, SELECT_ALL_MATCHING_CAP, findLinkIdByUrl,
   type LinkFilterParams, type LinkContent,
 } from '@/lib/services/links'
@@ -19,7 +20,7 @@ const {
   // updateLink – links update chain: from('links').update().eq().select().single()
   mockLinksUpdate, mockLinksUpdateEq, mockLinksUpdateSingle,
   // toggleLinkFavorite – from('links').update().eq()
-  mockFavoriteToggleEq,
+  mockFavoriteToggleEq, mockSingleColumnUpdateEq,
   // deleteLink – from('links').update({ deleted_at }).eq('id', id).eq('is_favorite', false).select('id')
   mockLinksDeleteEq, mockLinksDeleteEq2, mockLinksDeleteSelect,
   // tags select (getTags, used internally by syncTagsByName)
@@ -54,11 +55,16 @@ const {
   const mockLinksUpdateSelect = vi.fn(() => ({ single: mockLinksUpdateSingle }))
   const mockLinksUpdateEq = vi.fn(() => ({ select: mockLinksUpdateSelect }))
   const mockFavoriteToggleEq = vi.fn()
+  // updateLinkStatus / markLinkMovedToEnd: update({ status } | { moved_to_end_at }).eq('id', id)
+  const mockSingleColumnUpdateEq = vi.fn()
   const mockLinksDeleteSelect = vi.fn()
   const mockLinksDeleteEq2 = vi.fn(() => ({ select: mockLinksDeleteSelect }))
   const mockLinksDeleteEq = vi.fn(() => ({ eq: mockLinksDeleteEq2 }))
   const mockLinksUpdate = vi.fn((args: Record<string, unknown>) => {
     if (args && 'is_favorite' in args) return { eq: mockFavoriteToggleEq }
+    if (args && Object.keys(args).length === 1 && ('status' in args || 'moved_to_end_at' in args)) {
+      return { eq: mockSingleColumnUpdateEq }
+    }
     if (args && 'deleted_at' in args) return { eq: mockLinksDeleteEq }
     return { eq: mockLinksUpdateEq }
   })
@@ -85,7 +91,7 @@ const {
     mockGetUser,
     mockLinksInsert, mockLinksSingle,
     mockLinksUpdate, mockLinksUpdateEq, mockLinksUpdateSingle,
-    mockFavoriteToggleEq,
+    mockFavoriteToggleEq, mockSingleColumnUpdateEq,
     mockLinksDeleteEq, mockLinksDeleteEq2, mockLinksDeleteSelect,
     mockTagsGetAll, mockTagsInsertSingle, mockTagsInsert: mockTagsInsert,
     mockLinkTagsInsert, mockLinkTagsDelete, mockLinkTagsDeleteEq,
@@ -136,6 +142,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1' } } })
   mockFavoriteToggleEq.mockResolvedValue({ error: null })
+  mockSingleColumnUpdateEq.mockResolvedValue({ error: null })
   mockTagsGetAll.mockResolvedValue({ data: [], error: null })
   mockLinkTagsInsert.mockResolvedValue({ error: null })
   mockLinkTagsDeleteEq.mockResolvedValue({ error: null })
@@ -1551,6 +1558,48 @@ describe('toggleLinkFavorite', () => {
     await toggleLinkFavorite('42', false)
 
     expect(mockFavoriteToggleEq).toHaveBeenCalledWith('id', '42')
+  })
+})
+
+// ── updateLinkStatus ──────────────────────────────────────────────────────────
+
+describe('updateLinkStatus', () => {
+  it('updates only the status of the given link', async () => {
+    await updateLinkStatus('42', 'watching')
+
+    expect(mockLinksUpdate).toHaveBeenCalledWith({ status: 'watching' })
+    expect(mockSingleColumnUpdateEq).toHaveBeenCalledWith('id', '42')
+  })
+
+  it('returns true when the update succeeds', async () => {
+    expect(await updateLinkStatus('1', 'read')).toBe(true)
+  })
+
+  it('returns false when the update fails', async () => {
+    mockSingleColumnUpdateEq.mockResolvedValue({ error: { message: 'update failed' } })
+
+    expect(await updateLinkStatus('1', 'read')).toBe(false)
+  })
+})
+
+// ── markLinkMovedToEnd ────────────────────────────────────────────────────────
+
+describe('markLinkMovedToEnd', () => {
+  it('sets only moved_to_end_at on the given link', async () => {
+    await markLinkMovedToEnd('42', '2026-10-24T12:00:00.000Z')
+
+    expect(mockLinksUpdate).toHaveBeenCalledWith({ moved_to_end_at: '2026-10-24T12:00:00.000Z' })
+    expect(mockSingleColumnUpdateEq).toHaveBeenCalledWith('id', '42')
+  })
+
+  it('returns true when the update succeeds', async () => {
+    expect(await markLinkMovedToEnd('1', '2026-10-24T12:00:00.000Z')).toBe(true)
+  })
+
+  it('returns false when the update fails', async () => {
+    mockSingleColumnUpdateEq.mockResolvedValue({ error: { message: 'update failed' } })
+
+    expect(await markLinkMovedToEnd('1', '2026-10-24T12:00:00.000Z')).toBe(false)
   })
 })
 

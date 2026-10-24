@@ -35,7 +35,7 @@ The DEK is generated once and never changes. It's stored, wrapped under your cur
 
 | Table | Encrypted (packed into one `enc_payload`/`enc_iv` blob per row) | Stays plaintext |
 |---|---|---|
-| `links` | `url, title, description, site_name, image_url, duration, notes` | `id, user_id, category_id, status, is_favorite, created_at, updated_at, deleted_at`, plus `url_fingerprint` (a blind index, see below) |
+| `links` | `url, title, description, site_name, image_url, duration, notes` | `id, user_id, category_id, status, is_favorite, created_at, updated_at, deleted_at, moved_to_end_at`, plus `url_fingerprint` (a blind index, see below) |
 | `tags` | `name, color` | `id, user_id, is_private, created_at` |
 | `categories` | `name, description, color, emoticon` | `id, user_id, created_at, updated_at` |
 | `category_domains` | `domain` | `id, category_id, user_id, created_at` |

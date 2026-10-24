@@ -18,19 +18,19 @@ const FAKE_DEK = { fake: true } as unknown as CryptoKey
 const { LINK_A, LINK_B, LINK_PRIVATE } = vi.hoisted(() => {
   const LINK_A: LinkWithTags = {
     id: '1', title: 'Alpha', site_name: 'alpha.com',
-    status: 'unread', is_favorite: false, deleted_at: null, image_url: null, duration: null,
+    status: 'unread', is_favorite: false, deleted_at: null, moved_to_end_at: null, image_url: null, duration: null,
     tags: ['react'], created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
     url: 'https://alpha.com', description: '', notes: null, user_id: 'user-1', category_id: null,
   }
   const LINK_B: LinkWithTags = {
     id: '2', title: 'Beta', site_name: 'beta.com',
-    status: 'read', is_favorite: true, deleted_at: null, image_url: null, duration: null,
+    status: 'read', is_favorite: true, deleted_at: null, moved_to_end_at: null, image_url: null, duration: null,
     tags: ['vue'], created_at: '2026-01-02T00:00:00Z', updated_at: '2026-01-02T00:00:00Z',
     url: 'https://beta.com', description: '', notes: null, user_id: 'user-1', category_id: null,
   }
   const LINK_PRIVATE: LinkWithTags = {
     id: '3', title: 'Secret', site_name: 'secret.com',
-    status: 'unread', is_favorite: false, deleted_at: null, image_url: null, duration: null,
+    status: 'unread', is_favorite: false, deleted_at: null, moved_to_end_at: null, image_url: null, duration: null,
     tags: ['private-stuff'], created_at: '2026-01-03T00:00:00Z', updated_at: '2026-01-03T00:00:00Z',
     url: 'https://secret.com', description: '', notes: null, user_id: 'user-1', category_id: null,
   }
@@ -51,6 +51,8 @@ vi.mock('@/lib/services/links', () => ({
   getMatchingLinkIds: vi.fn(),
   getLinksByIds: vi.fn(),
   toggleLinkFavorite: vi.fn(),
+  markLinkMovedToEnd: vi.fn().mockResolvedValue(true),
+  updateLinkStatus: vi.fn().mockResolvedValue(true),
   deleteLink: vi.fn(),
   bulkUpdateStatus: vi.fn(),
   bulkSoftDelete: vi.fn(),
@@ -99,6 +101,17 @@ async function renderLoaded(params: LinkFilterParams = FILTER_PARAMS) {
 }
 
 describe('useLinks composed wiring', () => {
+  it('a saved handleMoveToEnd shifts the next page offset back by one', async () => {
+    const page = Array.from({ length: 40 }, (_, i) => ({ ...LINK_A, id: `p${i}` }))
+    mockGetLinksPage.mockResolvedValue({ links: page, totalCount: 80 })
+    const { result } = await renderLoaded()
+
+    await act(async () => { await result.current.handleMoveToEnd('p0') })
+    await act(async () => { result.current.loadMore() })
+
+    expect(mockGetLinksPage).toHaveBeenLastCalledWith(FILTER_PARAMS, 40, 39, expect.anything())
+  })
+
   it('handleCreate then handleDelete round-trip through the shared list state', async () => {
     const { result } = await renderLoaded()
     const newLink = { ...LINK_A, id: '99', title: 'New' }

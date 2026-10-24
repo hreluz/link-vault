@@ -35,9 +35,11 @@ function initialState<T>(): PageState<T> {
  * Generic "infinite scroll" pagination state machine: accumulates pages of
  * `T` fetched via `fetchPage`, resetting to page 1 whenever `params` changes
  * (compared by JSON-serialized identity, so callers should memoize `params`).
- * Domain-agnostic — not tied to any particular list/entity.
+ * Domain-agnostic — not tied to any particular list/entity. A later page
+ * that repeats an already-loaded id (the server order shifted under offset
+ * pagination) has that item dropped; it still counts toward the offset.
  */
-export function usePaginatedQuery<T, P>(
+export function usePaginatedQuery<T extends { id: string }, P>(
   params: P,
   fetchPage: FetchPage<T, P>,
   pageSize = 40,
@@ -76,14 +78,17 @@ export function usePaginatedQuery<T, P>(
     fetchPageRef.current(params, pageSize, state.fetchedCount).then(({ items: page, totalCount }) => {
       loadingMoreRef.current = false
       if (requestId !== requestIdRef.current) return
-      setState(prev => ({
-        items: [...prev.items, ...page],
-        fetchedCount: prev.fetchedCount + page.length,
-        totalCount,
-        loading: false,
-        loadingMore: false,
-        refreshing: prev.refreshing,
-      }))
+      setState(prev => {
+        const loadedIds = new Set(prev.items.map(item => item.id))
+        return {
+          items: [...prev.items, ...page.filter(item => !loadedIds.has(item.id))],
+          fetchedCount: prev.fetchedCount + page.length,
+          totalCount,
+          loading: false,
+          loadingMore: false,
+          refreshing: prev.refreshing,
+        }
+      })
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paramsKey, pageSize, state.fetchedCount])

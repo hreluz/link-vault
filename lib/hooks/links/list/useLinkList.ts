@@ -1,12 +1,13 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useToast } from '@/components/ToastProvider'
 import { useTagsContext } from '@/lib/context/TagsContext'
 import { useLinkModals } from './useLinkModals'
 import { useLinks } from './useLinks'
 import { useLinkFilters } from './useLinkFilters'
 import { useLinksSelection } from './useLinksSelection'
+import { useMoveOpenedToEnd } from './useMoveOpenedToEnd'
 import { getMatchingLinkIds, SELECT_ALL_MATCHING_CAP, type LinkWithTags } from '@/lib/services/links'
 import type { LinkStatus } from '@/lib/types/database'
 
@@ -20,6 +21,7 @@ export function useLinkList(autoFetchDefault = true) {
     handleDelete: deleteLink,
     handleFavoriteToggle: toggleFavorite,
     handleCreate,
+    handleMoveToEnd,
     handleBulkStatusChange,
     handleBulkDelete,
     handleBulkCategoryChange,
@@ -34,6 +36,41 @@ export function useLinkList(autoFetchDefault = true) {
   // `refreshing` only turns true once page 1 starts loading, so a ref guards
   // the private-tag re-read that runs first against a second click.
   const refreshInFlightRef = useRef(false)
+
+  // Opened links move to the end of the list 30 s later. Ids still waiting
+  // are tracked here so a link that leaves the list drops its pending move.
+  const pendingMoveIdsRef = useRef(new Set<string>())
+  const moveOpened = useMoveOpenedToEnd({
+    onMove: id => {
+      pendingMoveIdsRef.current.delete(id)
+      handleMoveToEnd(id)
+    },
+    pausedAll: modals.editingLink !== null || selection.isSelectionMode,
+    pausedId: modals.activeLink?.id ?? null,
+  })
+  const { cancel: cancelMove, cancelAll: cancelAllMoves } = moveOpened
+
+  function cancelPendingMoves() {
+    pendingMoveIdsRef.current.clear()
+    cancelAllMoves()
+  }
+
+  // A filter/search/sort change rebuilds the list, so pending moves are dropped.
+  const filterKey = JSON.stringify(filters.filterParams)
+  useEffect(() => {
+    pendingMoveIdsRef.current.clear()
+    cancelAllMoves()
+  }, [filterKey, cancelAllMoves])
+
+  useEffect(() => {
+    const loadedIds = new Set(links.map(l => l.id))
+    for (const id of pendingMoveIdsRef.current) {
+      if (!loadedIds.has(id)) {
+        pendingMoveIdsRef.current.delete(id)
+        cancelMove(id)
+      }
+    }
+  }, [links, cancelMove])
 
   function handleStatusChange(id: string, status: LinkStatus) {
     changeStatus(id, status)
@@ -58,6 +95,8 @@ export function useLinkList(autoFetchDefault = true) {
   function handleLinkOpen(id: string, currentStatus: LinkStatus) {
     setLastOpenedId(id)
     if (currentStatus === 'unread') changeStatus(id, 'watching')
+    pendingMoveIdsRef.current.add(id)
+    moveOpened.schedule(id)
   }
 
   function handleFavoriteToggle(id: string) {
@@ -106,6 +145,7 @@ export function useLinkList(autoFetchDefault = true) {
   async function handleRefresh() {
     if (refreshing || refreshInFlightRef.current) return
     refreshInFlightRef.current = true
+    cancelPendingMoves()
     try {
       refetchTags()
       await refresh()

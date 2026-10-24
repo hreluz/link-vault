@@ -10,19 +10,19 @@ const FAKE_DEK = { fake: true } as unknown as CryptoKey
 const { LINK_A, LINK_B, LINK_PRIVATE } = vi.hoisted(() => {
   const LINK_A: LinkWithTags = {
     id: '1', title: 'Alpha', site_name: 'alpha.com',
-    status: 'unread', is_favorite: false, deleted_at: null, image_url: null, duration: null,
+    status: 'unread', is_favorite: false, deleted_at: null, moved_to_end_at: null, image_url: null, duration: null,
     tags: ['react'], created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
     url: 'https://alpha.com', description: '', notes: null, user_id: 'user-1', category_id: null,
   }
   const LINK_B: LinkWithTags = {
     id: '2', title: 'Beta', site_name: 'beta.com',
-    status: 'read', is_favorite: true, deleted_at: null, image_url: null, duration: null,
+    status: 'read', is_favorite: true, deleted_at: null, moved_to_end_at: null, image_url: null, duration: null,
     tags: ['vue'], created_at: '2026-01-02T00:00:00Z', updated_at: '2026-01-02T00:00:00Z',
     url: 'https://beta.com', description: '', notes: null, user_id: 'user-1', category_id: null,
   }
   const LINK_PRIVATE: LinkWithTags = {
     id: '3', title: 'Secret', site_name: 'secret.com',
-    status: 'unread', is_favorite: false, deleted_at: null, image_url: null, duration: null,
+    status: 'unread', is_favorite: false, deleted_at: null, moved_to_end_at: null, image_url: null, duration: null,
     tags: ['private-stuff'], created_at: '2026-01-03T00:00:00Z', updated_at: '2026-01-03T00:00:00Z',
     url: 'https://secret.com', description: '', notes: null, user_id: 'user-1', category_id: null,
   }
@@ -116,6 +116,44 @@ describe('useLinkListQuery', () => {
     })
   })
 
+  describe('shiftServerOffset', () => {
+    it('corrects the next page offset after a saved reorder', async () => {
+      mockGetLinksPage.mockResolvedValue({ links: Array.from({ length: 40 }, (_, i) => ({ ...LINK_A, id: `p${i}` })), totalCount: 80 })
+      const { result } = await renderLoaded()
+
+      act(() => result.current.shiftServerOffset(-1))
+      await act(async () => { result.current.loadMore() })
+
+      expect(mockGetLinksPage).toHaveBeenLastCalledWith(FILTER_PARAMS, 40, 39, FAKE_DEK)
+    })
+
+    it('is reset by a filter change', async () => {
+      mockGetLinksPage.mockResolvedValue({ links: Array.from({ length: 40 }, (_, i) => ({ ...LINK_A, id: `p${i}` })), totalCount: 80 })
+      const { result, rerender } = await renderLoaded()
+
+      act(() => result.current.shiftServerOffset(-1))
+      const params = { ...FILTER_PARAMS, categoryId: 'cat-1' }
+      rerender({ p: params, d: FAKE_DEK })
+      await waitFor(() => expect(result.current.loading).toBe(false))
+      expect(mockGetLinksPage).toHaveBeenLastCalledWith(params, 40, 0, FAKE_DEK)
+
+      await act(async () => { result.current.loadMore() })
+      expect(mockGetLinksPage).toHaveBeenLastCalledWith(params, 40, 40, FAKE_DEK)
+    })
+
+    it('is reset by refresh', async () => {
+      mockGetLinksPage.mockResolvedValue({ links: Array.from({ length: 40 }, (_, i) => ({ ...LINK_A, id: `p${i}` })), totalCount: 80 })
+      const { result } = await renderLoaded()
+
+      act(() => result.current.shiftServerOffset(-1))
+      await act(async () => { await result.current.refresh() })
+      expect(mockGetLinksPage).toHaveBeenLastCalledWith(FILTER_PARAMS, 40, 0, FAKE_DEK)
+
+      await act(async () => { result.current.loadMore() })
+      expect(mockGetLinksPage).toHaveBeenLastCalledWith(FILTER_PARAMS, 40, 40, FAKE_DEK)
+    })
+  })
+
   describe('privacy filtering', () => {
     it('shows all links when there are no private tags', async () => {
       mockGetLinksPage.mockResolvedValue({ links: [LINK_A, LINK_B], totalCount: 2 })
@@ -178,6 +216,30 @@ describe('useLinkListQuery', () => {
       rerender({ p: { ...params, categoryId: 'cat-1' }, d: FAKE_DEK })
       await waitFor(() => expect(result.current.loading).toBe(false))
       expect(mockGetMatchingLinkIds).toHaveBeenCalledTimes(2)
+    })
+  })
+
+  describe('moved links last (Branch B)', () => {
+    const CANDIDATES: LinkWithTags[] = [
+      { ...LINK_A, id: 'm1', title: 'Apple', moved_to_end_at: '2026-02-02T00:00:00Z' },
+      { ...LINK_A, id: 'u1', title: 'Delta' },
+      { ...LINK_A, id: 'm2', title: 'Banana', moved_to_end_at: '2026-02-01T00:00:00Z' },
+      { ...LINK_A, id: 'u2', title: 'Cherry' },
+    ]
+
+    it('with alphabetical sort, lists unmoved links alphabetically, then moved ones by move time', async () => {
+      mockGetMatchingLinkIds.mockResolvedValue({ ids: CANDIDATES.map(l => l.id), totalCount: 4 })
+      mockGetLinksByIds.mockResolvedValue(CANDIDATES)
+      const { result } = await renderLoaded({ ...FILTER_PARAMS, sortBy: 'alphabetical' })
+      expect(result.current.links.map(l => l.id)).toEqual(['u2', 'u1', 'm2', 'm1'])
+    })
+
+    it('with a text search, keeps unmoved matches first, then moved ones by move time', async () => {
+      const withSearchable = CANDIDATES.map(l => ({ ...l, url: `https://match.com/${l.id}` }))
+      mockGetMatchingLinkIds.mockResolvedValue({ ids: withSearchable.map(l => l.id), totalCount: 4 })
+      mockGetLinksByIds.mockResolvedValue(withSearchable)
+      const { result } = await renderLoaded({ ...FILTER_PARAMS, textSearch: 'match' })
+      expect(result.current.links.map(l => l.id)).toEqual(['u1', 'u2', 'm2', 'm1'])
     })
   })
 

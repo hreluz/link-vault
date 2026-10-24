@@ -12,13 +12,13 @@ const mockDismissToast = vi.fn()
 const { LINK_A, LINK_B } = vi.hoisted(() => {
   const LINK_A: LinkWithTags = {
     id: '1', title: 'Alpha', site_name: 'alpha.com',
-    status: 'unread', is_favorite: false, deleted_at: null, image_url: null, duration: null,
+    status: 'unread', is_favorite: false, deleted_at: null, moved_to_end_at: null, image_url: null, duration: null,
     tags: ['react'], created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
     url: 'https://alpha.com', description: '', notes: null, user_id: 'user-1', category_id: null,
   }
   const LINK_B: LinkWithTags = {
     id: '2', title: 'Beta', site_name: 'beta.com',
-    status: 'read', is_favorite: true, deleted_at: null, image_url: null, duration: null,
+    status: 'read', is_favorite: true, deleted_at: null, moved_to_end_at: null, image_url: null, duration: null,
     tags: ['vue'], created_at: '2026-01-02T00:00:00Z', updated_at: '2026-01-02T00:00:00Z',
     url: 'https://beta.com', description: '', notes: null, user_id: 'user-1', category_id: null,
   }
@@ -37,6 +37,8 @@ vi.mock('@/components/ToastProvider', () => ({
 vi.mock('@/lib/services/links', () => ({
   toggleLinkFavorite: vi.fn(),
   deleteLink: vi.fn(),
+  updateLinkStatus: vi.fn(),
+  markLinkMovedToEnd: vi.fn(),
 }))
 
 const mockRefetchTags = vi.fn()
@@ -44,13 +46,16 @@ vi.mock('@/lib/context/TagsContext', () => ({
   useTagsContext: () => ({ tags: [], loading: false, refetchTags: mockRefetchTags }),
 }))
 
-import { toggleLinkFavorite, deleteLink } from '@/lib/services/links'
+import { toggleLinkFavorite, deleteLink, updateLinkStatus, markLinkMovedToEnd } from '@/lib/services/links'
 const mockToggleFavorite = vi.mocked(toggleLinkFavorite)
 const mockDeleteLink = vi.mocked(deleteLink)
+const mockUpdateLinkStatus = vi.mocked(updateLinkStatus)
+const mockMarkLinkMovedToEnd = vi.mocked(markLinkMovedToEnd)
+const mockOnMovedToEnd = vi.fn()
 
 function useHarness(initial: LinkWithTags[] = [LINK_A, LINK_B], params: LinkFilterParams = FILTER_PARAMS) {
   const [rawLinks, setRawLinks] = useState<LinkWithTags[]>(initial)
-  return { rawLinks, ...useLinkMutations(rawLinks, setRawLinks, params) }
+  return { rawLinks, ...useLinkMutations(rawLinks, setRawLinks, params, { onMovedToEnd: mockOnMovedToEnd }) }
 }
 
 beforeEach(() => {
@@ -58,41 +63,82 @@ beforeEach(() => {
   mockAddToast.mockReturnValue('toast-id')
   mockToggleFavorite.mockResolvedValue(true)
   mockDeleteLink.mockResolvedValue('deleted')
+  mockUpdateLinkStatus.mockResolvedValue(true)
+  mockMarkLinkMovedToEnd.mockResolvedValue(true)
 })
 
 describe('useLinkMutations', () => {
   describe('handleStatusChange', () => {
-    it('updates the target link status', () => {
+    it('updates the target link status', async () => {
       const { result } = renderHook(() => useHarness())
 
-      act(() => result.current.handleStatusChange('1', 'read'))
+      await act(async () => { await result.current.handleStatusChange('1', 'read') })
 
       expect(result.current.rawLinks.find(l => l.id === '1')?.status).toBe('read')
     })
 
-    it('leaves other links unchanged', () => {
+    it('leaves other links unchanged', async () => {
       const { result } = renderHook(() => useHarness())
 
-      act(() => result.current.handleStatusChange('1', 'read'))
+      await act(async () => { await result.current.handleStatusChange('1', 'read') })
 
       expect(result.current.rawLinks.find(l => l.id === '2')?.status).toBe('read')
     })
 
-    it('calls addToast with the new status label', () => {
+    it('calls addToast with the new status label', async () => {
       const { result } = renderHook(() => useHarness())
 
-      act(() => result.current.handleStatusChange('1', 'watching'))
+      await act(async () => { await result.current.handleStatusChange('1', 'watching') })
 
       expect(mockAddToast).toHaveBeenCalledWith('Moved to Watching')
     })
 
-    it('removes the link locally if the new status no longer matches an active status filter', () => {
+    it('removes the link locally if the new status no longer matches an active status filter', async () => {
       const params: LinkFilterParams = { ...FILTER_PARAMS, statuses: ['unread'] }
       const { result } = renderHook(() => useHarness([LINK_A, LINK_B], params))
 
-      act(() => result.current.handleStatusChange('1', 'read'))
+      await act(async () => { await result.current.handleStatusChange('1', 'read') })
 
       expect(result.current.rawLinks.find(l => l.id === '1')).toBeUndefined()
+    })
+
+    it('saves the new status', async () => {
+      const { result } = renderHook(() => useHarness())
+
+      await act(async () => { await result.current.handleStatusChange('1', 'watching') })
+
+      expect(mockUpdateLinkStatus).toHaveBeenCalledWith('1', 'watching')
+    })
+
+    it('restores the old status and toasts on service failure', async () => {
+      mockUpdateLinkStatus.mockResolvedValue(false)
+      const moved = { ...LINK_B, status: 'read' as const, moved_to_end_at: '2026-01-05T00:00:00Z' }
+      const { result } = renderHook(() => useHarness([LINK_A, moved]))
+
+      await act(async () => { await result.current.handleStatusChange('2', 'unread') })
+
+      const link = result.current.rawLinks.find(l => l.id === '2')
+      expect(link?.status).toBe('read')
+      expect(link?.moved_to_end_at).toBe('2026-01-05T00:00:00Z')
+      expect(mockAddToast).toHaveBeenCalledWith('Failed to update status', 'destructive')
+    })
+
+    it('clears moved_to_end_at locally when changing to unread', async () => {
+      const moved = { ...LINK_B, status: 'read' as const, moved_to_end_at: '2026-01-05T00:00:00Z' }
+      const { result } = renderHook(() => useHarness([LINK_A, moved]))
+
+      await act(async () => { await result.current.handleStatusChange('2', 'unread') })
+
+      expect(result.current.rawLinks.find(l => l.id === '2')?.moved_to_end_at).toBeNull()
+    })
+
+    it('keeps moved_to_end_at when changing to a status other than unread', async () => {
+      const moved = { ...LINK_B, status: 'read' as const, moved_to_end_at: '2026-01-05T00:00:00Z' }
+      const { result } = renderHook(() => useHarness([LINK_A, moved]))
+
+      await act(async () => { await result.current.handleStatusChange('2', 'archived') })
+
+      expect(result.current.rawLinks.find(l => l.id === '2')?.moved_to_end_at).toBe('2026-01-05T00:00:00Z')
     })
   })
 
@@ -291,6 +337,62 @@ describe('useLinkMutations', () => {
       await act(async () => { await result.current.handleFavoriteToggle('2') })
 
       expect(result.current.rawLinks.find(l => l.id === '2')).toBeUndefined()
+    })
+  })
+
+  describe('handleMoveToEnd', () => {
+    const LINK_C: LinkWithTags = { ...LINK_A, id: '3', title: 'Gamma' }
+
+    it('moves a middle link to the end and saves the move', async () => {
+      const { result } = renderHook(() => useHarness([LINK_A, LINK_B, LINK_C]))
+
+      await act(async () => { await result.current.handleMoveToEnd('2') })
+
+      expect(result.current.rawLinks.map(l => l.id)).toEqual(['1', '3', '2'])
+      const movedAt = result.current.rawLinks[2].moved_to_end_at
+      expect(movedAt).not.toBeNull()
+      expect(mockMarkLinkMovedToEnd).toHaveBeenCalledWith('2', movedAt)
+    })
+
+    it('does nothing for an id not in the list', async () => {
+      const { result } = renderHook(() => useHarness([LINK_A, LINK_B, LINK_C]))
+
+      await act(async () => { await result.current.handleMoveToEnd('99') })
+
+      expect(result.current.rawLinks.map(l => l.id)).toEqual(['1', '2', '3'])
+      expect(mockMarkLinkMovedToEnd).not.toHaveBeenCalled()
+      expect(mockOnMovedToEnd).not.toHaveBeenCalled()
+    })
+
+    it('restores the position and old moved_to_end_at, and toasts, on service failure', async () => {
+      mockMarkLinkMovedToEnd.mockResolvedValue(false)
+      const previouslyMoved = { ...LINK_B, moved_to_end_at: '2026-01-05T00:00:00Z' }
+      const { result } = renderHook(() => useHarness([LINK_A, previouslyMoved, LINK_C]))
+
+      await act(async () => { await result.current.handleMoveToEnd('2') })
+
+      expect(result.current.rawLinks.map(l => l.id)).toEqual(['1', '2', '3'])
+      expect(result.current.rawLinks[1].moved_to_end_at).toBe('2026-01-05T00:00:00Z')
+      expect(mockAddToast).toHaveBeenCalledWith('Failed to move link', 'destructive')
+    })
+
+    it('calls onMovedToEnd only when the save succeeds', async () => {
+      const { result } = renderHook(() => useHarness([LINK_A, LINK_B, LINK_C]))
+
+      await act(async () => { await result.current.handleMoveToEnd('1') })
+      expect(mockOnMovedToEnd).toHaveBeenCalledOnce()
+
+      mockMarkLinkMovedToEnd.mockResolvedValue(false)
+      await act(async () => { await result.current.handleMoveToEnd('3') })
+      expect(mockOnMovedToEnd).toHaveBeenCalledOnce()
+    })
+
+    it('shows no toast on success', async () => {
+      const { result } = renderHook(() => useHarness([LINK_A, LINK_B, LINK_C]))
+
+      await act(async () => { await result.current.handleMoveToEnd('2') })
+
+      expect(mockAddToast).not.toHaveBeenCalled()
     })
   })
 

@@ -15,7 +15,7 @@ const LINK: LinkWithTags = {
   id: '1', user_id: 'user-1', url: 'https://alpha.com', title: 'Alpha Article',
   description: null, site_name: 'alpha.com', image_url: null, duration: null, notes: null,
   category_id: null, status: 'read', is_favorite: false, tags: [],
-  created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', deleted_at: null,
+  created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', deleted_at: null, moved_to_end_at: null,
 }
 
 function renderCard(props: Partial<React.ComponentProps<typeof LinkCard>> = {}) {

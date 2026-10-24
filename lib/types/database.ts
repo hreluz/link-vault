@@ -48,6 +48,7 @@ export interface Database {
           created_at: string
           updated_at: string
           deleted_at: string | null
+          moved_to_end_at: string | null
         }
         Insert: {
           id?: string
@@ -61,6 +62,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
+          moved_to_end_at?: string | null
         }
         Update: {
           enc_payload?: string
@@ -71,6 +73,7 @@ export interface Database {
           is_favorite?: boolean
           updated_at?: string
           deleted_at?: string | null
+          moved_to_end_at?: string | null
         }
         Relationships: []
       }
