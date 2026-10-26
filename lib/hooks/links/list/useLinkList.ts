@@ -10,6 +10,7 @@ import { useLinksSelection } from './useLinksSelection'
 import { useMoveOpenedToEnd } from './useMoveOpenedToEnd'
 import { getMatchingLinkIds, SELECT_ALL_MATCHING_CAP, type LinkWithTags } from '@/lib/services/links'
 import type { LinkStatus } from '@/lib/types/database'
+import { logMove, rememberMoveTitle } from '@/lib/utils/moveLog'
 
 export function useLinkList(autoFetchDefault = true) {
   const modals = useLinkModals()
@@ -56,7 +57,7 @@ export function useLinkList(autoFetchDefault = true) {
 
   function cancelPendingMoves() {
     pendingMoveIdsRef.current.clear()
-    cancelAllMoves()
+    cancelAllMoves('refresh')
     clearLastMove()
   }
 
@@ -65,7 +66,7 @@ export function useLinkList(autoFetchDefault = true) {
   const filterKey = JSON.stringify(filters.filterParams)
   useEffect(() => {
     pendingMoveIdsRef.current.clear()
-    cancelAllMoves()
+    cancelAllMoves('filter/sort/search change')
     clearLastMove()
   }, [filterKey, cancelAllMoves, clearLastMove])
 
@@ -75,7 +76,7 @@ export function useLinkList(autoFetchDefault = true) {
     for (const id of pendingMoveIdsRef.current) {
       if (!loadedIds.has(id)) {
         pendingMoveIdsRef.current.delete(id)
-        cancelMove(id)
+        cancelMove(id, 'left list')
       }
     }
     if (lastMovedId !== null && !loadedIds.has(lastMovedId)) clearLastMove()
@@ -87,7 +88,7 @@ export function useLinkList(autoFetchDefault = true) {
   function handleUndoMove() {
     if (!lastMove) return
     pendingMoveIdsRef.current.delete(lastMove.id)
-    cancelMove(lastMove.id)
+    cancelMove(lastMove.id, 'undo')
     undoMove()
   }
 
@@ -106,6 +107,8 @@ export function useLinkList(autoFetchDefault = true) {
   }
 
   function handleLinkOpen(id: string, currentStatus: LinkStatus) {
+    rememberMoveTitle(links.find(l => l.id === id))
+    logMove('opened', { id, status: currentStatus })
     setLastOpenedId(id)
     if (currentStatus === 'unread') changeStatus(id, 'watching')
     pendingMoveIdsRef.current.add(id)

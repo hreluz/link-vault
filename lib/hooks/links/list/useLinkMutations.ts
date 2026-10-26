@@ -7,6 +7,7 @@ import { STATUS_CONFIG } from '@/app/dashboard/config'
 import { useToast } from '@/components/ToastProvider'
 import { useTagsContext } from '@/lib/context/TagsContext'
 import { matchesLocalFilters } from './linkFilterMatch'
+import { logMove } from '@/lib/utils/moveLog'
 
 /** The last saved move-to-end, kept so it can be undone. */
 export interface LastMove {
@@ -104,7 +105,10 @@ export function useLinkMutations(
 
   async function handleMoveToEnd(id: string) {
     const index = rawLinks.findIndex(l => l.id === id)
-    if (index === -1) return
+    if (index === -1) {
+      logMove('move-skipped', { id, reason: 'not loaded' })
+      return
+    }
     const previousMovedAt = rawLinks[index].moved_to_end_at
     const at = new Date().toISOString()
 
@@ -116,10 +120,12 @@ export function useLinkMutations(
 
     const ok = await markLinkMovedToEnd(id, at)
     if (ok) {
+      logMove('move-saved', { id, fromIndex: index, previousMovedAt, movedAt: at })
       setLastMove({ id, index, previousMovedAt, movedAt: at })
       onMovedToEnd()
       return
     }
+    logMove('move-failed', { id, fromIndex: index })
     setRawLinks(prev => {
       const link = prev.find(l => l.id === id)
       if (!link) return prev
@@ -138,7 +144,10 @@ export function useLinkMutations(
   async function handleUndoMove(): Promise<boolean> {
     if (!lastMove || undoInFlightRef.current) return false
     const { id, index, previousMovedAt, movedAt } = lastMove
-    if (!rawLinks.some(l => l.id === id)) return false
+    if (!rawLinks.some(l => l.id === id)) {
+      logMove('undo-skipped', { id, reason: 'not loaded' })
+      return false
+    }
     undoInFlightRef.current = true
     setUndoingMove(true)
 
@@ -152,9 +161,11 @@ export function useLinkMutations(
 
     const ok = await markLinkMovedToEnd(id, previousMovedAt)
     if (ok) {
+      logMove('undo-saved', { id, toIndex: index, restoredMovedAt: previousMovedAt })
       setLastMove(null)
       onMoveUndone()
     } else {
+      logMove('undo-failed', { id })
       setRawLinks(prev => {
         const link = prev.find(l => l.id === id)
         if (!link) return prev
