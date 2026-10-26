@@ -51,6 +51,19 @@ describe('TagChipsInput', () => {
     expect(screen.getByText('#react')).toBeTruthy()
   })
 
+  it('adds the first suggestion with Tab when none is highlighted', () => {
+    const onChange = vi.fn()
+    render(<TagChipsInput label="Tags" value="" onChange={onChange} />)
+    const input = screen.getByLabelText('Tags')
+
+    fireEvent.change(input, { target: { value: 'rea' } })
+    fireEvent.keyDown(input, { key: 'Tab' })
+
+    expect(onChange).toHaveBeenLastCalledWith('react')
+    expect(screen.getByText('#react')).toBeTruthy()
+    expect(screen.queryByText('#rea')).toBeNull()
+  })
+
   it('disables the input and remove buttons when disabled', () => {
     render(<TagChipsInput label="Tags" value="react" onChange={vi.fn()} disabled describedBy="hint" />)
 

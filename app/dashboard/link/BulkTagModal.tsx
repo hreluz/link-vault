@@ -94,7 +94,12 @@ export default function BulkTagModal({ onClose }: Props) {
                 autoFocus
               />
             </div>
-            <TagSuggestionsDropdown suggestions={suggestions} selectedIndex={selectedIndex} onSelect={selectSuggestion} />
+            <TagSuggestionsDropdown
+              suggestions={suggestions}
+              selectedIndex={selectedIndex}
+              onSelect={selectSuggestion}
+              hintIndex={selectedIndex < 0 ? 0 : undefined}
+            />
           </div>
 
           <div className="mt-4 flex justify-end gap-2">

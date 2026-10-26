@@ -26,9 +26,11 @@ export function useTagInput(
   const suggestions = useMemo(() => {
     if (dismissed || !currentInput.trim()) return []
     const lower = currentInput.toLowerCase()
-    return availableTags
-      .filter(t => t.toLowerCase().includes(lower) && !confirmedTags.includes(t))
-      .slice(0, 8)
+    const matches = availableTags.filter(t => t.toLowerCase().includes(lower) && !confirmedTags.includes(t))
+    // An exact match goes first, so Tab (which takes the first suggestion) completes to it.
+    const exact = matches.indexOf(currentInput.trim().toLowerCase())
+    if (exact > 0) matches.unshift(...matches.splice(exact, 1))
+    return matches.slice(0, 8)
   }, [dismissed, currentInput, availableTags, confirmedTags])
 
   function selectSuggestion(tag: string) {
@@ -81,7 +83,12 @@ export function useTagInput(
       selectSuggestion(suggestions[selectedIndex])
       return true
     }
-    if (key === ',' || key === ' ' || key === 'Enter' || key === 'Tab') {
+    // With nothing highlighted, Tab completes to the first suggestion; Enter keeps the typed text.
+    if (key === 'Tab' && suggestions.length) {
+      selectSuggestion(suggestions[0])
+      return true
+    }
+    if (key === ','|| key === ' ' || key === 'Enter' || key === 'Tab') {
       confirmCurrent()
       // Tab should still move focus to the next field when no suggestions are open.
       return key === 'Tab' ? suggestions.length > 0 : true
