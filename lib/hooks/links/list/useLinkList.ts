@@ -22,6 +22,10 @@ export function useLinkList(autoFetchDefault = true) {
     handleFavoriteToggle: toggleFavorite,
     handleCreate,
     handleMoveToEnd,
+    lastMove,
+    undoingMove,
+    handleUndoMove: undoMove,
+    clearLastMove,
     handleBulkStatusChange,
     handleBulkDelete,
     handleBulkCategoryChange,
@@ -53,15 +57,19 @@ export function useLinkList(autoFetchDefault = true) {
   function cancelPendingMoves() {
     pendingMoveIdsRef.current.clear()
     cancelAllMoves()
+    clearLastMove()
   }
 
-  // A filter/search/sort change rebuilds the list, so pending moves are dropped.
+  // A filter/search/sort change rebuilds the list, so pending moves and the
+  // undo slot are dropped.
   const filterKey = JSON.stringify(filters.filterParams)
   useEffect(() => {
     pendingMoveIdsRef.current.clear()
     cancelAllMoves()
-  }, [filterKey, cancelAllMoves])
+    clearLastMove()
+  }, [filterKey, cancelAllMoves, clearLastMove])
 
+  const lastMovedId = lastMove?.id ?? null
   useEffect(() => {
     const loadedIds = new Set(links.map(l => l.id))
     for (const id of pendingMoveIdsRef.current) {
@@ -70,7 +78,18 @@ export function useLinkList(autoFetchDefault = true) {
         cancelMove(id)
       }
     }
-  }, [links, cancelMove])
+    if (lastMovedId !== null && !loadedIds.has(lastMovedId)) clearLastMove()
+  }, [links, cancelMove, lastMovedId, clearLastMove])
+
+  const lastMovedLink = lastMovedId === null ? null : links.find(l => l.id === lastMovedId) ?? null
+
+  // Undoing also drops a pending re-move, so the card doesn't jump away again.
+  function handleUndoMove() {
+    if (!lastMove) return
+    pendingMoveIdsRef.current.delete(lastMove.id)
+    cancelMove(lastMove.id)
+    undoMove()
+  }
 
   function handleStatusChange(id: string, status: LinkStatus) {
     changeStatus(id, status)
@@ -175,6 +194,9 @@ export function useLinkList(autoFetchDefault = true) {
     handleStatusChange,
     handleLinkOpen,
     lastOpenedId,
+    lastMovedLink,
+    undoingMove,
+    handleUndoMove,
     handleEdit,
     handleDelete,
     handleDeleteById,

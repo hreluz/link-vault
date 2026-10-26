@@ -52,10 +52,11 @@ const mockDeleteLink = vi.mocked(deleteLink)
 const mockUpdateLinkStatus = vi.mocked(updateLinkStatus)
 const mockMarkLinkMovedToEnd = vi.mocked(markLinkMovedToEnd)
 const mockOnMovedToEnd = vi.fn()
+const mockOnMoveUndone = vi.fn()
 
 function useHarness(initial: LinkWithTags[] = [LINK_A, LINK_B], params: LinkFilterParams = FILTER_PARAMS) {
   const [rawLinks, setRawLinks] = useState<LinkWithTags[]>(initial)
-  return { rawLinks, ...useLinkMutations(rawLinks, setRawLinks, params, { onMovedToEnd: mockOnMovedToEnd }) }
+  return { rawLinks, ...useLinkMutations(rawLinks, setRawLinks, params, { onMovedToEnd: mockOnMovedToEnd, onMoveUndone: mockOnMoveUndone }) }
 }
 
 beforeEach(() => {
@@ -393,6 +394,130 @@ describe('useLinkMutations', () => {
       await act(async () => { await result.current.handleMoveToEnd('2') })
 
       expect(mockAddToast).not.toHaveBeenCalled()
+    })
+
+    it('records the last move with its old index and old moved_to_end_at', async () => {
+      const previouslyMoved = { ...LINK_B, moved_to_end_at: '2026-01-05T00:00:00Z' }
+      const { result } = renderHook(() => useHarness([LINK_A, previouslyMoved, LINK_C]))
+      expect(result.current.lastMove).toBeNull()
+
+      await act(async () => { await result.current.handleMoveToEnd('2') })
+
+      expect(result.current.lastMove).toEqual({
+        id: '2',
+        index: 1,
+        previousMovedAt: '2026-01-05T00:00:00Z',
+        movedAt: result.current.rawLinks[2].moved_to_end_at,
+      })
+    })
+
+    it('leaves lastMove empty when the save fails', async () => {
+      mockMarkLinkMovedToEnd.mockResolvedValue(false)
+      const { result } = renderHook(() => useHarness([LINK_A, LINK_B, LINK_C]))
+
+      await act(async () => { await result.current.handleMoveToEnd('2') })
+
+      expect(result.current.lastMove).toBeNull()
+    })
+
+    it('replaces lastMove with a newer move', async () => {
+      const { result } = renderHook(() => useHarness([LINK_A, LINK_B, LINK_C]))
+
+      await act(async () => { await result.current.handleMoveToEnd('1') })
+      await act(async () => { await result.current.handleMoveToEnd('3') })
+
+      expect(result.current.lastMove).toMatchObject({ id: '3', index: 1, previousMovedAt: null })
+    })
+
+    it('clearLastMove empties the slot', async () => {
+      const { result } = renderHook(() => useHarness([LINK_A, LINK_B, LINK_C]))
+      await act(async () => { await result.current.handleMoveToEnd('1') })
+
+      act(() => result.current.clearLastMove())
+
+      expect(result.current.lastMove).toBeNull()
+    })
+  })
+
+  describe('handleUndoMove', () => {
+    const LINK_C: LinkWithTags = { ...LINK_A, id: '3', title: 'Gamma' }
+
+    it('puts a never-moved link back at its old index and saves null', async () => {
+      const { result } = renderHook(() => useHarness([LINK_A, LINK_B, LINK_C]))
+      await act(async () => { await result.current.handleMoveToEnd('1') })
+      expect(result.current.rawLinks.map(l => l.id)).toEqual(['2', '3', '1'])
+
+      let ok: boolean | undefined
+      await act(async () => { ok = await result.current.handleUndoMove() })
+
+      expect(ok).toBe(true)
+      expect(result.current.rawLinks.map(l => l.id)).toEqual(['1', '2', '3'])
+      expect(result.current.rawLinks[0].moved_to_end_at).toBeNull()
+      expect(mockMarkLinkMovedToEnd).toHaveBeenLastCalledWith('1', null)
+    })
+
+    it('restores an earlier moved_to_end_at for a link moved before', async () => {
+      const previouslyMoved = { ...LINK_B, moved_to_end_at: '2026-01-05T00:00:00Z' }
+      const { result } = renderHook(() => useHarness([LINK_A, previouslyMoved, LINK_C]))
+      await act(async () => { await result.current.handleMoveToEnd('2') })
+
+      await act(async () => { await result.current.handleUndoMove() })
+
+      expect(result.current.rawLinks.map(l => l.id)).toEqual(['1', '2', '3'])
+      expect(result.current.rawLinks[1].moved_to_end_at).toBe('2026-01-05T00:00:00Z')
+      expect(mockMarkLinkMovedToEnd).toHaveBeenLastCalledWith('2', '2026-01-05T00:00:00Z')
+    })
+
+    it('clears lastMove and calls onMoveUndone on success, with no toast', async () => {
+      const { result } = renderHook(() => useHarness([LINK_A, LINK_B, LINK_C]))
+      await act(async () => { await result.current.handleMoveToEnd('1') })
+
+      await act(async () => { await result.current.handleUndoMove() })
+
+      expect(result.current.lastMove).toBeNull()
+      expect(mockOnMoveUndone).toHaveBeenCalledOnce()
+      expect(mockAddToast).not.toHaveBeenCalled()
+      expect(result.current.undoingMove).toBe(false)
+    })
+
+    it('puts the link back at the end, keeps lastMove and toasts on failure', async () => {
+      const { result } = renderHook(() => useHarness([LINK_A, LINK_B, LINK_C]))
+      await act(async () => { await result.current.handleMoveToEnd('1') })
+      const movedAt = result.current.rawLinks[2].moved_to_end_at
+      mockMarkLinkMovedToEnd.mockResolvedValue(false)
+
+      let ok: boolean | undefined
+      await act(async () => { ok = await result.current.handleUndoMove() })
+
+      expect(ok).toBe(false)
+      expect(result.current.rawLinks.map(l => l.id)).toEqual(['2', '3', '1'])
+      expect(result.current.rawLinks[2].moved_to_end_at).toBe(movedAt)
+      expect(result.current.lastMove).toMatchObject({ id: '1' })
+      expect(mockOnMoveUndone).not.toHaveBeenCalled()
+      expect(mockAddToast).toHaveBeenCalledWith('Failed to undo move', 'destructive')
+      expect(result.current.undoingMove).toBe(false)
+    })
+
+    it('does nothing without a lastMove', async () => {
+      const { result } = renderHook(() => useHarness([LINK_A, LINK_B, LINK_C]))
+
+      let ok: boolean | undefined
+      await act(async () => { ok = await result.current.handleUndoMove() })
+
+      expect(ok).toBe(false)
+      expect(mockMarkLinkMovedToEnd).not.toHaveBeenCalled()
+    })
+
+    it('saves only once on a double press', async () => {
+      const { result } = renderHook(() => useHarness([LINK_A, LINK_B, LINK_C]))
+      await act(async () => { await result.current.handleMoveToEnd('1') })
+      mockMarkLinkMovedToEnd.mockClear()
+
+      await act(async () => {
+        await Promise.all([result.current.handleUndoMove(), result.current.handleUndoMove()])
+      })
+
+      expect(mockMarkLinkMovedToEnd).toHaveBeenCalledOnce()
     })
   })
 

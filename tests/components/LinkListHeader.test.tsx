@@ -10,6 +10,7 @@ vi.mock('@/app/dashboard/link/LinkListContext', () => ({
 }))
 
 const handleRefresh = vi.fn()
+const handleUndoMove = vi.fn()
 
 function setContext(overrides: Record<string, unknown> = {}) {
   mockUseLinkListContext.mockReturnValue({
@@ -22,6 +23,9 @@ function setContext(overrides: Record<string, unknown> = {}) {
     favoritesOnly: false,
     refreshing: false,
     handleRefresh,
+    lastMovedLink: null,
+    undoingMove: false,
+    handleUndoMove,
     ...overrides,
   })
 }
@@ -70,5 +74,56 @@ describe('LinkListHeader refresh button', () => {
 
     expect(screen.getByText('2 selected')).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Refresh links' })).toBeNull()
+  })
+})
+
+describe('LinkListHeader undo button', () => {
+  const moved = { id: '1', title: 'Alpha Article', url: 'https://alpha.com' }
+
+  it('is hidden when there is no move to undo', () => {
+    render(<LinkListHeader />)
+    expect(screen.queryByRole('button', { name: 'Undo last move' })).toBeNull()
+  })
+
+  it('shows "Undo" with the moved link\'s title, left of the refresh button', () => {
+    setContext({ lastMovedLink: moved })
+    render(<LinkListHeader />)
+    const button = screen.getByRole('button', { name: 'Undo last move' })
+
+    expect(button.textContent).toBe('Undo')
+    expect(button.getAttribute('title')).toBe('Move Alpha Article back')
+    const buttons = screen.getAllByRole('button').map(b => b.getAttribute('aria-label') ?? b.textContent)
+    expect(buttons.indexOf('Undo last move')).toBe(buttons.indexOf('Refresh links') - 1)
+  })
+
+  it('falls back to the URL in the title when the link has no title', () => {
+    setContext({ lastMovedLink: { ...moved, title: null } })
+    render(<LinkListHeader />)
+    expect(screen.getByRole('button', { name: 'Undo last move' }).getAttribute('title')).toBe('Move https://alpha.com back')
+  })
+
+  it('calls handleUndoMove on click', () => {
+    setContext({ lastMovedLink: moved })
+    render(<LinkListHeader />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo last move' }))
+
+    expect(handleUndoMove).toHaveBeenCalledOnce()
+  })
+
+  it('is disabled while the undo is saving', () => {
+    setContext({ lastMovedLink: moved, undoingMove: true })
+    render(<LinkListHeader />)
+    const button = screen.getByRole('button', { name: 'Undo last move' })
+
+    expect((button as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.click(button)
+    expect(handleUndoMove).not.toHaveBeenCalled()
+  })
+
+  it('is absent in selection mode', () => {
+    setContext({ lastMovedLink: moved, isSelectionMode: true, selectedCount: 1 })
+    render(<LinkListHeader />)
+    expect(screen.queryByRole('button', { name: 'Undo last move' })).toBeNull()
   })
 })

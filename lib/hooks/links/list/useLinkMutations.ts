@@ -1,6 +1,6 @@
 'use client'
 
-import type { Dispatch, SetStateAction } from 'react'
+import { useCallback, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { toggleLinkFavorite, deleteLink, updateLinkStatus, markLinkMovedToEnd, type LinkWithTags, type LinkFilterParams } from '@/lib/services/links'
 import type { LinkStatus } from '@/lib/types/database'
 import { STATUS_CONFIG } from '@/app/dashboard/config'
@@ -8,14 +8,26 @@ import { useToast } from '@/components/ToastProvider'
 import { useTagsContext } from '@/lib/context/TagsContext'
 import { matchesLocalFilters } from './linkFilterMatch'
 
+/** The last saved move-to-end, kept so it can be undone. */
+export interface LastMove {
+  id: string
+  index: number                    // index in rawLinks just before the move
+  previousMovedAt: string | null   // moved_to_end_at before the move
+  movedAt: string                  // moved_to_end_at set by the move
+}
+
 export function useLinkMutations(
   rawLinks: LinkWithTags[],
   setRawLinks: Dispatch<SetStateAction<LinkWithTags[]>>,
   filterParams: LinkFilterParams,
-  { onMovedToEnd }: { onMovedToEnd: () => void },
+  { onMovedToEnd, onMoveUndone }: { onMovedToEnd: () => void; onMoveUndone: () => void },
 ) {
   const { addToast, dismissToast } = useToast()
   const { refetchTags } = useTagsContext()
+  const [lastMove, setLastMove] = useState<LastMove | null>(null)
+  const [undoingMove, setUndoingMove] = useState(false)
+  // `undoingMove` only disables the button after a re-render, so a ref guards a double press.
+  const undoInFlightRef = useRef(false)
 
   function pruneIfMismatched(ids: string[]) {
     setRawLinks(prev => prev.filter(l => !ids.includes(l.id) || matchesLocalFilters(l, filterParams)))
@@ -104,6 +116,7 @@ export function useLinkMutations(
 
     const ok = await markLinkMovedToEnd(id, at)
     if (ok) {
+      setLastMove({ id, index, previousMovedAt, movedAt: at })
       onMovedToEnd()
       return
     }
@@ -122,5 +135,43 @@ export function useLinkMutations(
     refetchTags()
   }
 
-  return { handleStatusChange, handleEdit, handleDelete, handleFavoriteToggle, handleMoveToEnd, handleCreate }
+  async function handleUndoMove(): Promise<boolean> {
+    if (!lastMove || undoInFlightRef.current) return false
+    const { id, index, previousMovedAt, movedAt } = lastMove
+    if (!rawLinks.some(l => l.id === id)) return false
+    undoInFlightRef.current = true
+    setUndoingMove(true)
+
+    setRawLinks(prev => {
+      const link = prev.find(l => l.id === id)
+      if (!link) return prev
+      const rest = prev.filter(l => l.id !== id)
+      const restoreAt = Math.min(index, rest.length)
+      return [...rest.slice(0, restoreAt), { ...link, moved_to_end_at: previousMovedAt }, ...rest.slice(restoreAt)]
+    })
+
+    const ok = await markLinkMovedToEnd(id, previousMovedAt)
+    if (ok) {
+      setLastMove(null)
+      onMoveUndone()
+    } else {
+      setRawLinks(prev => {
+        const link = prev.find(l => l.id === id)
+        if (!link) return prev
+        return [...prev.filter(l => l.id !== id), { ...link, moved_to_end_at: movedAt }]
+      })
+      addToast('Failed to undo move', 'destructive')
+    }
+    undoInFlightRef.current = false
+    setUndoingMove(false)
+    return ok
+  }
+
+  // Stable, since useLinkList calls it from effects.
+  const clearLastMove = useCallback(() => setLastMove(null), [])
+
+  return {
+    handleStatusChange, handleEdit, handleDelete, handleFavoriteToggle, handleMoveToEnd, handleCreate,
+    lastMove, undoingMove, handleUndoMove, clearLastMove,
+  }
 }
