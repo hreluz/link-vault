@@ -170,8 +170,8 @@ export async function updateLinkStatus(id: string, status: LinkStatus): Promise<
   return !error
 }
 
-/** Sets moved_to_end_at to `at` (ISO string); true on success. */
-export async function markLinkMovedToEnd(id: string, at: string): Promise<boolean> {
+/** Sets moved_to_end_at to `at` (ISO string, or null to clear); true on success. */
+export async function markLinkMovedToEnd(id: string, at: string | null): Promise<boolean> {
   const supabase = createClient()
   const { error } = await supabase
     .from('links')

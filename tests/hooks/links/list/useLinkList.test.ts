@@ -363,7 +363,7 @@ describe('useLinkList (integration)', () => {
       await advance(30_000)
       expect(ids(result.current.links)).toEqual(['3', '2', '1'])
 
-      const movesOfA = mockMarkLinkMovedToEnd.mock.calls.filter(([id]) => id === '1').map(([, at]) => Date.parse(at))
+      const movesOfA = mockMarkLinkMovedToEnd.mock.calls.filter(([id]) => id === '1').map(([, at]) => Date.parse(at as string))
       expect(movesOfA).toHaveLength(2)
       expect(movesOfA[1]).toBeGreaterThan(movesOfA[0])
     })
@@ -391,6 +391,73 @@ describe('useLinkList (integration)', () => {
 
       expect(mockMarkLinkMovedToEnd).not.toHaveBeenCalled()
       expect(ids(result.current.links)).toEqual(['2', '3'])
+    })
+
+    describe('undo last move', () => {
+      it('has no lastMovedLink before any move', async () => {
+        const { result } = await renderLoaded()
+        expect(result.current.lastMovedLink).toBeNull()
+      })
+
+      it('puts the moved link back at its old index, saves null, and keeps its status', async () => {
+        const { result } = await renderLoadedWithFakeTimers()
+
+        act(() => result.current.handleLinkOpen('1', 'unread'))
+        await advance(30_000)
+        expect(ids(result.current.links)).toEqual(['2', '3', '1'])
+        expect(result.current.lastMovedLink?.id).toBe('1')
+
+        await act(async () => { result.current.handleUndoMove() })
+
+        expect(ids(result.current.links)).toEqual(['1', '2', '3'])
+        expect(mockMarkLinkMovedToEnd).toHaveBeenLastCalledWith('1', null)
+        expect(result.current.links[0].status).toBe('watching')
+        expect(result.current.lastMovedLink).toBeNull()
+      })
+
+      it('cancels a pending re-move, so the link does not move again', async () => {
+        const { result } = await renderLoadedWithFakeTimers()
+
+        act(() => result.current.handleLinkOpen('1', 'unread'))
+        await advance(30_000)
+        act(() => result.current.handleLinkOpen('1', 'watching'))
+        await act(async () => { result.current.handleUndoMove() })
+        expect(ids(result.current.links)).toEqual(['1', '2', '3'])
+
+        await advance(60_000)
+        expect(ids(result.current.links)).toEqual(['1', '2', '3'])
+        expect(mockMarkLinkMovedToEnd).toHaveBeenCalledTimes(2)
+      })
+
+      it('a filter change clears lastMovedLink', async () => {
+        const { result } = await renderLoadedWithFakeTimers()
+        act(() => result.current.handleLinkOpen('1', 'unread'))
+        await advance(30_000)
+
+        act(() => result.current.setCategory('cat-article'))
+
+        expect(result.current.lastMovedLink).toBeNull()
+      })
+
+      it('handleRefresh clears lastMovedLink', async () => {
+        const { result } = await renderLoadedWithFakeTimers()
+        act(() => result.current.handleLinkOpen('1', 'unread'))
+        await advance(30_000)
+
+        await act(async () => { await result.current.handleRefresh() })
+
+        expect(result.current.lastMovedLink).toBeNull()
+      })
+
+      it('deleting the moved link clears lastMovedLink', async () => {
+        const { result } = await renderLoadedWithFakeTimers()
+        act(() => result.current.handleLinkOpen('1', 'unread'))
+        await advance(30_000)
+
+        act(() => result.current.handleDeleteById('1'))
+
+        expect(result.current.lastMovedLink).toBeNull()
+      })
     })
   })
 
