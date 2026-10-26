@@ -4,9 +4,11 @@ import { useLinkListContext } from './LinkListContext'
 
 export default function LinkListHeader() {
   const {
-    totalCount, setModalOpen, isSelectionMode, selectedCount, enterSelectionMode, exitSelectionMode, favoritesOnly,
-    refreshing, handleRefresh, lastMovedLink, undoingMove, handleUndoMove,
+    totalCount, unreadCount, setModalOpen, isSelectionMode, selectedCount, enterSelectionMode, exitSelectionMode, favoritesOnly,
+    refreshing, handleRefresh, lastMovedLink, undoingMove, handleUndoMove, selectedStatuses,
   } = useLinkListContext()
+  // Only meaningful across all statuses -- any status filter already says what is (or isn't) unread.
+  const showUnreadCount = selectedStatuses.length === 0
 
   if (isSelectionMode) {
     return (
@@ -31,7 +33,7 @@ export default function LinkListHeader() {
           {favoritesOnly ? 'Favorites' : 'Your Links'}
         </h1>
         <p className="mt-0.5 text-sm text-surface-500 dark:text-surface-400">
-          {totalCount} link{totalCount !== 1 ? 's' : ''}
+          {totalCount} link{totalCount !== 1 ? 's' : ''}{showUnreadCount && ` (${unreadCount} unread)`}
         </p>
       </div>
       <div className="flex items-center gap-2">

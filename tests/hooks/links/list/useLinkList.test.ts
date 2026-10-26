@@ -86,7 +86,7 @@ function fakeSearchLinks(params: LinkFilterParams) {
   let filtered = [LINK_A, LINK_B, LINK_C]
   if (params.categoryId) filtered = filtered.filter(l => l.category_id === params.categoryId)
   if (params.favoritesOnly) filtered = filtered.filter(l => l.is_favorite)
-  return { links: filtered, totalCount: filtered.length }
+  return { links: filtered, totalCount: filtered.length, unreadCount: 0 }
 }
 
 beforeEach(() => {
@@ -500,7 +500,7 @@ describe('useLinkList (integration)', () => {
       mockGetLinksPage.mockClear()
 
       const LINK_NEW: LinkWithTags = { ...LINK_A, id: '4', title: 'Delta' }
-      mockGetLinksPage.mockResolvedValueOnce({ links: [LINK_NEW, LINK_A, LINK_B, LINK_C], totalCount: 4 })
+      mockGetLinksPage.mockResolvedValueOnce({ links: [LINK_NEW, LINK_A, LINK_B, LINK_C], totalCount: 4, unreadCount: 0 })
       await act(async () => { await result.current.handleRefresh() })
 
       expect(mockRefetchTags).toHaveBeenCalledOnce()

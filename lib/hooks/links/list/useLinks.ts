@@ -9,7 +9,7 @@ import { useLinkBulkMutations } from './useLinkBulkMutations'
 export function useLinks(filterParams: LinkFilterParams) {
   const { dek } = useVault()
   const {
-    links, rawLinks, setRawLinks, totalCount, hasMore, loading, loadingMore, loadMore, refresh, refreshing,
+    links, rawLinks, setRawLinks, totalCount, unreadCount, hasMore, loading, loadingMore, loadMore, refresh, refreshing,
     shiftServerOffset,
   } = useLinkListQuery(filterParams, dek)
   // A saved move takes one loaded link out of the server order ahead of the next page;
@@ -21,7 +21,7 @@ export function useLinks(filterParams: LinkFilterParams) {
   const bulkMutations = useLinkBulkMutations(rawLinks, setRawLinks, filterParams, dek)
 
   return {
-    links, totalCount, hasMore, loading, loadingMore, loadMore, refresh, refreshing,
+    links, totalCount, unreadCount, hasMore, loading, loadingMore, loadMore, refresh, refreshing,
     ...mutations,
     ...bulkMutations,
   }

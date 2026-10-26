@@ -15,6 +15,8 @@ const handleUndoMove = vi.fn()
 function setContext(overrides: Record<string, unknown> = {}) {
   mockUseLinkListContext.mockReturnValue({
     totalCount: 3,
+    unreadCount: 2,
+    selectedStatuses: [],
     setModalOpen: vi.fn(),
     isSelectionMode: false,
     selectedCount: 0,
@@ -36,6 +38,34 @@ beforeEach(() => {
 })
 
 afterEach(() => cleanup())
+
+describe('LinkListHeader count', () => {
+  it('shows the link count with the unread count in parentheses', () => {
+    setContext({ totalCount: 3012, unreadCount: 1200 })
+    render(<LinkListHeader />)
+    expect(screen.getByText('3012 links (1200 unread)')).toBeTruthy()
+  })
+
+  it('uses the singular for one link', () => {
+    setContext({ totalCount: 1, unreadCount: 0 })
+    render(<LinkListHeader />)
+    expect(screen.getByText('1 link (0 unread)')).toBeTruthy()
+  })
+
+  it('hides the unread count when filtering by Unread', () => {
+    setContext({ totalCount: 26, unreadCount: 26, selectedStatuses: ['unread'] })
+    render(<LinkListHeader />)
+    expect(screen.getByText('26 links')).toBeTruthy()
+    expect(screen.queryByText(/unread/)).toBeNull()
+  })
+
+  it('hides the unread count for any other status filter too', () => {
+    setContext({ totalCount: 40, unreadCount: 26, selectedStatuses: ['unread', 'read'] })
+    render(<LinkListHeader />)
+    expect(screen.getByText('40 links')).toBeTruthy()
+    expect(screen.queryByText(/unread/)).toBeNull()
+  })
+})
 
 describe('LinkListHeader refresh button', () => {
   it('renders with aria-label "Refresh links" and calls handleRefresh on click', () => {

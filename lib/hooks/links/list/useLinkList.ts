@@ -15,7 +15,7 @@ export function useLinkList(autoFetchDefault = true) {
   const modals = useLinkModals()
   const filters = useLinkFilters()
   const {
-    links, totalCount, hasMore, loading, loadingMore, loadMore, refresh, refreshing,
+    links, totalCount, unreadCount, hasMore, loading, loadingMore, loadMore, refresh, refreshing,
     handleStatusChange: changeStatus,
     handleEdit: editLink,
     handleDelete: deleteLink,
@@ -177,6 +177,7 @@ export function useLinkList(autoFetchDefault = true) {
     autoFetchDefault,
     links,
     totalCount,
+    unreadCount,
     hasMore,
     loading,
     loadingMore,

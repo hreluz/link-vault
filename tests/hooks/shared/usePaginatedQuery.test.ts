@@ -237,4 +237,60 @@ describe('usePaginatedQuery', () => {
       expect(utils.result.current.totalCount).toBe(1)
     })
   })
+
+  describe('meta', () => {
+    type Meta = { extra: number }
+    function makeMetaFetchPage(all: Item[]) {
+      let call = 0
+      return vi.fn(async (_params: unknown, limit: number, offset: number): Promise<PageResult<Item, Meta>> => ({
+        items: all.slice(offset, offset + limit),
+        totalCount: all.length,
+        meta: { extra: ++call },
+      }))
+    }
+
+    it('is undefined while loading and exposes the first page meta', async () => {
+      const fetchPage = makeMetaFetchPage([{ id: '1' }])
+      const { result } = renderHook(() => usePaginatedQuery({}, fetchPage, 2))
+      expect(result.current.meta).toBeUndefined()
+      await waitFor(() => expect(result.current.loading).toBe(false))
+      expect(result.current.meta).toEqual({ extra: 1 })
+    })
+
+    it('takes the latest meta on loadMore and refresh', async () => {
+      const fetchPage = makeMetaFetchPage([{ id: '1' }, { id: '2' }, { id: '3' }])
+      const { result } = renderHook(() => usePaginatedQuery({}, fetchPage, 2))
+      await waitFor(() => expect(result.current.loading).toBe(false))
+
+      await act(async () => { result.current.loadMore() })
+      expect(result.current.meta).toEqual({ extra: 2 })
+
+      await act(async () => { await result.current.refresh() })
+      expect(result.current.meta).toEqual({ extra: 3 })
+    })
+
+    it('ignores meta from a refresh made stale by a params change', async () => {
+      let resolveRefresh: (v: PageResult<Item, Meta>) => void
+      const fetchPage = vi.fn(async (params: { q: string }): Promise<PageResult<Item, Meta>> =>
+        ({ items: [{ id: params.q }], totalCount: 1, meta: { extra: params.q === 'a' ? 1 : 2 } }),
+      )
+      const utils = renderHook(
+        ({ p }) => usePaginatedQuery(p, fetchPage, 2),
+        { initialProps: { p: { q: 'a' } } },
+      )
+      await waitFor(() => expect(utils.result.current.loading).toBe(false))
+
+      fetchPage.mockImplementationOnce(() => new Promise(resolve => { resolveRefresh = resolve }))
+      let refreshPromise: Promise<void>
+      act(() => { refreshPromise = utils.result.current.refresh() })
+      utils.rerender({ p: { q: 'b' } })
+      await waitFor(() => expect(utils.result.current.loading).toBe(false))
+
+      await act(async () => {
+        resolveRefresh!({ items: [{ id: 'a' }], totalCount: 1, meta: { extra: 99 } })
+        await refreshPromise
+      })
+      expect(utils.result.current.meta).toEqual({ extra: 2 })
+    })
+  })
 })
