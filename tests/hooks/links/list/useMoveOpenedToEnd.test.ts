@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useMoveOpenedToEnd, MOVE_TO_END_DELAY_MS } from '@/lib/hooks/links/list/useMoveOpenedToEnd'
+import { MOVE_LOG_FLAG } from '@/lib/utils/moveLog'
 
 type Props = { pausedAll: boolean; pausedId: string | null }
 
@@ -196,5 +197,56 @@ describe('useMoveOpenedToEnd', () => {
     advance(30_000)
     expect(first).not.toHaveBeenCalled()
     expect(second).toHaveBeenCalledExactlyOnceWith('a')
+  })
+
+  describe('debug logs', () => {
+    let info: MockInstance<typeof console.info>
+    const events = () => info.mock.calls.map(call => call[1])
+
+    beforeEach(() => {
+      info = vi.spyOn(console, 'info').mockImplementation(() => {})
+    })
+
+    afterEach(() => {
+      info.mockRestore()
+      localStorage.clear()
+    })
+
+    it('logs nothing while the flag is off', () => {
+      const { result } = setup()
+      act(() => result.current.schedule('a'))
+      advance(30_000)
+      expect(info).not.toHaveBeenCalled()
+    })
+
+    it('logs each step of the timer lifecycle with the flag on', () => {
+      localStorage.setItem(MOVE_LOG_FLAG, '1')
+      const { result, rerender, unmount } = setup()
+      act(() => result.current.schedule('a'))
+      act(() => result.current.schedule('a'))
+      advance(30_000)
+
+      act(() => result.current.schedule('b'))
+      rerender({ pausedAll: true, pausedId: null })
+      rerender({ pausedAll: false, pausedId: null })
+      act(() => result.current.cancel('b', 'left list'))
+
+      act(() => result.current.schedule('c'))
+      unmount()
+
+      expect(events()).toEqual([
+        'started', 'restarted', 'fired', 'started', 'paused', 'resumed', 'started', 'cancelled', 'started', 'cancelled-all',
+      ])
+      expect(info.mock.calls[7][2]).toMatchObject({ id: 'b', reason: 'left list' })
+      expect(info.mock.calls[9][2]).toMatchObject({ ids: ['c'], reason: 'unmount' })
+    })
+
+    it('does not log a cancel when nothing is pending', () => {
+      localStorage.setItem(MOVE_LOG_FLAG, '1')
+      const { result } = setup()
+      act(() => result.current.cancel('a', 'left list'))
+      act(() => result.current.cancelAll('refresh'))
+      expect(info).not.toHaveBeenCalled()
+    })
   })
 })

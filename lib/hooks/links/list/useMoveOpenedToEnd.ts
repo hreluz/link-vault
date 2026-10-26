@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef } from 'react'
+import { logMove } from '@/lib/utils/moveLog'
 
 export const MOVE_TO_END_DELAY_MS = 30_000
 
@@ -35,12 +36,17 @@ export function useMoveOpenedToEnd({
     if (existing) clearTimeout(existing)
     if (pausedAllRef.current || pausedIdRef.current === id) {
       pending.set(id, null)
+      logMove('queued-paused', {
+        id, pausedAll: pausedAllRef.current, pausedId: pausedIdRef.current, pendingCount: pending.size,
+      })
       return
     }
     pending.set(id, setTimeout(() => {
       pending.delete(id)
+      logMove('fired', { id, pendingCount: pending.size })
       onMoveRef.current(id)
     }, MOVE_TO_END_DELAY_MS))
+    logMove(existing ? 'restarted' : 'started', { id, delayMs: MOVE_TO_END_DELAY_MS, pendingCount: pending.size })
   }, [])
 
   useEffect(() => {
@@ -51,26 +57,35 @@ export function useMoveOpenedToEnd({
       if (paused && timer) {
         clearTimeout(timer)
         pendingRef.current.set(id, null)
+        logMove('paused', { id, reason: pausedAll ? 'all' : 'menu' })
       } else if (!paused && !timer) {
+        logMove('resumed', { id })
         start(id)
       }
     }
   }, [pausedAll, pausedId, start])
 
-  const cancel = useCallback((id: string) => {
-    const timer = pendingRef.current.get(id)
+  const cancel = useCallback((id: string, reason = 'unknown') => {
+    const pending = pendingRef.current
+    if (!pending.has(id)) return
+    const timer = pending.get(id)
     if (timer) clearTimeout(timer)
-    pendingRef.current.delete(id)
+    pending.delete(id)
+    logMove('cancelled', { id, reason, pendingCount: pending.size })
   }, [])
 
-  const cancelAll = useCallback(() => {
-    for (const timer of pendingRef.current.values()) {
+  const cancelAll = useCallback((reason = 'unknown') => {
+    const pending = pendingRef.current
+    if (pending.size === 0) return
+    const ids = [...pending.keys()]
+    for (const timer of pending.values()) {
       if (timer) clearTimeout(timer)
     }
-    pendingRef.current.clear()
+    pending.clear()
+    logMove('cancelled-all', { ids, reason })
   }, [])
 
-  useEffect(() => cancelAll, [cancelAll])
+  useEffect(() => () => cancelAll('unmount'), [cancelAll])
 
   return { schedule: start, cancel, cancelAll }
 }
