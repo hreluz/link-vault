@@ -278,6 +278,26 @@ describe('useTagInput', () => {
       expect(result.current.suggestions.length).toBeLessThanOrEqual(8)
     })
 
+    it('lists an exact match first', () => {
+      const { result } = render('', vi.fn(), ['react-native', 'react'])
+      act(() => result.current.onInputChange('react'))
+      expect(result.current.suggestions).toEqual(['react', 'react-native'])
+    })
+
+    it('keeps the original order when there is no exact match', () => {
+      const { result } = render('', vi.fn(), ['react-native', 'react'])
+      act(() => result.current.onInputChange('rea'))
+      expect(result.current.suggestions).toEqual(['react-native', 'react'])
+    })
+
+    it('keeps an exact match that would otherwise fall past the 8-result cap', () => {
+      const many = [...Array.from({ length: 10 }, (_, i) => `tag-${i}`), 'tag']
+      const { result } = render('', vi.fn(), many)
+      act(() => result.current.onInputChange('tag'))
+      expect(result.current.suggestions[0]).toBe('tag')
+      expect(result.current.suggestions).toHaveLength(8)
+    })
+
     it('resets selectedIndex to -1 when input changes', () => {
       const { result } = render('', vi.fn(), AVAILABLE)
       act(() => result.current.onInputChange('rea'))
@@ -372,6 +392,42 @@ describe('useTagInput', () => {
       expect(result.current.currentInput).toBe('')
     })
 
+    it('Tab selects the first suggestion when none is highlighted', () => {
+      const { result, onChange } = render('', vi.fn(), ['react', 'css'])
+      act(() => result.current.onInputChange('rea'))
+      act(() => result.current.onKeyPress('Tab'))
+      expect(result.current.confirmedTags).toEqual(['react'])
+      expect(result.current.currentInput).toBe('')
+      expect(result.current.suggestions).toEqual([])
+      expect(onChange).toHaveBeenLastCalledWith('react')
+    })
+
+    it('Tab selects the second suggestion after ArrowDown twice', () => {
+      const { result } = render('', vi.fn(), ['react', 'preact'])
+      act(() => result.current.onInputChange('react'))
+      act(() => result.current.onKeyPress('ArrowDown'))
+      act(() => result.current.onKeyPress('ArrowDown'))
+      act(() => result.current.onKeyPress('Tab'))
+      expect(result.current.confirmedTags).toEqual(['preact'])
+    })
+
+    it('Tab confirms typed input after Escape closed the suggestions', () => {
+      const { result } = render('', vi.fn(), ['react'])
+      act(() => result.current.onInputChange('rea'))
+      act(() => result.current.onKeyPress('Escape'))
+      let handled: boolean | undefined
+      act(() => { handled = result.current.onKeyPress('Tab') })
+      expect(handled).toBe(false)
+      expect(result.current.confirmedTags).toEqual(['rea'])
+    })
+
+    it('Enter confirms typed text, not the first suggestion, when none is highlighted', () => {
+      const { result } = render('', vi.fn(), ['react'])
+      act(() => result.current.onInputChange('rea'))
+      act(() => result.current.onKeyPress('Enter'))
+      expect(result.current.confirmedTags).toEqual(['rea'])
+    })
+
     it('Enter confirms typed input when no suggestion is highlighted', () => {
       const { result } = render('', vi.fn(), AVAILABLE)
       act(() => result.current.onInputChange('mynewt'))
@@ -418,10 +474,11 @@ describe('useTagInput', () => {
       expect(result.current.confirmedTags).toContain('css')
     })
 
-    it('returns true for Tab when suggestions are open', () => {
+    it('returns true for Tab when suggestions are open, and adds the first suggestion', () => {
       const { result } = render('', vi.fn(), AVAILABLE)
       act(() => result.current.onInputChange('rea'))
       expect(press(result, 'Tab')).toBe(true)
+      expect(result.current.confirmedTags).toEqual(['react'])
     })
 
     it('returns false for Backspace when currentInput has text, so native deletion runs', () => {

@@ -71,7 +71,12 @@ export default function TagChipsInput({ label, value, onChange, disabled = false
             className="flex-1 min-w-32 outline-none bg-transparent text-surface-900 placeholder-surface-400 disabled:cursor-not-allowed dark:text-surface-100 dark:placeholder-surface-500"
           />
         </div>
-        <TagSuggestionsDropdown suggestions={suggestions} selectedIndex={selectedIndex} onSelect={selectSuggestion} />
+        <TagSuggestionsDropdown
+          suggestions={suggestions}
+          selectedIndex={selectedIndex}
+          onSelect={selectSuggestion}
+          hintIndex={selectedIndex < 0 ? 0 : undefined}
+        />
       </div>
     </div>
   )
