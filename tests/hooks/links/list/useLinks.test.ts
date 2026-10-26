@@ -88,7 +88,7 @@ const mockBulkUpdateStatus = vi.mocked(bulkUpdateStatus)
 beforeEach(() => {
   vi.clearAllMocks()
   mockAddToast.mockReturnValue('toast-id')
-  mockGetLinksPage.mockResolvedValue({ links: [LINK_A, LINK_B], totalCount: 2 })
+  mockGetLinksPage.mockResolvedValue({ links: [LINK_A, LINK_B], totalCount: 2, unreadCount: 0 })
   mockGetPrivateTagIds.mockResolvedValue([])
   mockBulkUpdateStatus.mockResolvedValue(true)
   mockUseUnlockedTags.mockReturnValue({ unlockedTagIds: new Set(), unlockTag: vi.fn(), lockTag: vi.fn(), lockAll: vi.fn() })
@@ -103,7 +103,7 @@ async function renderLoaded(params: LinkFilterParams = FILTER_PARAMS) {
 describe('useLinks composed wiring', () => {
   it('a saved handleMoveToEnd shifts the next page offset back by one', async () => {
     const page = Array.from({ length: 40 }, (_, i) => ({ ...LINK_A, id: `p${i}` }))
-    mockGetLinksPage.mockResolvedValue({ links: page, totalCount: 80 })
+    mockGetLinksPage.mockResolvedValue({ links: page, totalCount: 80, unreadCount: 0 })
     const { result } = await renderLoaded()
 
     await act(async () => { await result.current.handleMoveToEnd('p0') })

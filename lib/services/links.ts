@@ -276,7 +276,7 @@ function toRpcFilterArgs(params: LinkFilterParams) {
   }
 }
 
-export type LinksPage = { links: LinkWithTags[]; totalCount: number }
+export type LinksPage = { links: LinkWithTags[]; totalCount: number; unreadCount: number }
 
 /** Structural-only pagination -- no free-text search, no alphabetical sort (impossible against ciphertext). */
 export async function getLinksPage(
@@ -294,13 +294,13 @@ export async function getLinksPage(
       p_limit: limit,
       p_offset: offset,
     })
-    .returns<Array<LinkRow & { tags: string[]; total_count: number }>>()
+    .returns<Array<LinkRow & { tags: string[]; total_count: number; unread_count: number }>>()
 
-  if (error || !data) return { links: [], totalCount: 0 }
+  if (error || !data) return { links: [], totalCount: 0, unreadCount: 0 }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- destructured only to omit it from `row`
-  const links = await Promise.all(data.map(({ tags, total_count, ...row }) => toLinkWithTags(row, tags, dek)))
-  return { links, totalCount: data[0]?.total_count ?? 0 }
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- destructured only to omit them from `row`
+  const links = await Promise.all(data.map(({ tags, total_count, unread_count, ...row }) => toLinkWithTags(row, tags, dek)))
+  return { links, totalCount: data[0]?.total_count ?? 0, unreadCount: data[0]?.unread_count ?? 0 }
 }
 
 export type MatchingLinkIds = { ids: string[]; totalCount: number }

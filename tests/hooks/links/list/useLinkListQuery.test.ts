@@ -60,7 +60,7 @@ const mockGetPrivateTagIds = vi.mocked(getPrivateTagIds)
 
 beforeEach(() => {
   vi.clearAllMocks()
-  mockGetLinksPage.mockResolvedValue({ links: [LINK_A, LINK_B], totalCount: 2 })
+  mockGetLinksPage.mockResolvedValue({ links: [LINK_A, LINK_B], totalCount: 2, unreadCount: 0 })
   mockGetPrivateTagIds.mockResolvedValue([])
   mockGetMatchingLinkIds.mockResolvedValue({ ids: ['1', '2'], totalCount: 2 })
   mockGetLinksByIds.mockResolvedValue([LINK_A, LINK_B])
@@ -95,19 +95,57 @@ describe('useLinkListQuery', () => {
     })
 
     it('exposes totalCount and hasMore from the service response', async () => {
-      mockGetLinksPage.mockResolvedValue({ links: [LINK_A, LINK_B], totalCount: 50 })
+      mockGetLinksPage.mockResolvedValue({ links: [LINK_A, LINK_B], totalCount: 50, unreadCount: 0 })
       const { result } = await renderLoaded()
       expect(result.current.totalCount).toBe(50)
       expect(result.current.hasMore).toBe(true)
     })
   })
 
-  describe('loadMore', () => {
-    it('fetches the next page at the current offset and appends it', async () => {
-      mockGetLinksPage.mockResolvedValue({ links: [LINK_A], totalCount: 2 })
+  describe('unreadCount', () => {
+    it('comes from the service response when no text search or alphabetical sort is active', async () => {
+      mockGetLinksPage.mockResolvedValue({ links: [LINK_A, LINK_B], totalCount: 50, unreadCount: 17 })
+      const { result } = await renderLoaded()
+      expect(result.current.unreadCount).toBe(17)
+    })
+
+    it('counts unread links among the filtered candidates during a text search', async () => {
+      const LINK_C: LinkWithTags = { ...LINK_A, id: '4', title: 'Alphabet', status: 'read' }
+      mockGetMatchingLinkIds.mockResolvedValue({ ids: ['1', '2', '4'], totalCount: 3 })
+      mockGetLinksByIds.mockResolvedValue([LINK_A, LINK_B, LINK_C])
+      const { result } = await renderLoaded({ ...FILTER_PARAMS, textSearch: 'alpha' })
+      expect(result.current.totalCount).toBe(2)
+      expect(result.current.unreadCount).toBe(1)
+    })
+
+    it('follows status changes on loaded links without a refetch', async () => {
+      mockGetLinksPage.mockResolvedValue({ links: [LINK_A, LINK_B], totalCount: 2, unreadCount: 1 })
       const { result } = await renderLoaded()
 
-      mockGetLinksPage.mockResolvedValue({ links: [LINK_B], totalCount: 2 })
+      act(() => result.current.setRawLinks(prev => prev.map(l => l.id === '1' ? { ...l, status: 'watching' } : l)))
+      expect(result.current.unreadCount).toBe(0)
+
+      act(() => result.current.setRawLinks(prev => prev.map(l => l.id === '2' ? { ...l, status: 'unread' } : l)))
+      expect(result.current.unreadCount).toBe(1)
+    })
+
+    it('includes the count from the latest loaded page', async () => {
+      mockGetLinksPage.mockResolvedValue({ links: [LINK_A], totalCount: 2, unreadCount: 1 })
+      const { result } = await renderLoaded()
+
+      mockGetLinksPage.mockResolvedValue({ links: [LINK_B], totalCount: 2, unreadCount: 2 })
+      await act(async () => { result.current.loadMore() })
+
+      expect(result.current.unreadCount).toBe(2)
+    })
+  })
+
+  describe('loadMore', () => {
+    it('fetches the next page at the current offset and appends it', async () => {
+      mockGetLinksPage.mockResolvedValue({ links: [LINK_A], totalCount: 2, unreadCount: 0 })
+      const { result } = await renderLoaded()
+
+      mockGetLinksPage.mockResolvedValue({ links: [LINK_B], totalCount: 2, unreadCount: 0 })
       await act(async () => { result.current.loadMore() })
 
       expect(mockGetLinksPage).toHaveBeenLastCalledWith(FILTER_PARAMS, 40, 1, FAKE_DEK)
@@ -118,7 +156,7 @@ describe('useLinkListQuery', () => {
 
   describe('shiftServerOffset', () => {
     it('corrects the next page offset after a saved reorder', async () => {
-      mockGetLinksPage.mockResolvedValue({ links: Array.from({ length: 40 }, (_, i) => ({ ...LINK_A, id: `p${i}` })), totalCount: 80 })
+      mockGetLinksPage.mockResolvedValue({ links: Array.from({ length: 40 }, (_, i) => ({ ...LINK_A, id: `p${i}` })), totalCount: 80, unreadCount: 0 })
       const { result } = await renderLoaded()
 
       act(() => result.current.shiftServerOffset(-1))
@@ -128,7 +166,7 @@ describe('useLinkListQuery', () => {
     })
 
     it('is reset by a filter change', async () => {
-      mockGetLinksPage.mockResolvedValue({ links: Array.from({ length: 40 }, (_, i) => ({ ...LINK_A, id: `p${i}` })), totalCount: 80 })
+      mockGetLinksPage.mockResolvedValue({ links: Array.from({ length: 40 }, (_, i) => ({ ...LINK_A, id: `p${i}` })), totalCount: 80, unreadCount: 0 })
       const { result, rerender } = await renderLoaded()
 
       act(() => result.current.shiftServerOffset(-1))
@@ -142,7 +180,7 @@ describe('useLinkListQuery', () => {
     })
 
     it('is reset by refresh', async () => {
-      mockGetLinksPage.mockResolvedValue({ links: Array.from({ length: 40 }, (_, i) => ({ ...LINK_A, id: `p${i}` })), totalCount: 80 })
+      mockGetLinksPage.mockResolvedValue({ links: Array.from({ length: 40 }, (_, i) => ({ ...LINK_A, id: `p${i}` })), totalCount: 80, unreadCount: 0 })
       const { result } = await renderLoaded()
 
       act(() => result.current.shiftServerOffset(-1))
@@ -156,14 +194,14 @@ describe('useLinkListQuery', () => {
 
   describe('privacy filtering', () => {
     it('shows all links when there are no private tags', async () => {
-      mockGetLinksPage.mockResolvedValue({ links: [LINK_A, LINK_B], totalCount: 2 })
+      mockGetLinksPage.mockResolvedValue({ links: [LINK_A, LINK_B], totalCount: 2, unreadCount: 0 })
       mockGetPrivateTagIds.mockResolvedValue([])
       const { result } = await renderLoaded()
       expect(result.current.links).toHaveLength(2)
     })
 
     it('hides a link whose tag is private and locked', async () => {
-      mockGetLinksPage.mockResolvedValue({ links: [LINK_A, LINK_PRIVATE], totalCount: 2 })
+      mockGetLinksPage.mockResolvedValue({ links: [LINK_A, LINK_PRIVATE], totalCount: 2, unreadCount: 0 })
       mockGetPrivateTagIds.mockResolvedValue(['private-stuff'])
       mockUseUnlockedTags.mockReturnValue({ unlockedTagIds: new Set(), unlockTag: vi.fn(), lockTag: vi.fn(), lockAll: vi.fn() })
       const { result } = await renderLoaded()
@@ -172,7 +210,7 @@ describe('useLinkListQuery', () => {
     })
 
     it('shows a link whose private tag has been unlocked', async () => {
-      mockGetLinksPage.mockResolvedValue({ links: [LINK_A, LINK_PRIVATE], totalCount: 2 })
+      mockGetLinksPage.mockResolvedValue({ links: [LINK_A, LINK_PRIVATE], totalCount: 2, unreadCount: 0 })
       mockGetPrivateTagIds.mockResolvedValue(['private-stuff'])
       mockUseUnlockedTags.mockReturnValue({ unlockedTagIds: new Set(['private-stuff']), unlockTag: vi.fn(), lockTag: vi.fn(), lockAll: vi.fn() })
       const { result } = await renderLoaded()
@@ -181,7 +219,7 @@ describe('useLinkListQuery', () => {
 
     it('hides a link that has both a public and a locked private tag', async () => {
       const mixedLink: LinkWithTags = { ...LINK_A, id: '5', tags: ['react', 'private-stuff'] }
-      mockGetLinksPage.mockResolvedValue({ links: [mixedLink], totalCount: 1 })
+      mockGetLinksPage.mockResolvedValue({ links: [mixedLink], totalCount: 1, unreadCount: 0 })
       mockGetPrivateTagIds.mockResolvedValue(['private-stuff'])
       mockUseUnlockedTags.mockReturnValue({ unlockedTagIds: new Set(), unlockTag: vi.fn(), lockTag: vi.fn(), lockAll: vi.fn() })
       const { result } = await renderLoaded()
@@ -189,7 +227,7 @@ describe('useLinkListQuery', () => {
     })
 
     it('shows all links once all private tags are unlocked', async () => {
-      mockGetLinksPage.mockResolvedValue({ links: [LINK_A, LINK_B, LINK_PRIVATE], totalCount: 3 })
+      mockGetLinksPage.mockResolvedValue({ links: [LINK_A, LINK_B, LINK_PRIVATE], totalCount: 3, unreadCount: 0 })
       mockGetPrivateTagIds.mockResolvedValue(['private-stuff'])
       mockUseUnlockedTags.mockReturnValue({ unlockedTagIds: new Set(['private-stuff']), unlockTag: vi.fn(), lockTag: vi.fn(), lockAll: vi.fn() })
       const { result } = await renderLoaded()
@@ -262,7 +300,7 @@ describe('useLinkListQuery', () => {
     })
 
     it('re-reads the private tag ids', async () => {
-      mockGetLinksPage.mockResolvedValue({ links: [LINK_A, LINK_PRIVATE], totalCount: 2 })
+      mockGetLinksPage.mockResolvedValue({ links: [LINK_A, LINK_PRIVATE], totalCount: 2, unreadCount: 0 })
       const { result } = await renderLoaded()
       expect(mockGetPrivateTagIds).toHaveBeenCalledOnce()
       expect(result.current.links).toHaveLength(2)

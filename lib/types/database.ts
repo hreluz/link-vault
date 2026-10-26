@@ -301,7 +301,7 @@ export interface Database {
           p_limit: number
           p_offset: number
         }
-        Returns: Array<Database['public']['Tables']['links']['Row'] & { tags: string[]; total_count: number }>
+        Returns: Array<Database['public']['Tables']['links']['Row'] & { tags: string[]; total_count: number; unread_count: number }>
       }
       search_link_ids: {
         Args: {

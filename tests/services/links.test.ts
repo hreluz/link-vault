@@ -1657,11 +1657,11 @@ describe('getLinksPage', () => {
     expect(mockRpc).toHaveBeenCalledWith('search_links', expect.objectContaining({ p_unlocked_tag_ids: ['secret-id'] }))
   })
 
-  it('decrypts each returned row and strips total_count', async () => {
+  it('decrypts each returned row and strips total_count and unread_count', async () => {
     const a = await encryptLinkRow('1')
     const b = await encryptLinkRow('2')
     mockRpcReturns.mockResolvedValue({
-      data: [{ ...a, tags: ['t1'], total_count: 5 }, { ...b, tags: [], total_count: 5 }],
+      data: [{ ...a, tags: ['t1'], total_count: 5, unread_count: 3 }, { ...b, tags: [], total_count: 5, unread_count: 3 }],
       error: null,
     })
 
@@ -1669,6 +1669,7 @@ describe('getLinksPage', () => {
 
     expect(result.links).toHaveLength(2)
     expect(result.links[0]).not.toHaveProperty('total_count')
+    expect(result.links[0]).not.toHaveProperty('unread_count')
     expect(result.links[0].tags).toEqual(['t1'])
     expect(result.links[0].title).toBe('Example')
   })
@@ -1685,12 +1686,24 @@ describe('getLinksPage', () => {
     expect(result.totalCount).toBe(92)
   })
 
+  it('returns unreadCount from the first row', async () => {
+    const row = await encryptLinkRow('1')
+    mockRpcReturns.mockResolvedValue({
+      data: [{ ...row, tags: [], total_count: 92, unread_count: 40 }],
+      error: null,
+    })
+
+    const result = await getLinksPage(BASE_FILTER_PARAMS, 40, 0, dek)
+
+    expect(result.unreadCount).toBe(40)
+  })
+
   it('returns an empty page with totalCount 0 on error', async () => {
     mockRpcReturns.mockResolvedValue({ data: null, error: { message: 'DB error' } })
 
     const result = await getLinksPage(BASE_FILTER_PARAMS, 40, 0, dek)
 
-    expect(result).toEqual({ links: [], totalCount: 0 })
+    expect(result).toEqual({ links: [], totalCount: 0, unreadCount: 0 })
   })
 
   it('returns an empty page with totalCount 0 when data is null', async () => {
@@ -1698,7 +1711,7 @@ describe('getLinksPage', () => {
 
     const result = await getLinksPage(BASE_FILTER_PARAMS, 40, 0, dek)
 
-    expect(result).toEqual({ links: [], totalCount: 0 })
+    expect(result).toEqual({ links: [], totalCount: 0, unreadCount: 0 })
   })
 
   it('returns totalCount 0 when the result set is empty', async () => {
@@ -1706,7 +1719,7 @@ describe('getLinksPage', () => {
 
     const result = await getLinksPage(BASE_FILTER_PARAMS, 40, 0, dek)
 
-    expect(result).toEqual({ links: [], totalCount: 0 })
+    expect(result).toEqual({ links: [], totalCount: 0, unreadCount: 0 })
   })
 })
 

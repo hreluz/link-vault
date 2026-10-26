@@ -5,9 +5,12 @@ import { getLinksPage, getMatchingLinkIds, getLinksByIds, type LinkWithTags, typ
 import { getPrivateTagIds, isTagVisible } from '@/lib/services/tags/tags'
 import { useTagNameLookup } from '@/lib/hooks/tags/useTagNameLookup'
 import { useUnlockedTags } from '@/lib/context/UnlockedTagsContext'
-import { usePaginatedQuery } from '@/lib/hooks/shared/usePaginatedQuery'
+import { usePaginatedQuery, type PageResult } from '@/lib/hooks/shared/usePaginatedQuery'
+import type { LinkStatus } from '@/lib/types/database'
 
 const PAGE_SIZE = 40
+
+type ListMeta = { unreadCount: number }
 
 function isContentFiltered(params: LinkFilterParams): boolean {
   return params.textSearch.length > 0 || params.sortBy === 'alphabetical'
@@ -56,14 +59,27 @@ export function useLinkListQuery(filterParams: LinkFilterParams, dek: CryptoKey 
     serverOffsetShiftRef.current += delta
   }, [])
 
+  // Each link's status as last fetched, so the unread count can follow
+  // optimistic status changes on loaded links without a refetch.
+  const [fetchedStatuses, setFetchedStatuses] = useState<ReadonlyMap<string, LinkStatus>>(new Map())
+
   const fetchPage = useCallback(
-    async (params: LinkFilterParams, limit: number, offset: number) => {
-      if (!dek) return { items: [], totalCount: 0 }
+    async (params: LinkFilterParams, limit: number, offset: number): Promise<PageResult<LinkWithTags, ListMeta>> => {
+      if (!dek) return { items: [], totalCount: 0, meta: { unreadCount: 0 } }
+
+      const recordStatuses = (items: LinkWithTags[]) => {
+        setFetchedStatuses(prev => {
+          const next = new Map(prev)
+          for (const link of items) next.set(link.id, link.status)
+          return next
+        })
+      }
 
       if (!isContentFiltered(params)) {
         const shiftedOffset = Math.max(0, offset + serverOffsetShiftRef.current)
-        const { links: items, totalCount } = await getLinksPage(params, limit, shiftedOffset, dek)
-        return { items, totalCount }
+        const { links: items, totalCount, unreadCount } = await getLinksPage(params, limit, shiftedOffset, dek)
+        recordStatuses(items)
+        return { items, totalCount, meta: { unreadCount } }
       }
 
       const key = structuralKey(params)
@@ -96,16 +112,29 @@ export function useLinkListQuery(filterParams: LinkFilterParams, dek: CryptoKey 
       }
       filtered = movedLinksLast(filtered)
 
-      return { items: filtered.slice(offset, offset + limit), totalCount: filtered.length }
+      const items = filtered.slice(offset, offset + limit)
+      recordStatuses(items)
+      return {
+        items,
+        totalCount: filtered.length,
+        meta: { unreadCount: filtered.filter(link => link.status === 'unread').length },
+      }
     },
     [dek, tagNameById],
   )
 
   const {
     items: rawLinks, setItems: setRawLinks,
-    totalCount, hasMore, loading, loadingMore, loadMore,
+    totalCount, meta, hasMore, loading, loadingMore, loadMore,
     refresh: refreshPage, refreshing,
   } = usePaginatedQuery(filterParams, fetchPage, PAGE_SIZE)
+
+  // Server/candidate count, corrected by loaded links whose status changed since fetch.
+  const unreadCount = rawLinks.reduce((count, link) => {
+    const fetchedStatus = fetchedStatuses.get(link.id)
+    if (fetchedStatus === undefined) return count
+    return count + Number(link.status === 'unread') - Number(fetchedStatus === 'unread')
+  }, meta?.unreadCount ?? 0)
 
   // Drops the Branch B candidate cache so search / alphabetical sort re-fetch
   // and re-decrypt, re-reads which tags are private, then reloads page 1.
@@ -125,7 +154,7 @@ export function useLinkListQuery(filterParams: LinkFilterParams, dek: CryptoKey 
   )
 
   return {
-    links, rawLinks, setRawLinks, totalCount, hasMore, loading, loadingMore, loadMore, refresh, refreshing,
+    links, rawLinks, setRawLinks, totalCount, unreadCount, hasMore, loading, loadingMore, loadMore, refresh, refreshing,
     shiftServerOffset,
   }
 }
