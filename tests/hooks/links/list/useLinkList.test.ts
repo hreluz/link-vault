@@ -86,7 +86,7 @@ function fakeSearchLinks(params: LinkFilterParams) {
   let filtered = [LINK_A, LINK_B, LINK_C]
   if (params.categoryId) filtered = filtered.filter(l => l.category_id === params.categoryId)
   if (params.favoritesOnly) filtered = filtered.filter(l => l.is_favorite)
-  return { links: filtered, totalCount: filtered.length, unreadCount: 0 }
+  return { links: filtered, totalCount: filtered.length, unreadCount: filtered.filter(l => l.status === 'unread').length }
 }
 
 beforeEach(() => {
@@ -468,6 +468,39 @@ describe('useLinkList (integration)', () => {
       act(() => result.current.handleDeleteById('1'))
 
       expect(result.current.activeLink?.id).toBe('2')
+    })
+  })
+
+  describe('header counts', () => {
+    it('handleDeleteById on an unread link lowers totalCount and unreadCount at once', async () => {
+      const { result } = await renderLoaded()
+      expect(result.current.totalCount).toBe(3)
+      expect(result.current.unreadCount).toBe(1)
+
+      act(() => result.current.handleDeleteById('1'))
+
+      expect(result.current.totalCount).toBe(2)
+      expect(result.current.unreadCount).toBe(0)
+    })
+
+    it('undo on the delete toast puts both counts back', async () => {
+      const { result } = await renderLoaded()
+
+      act(() => result.current.handleDeleteById('1'))
+      const undo = mockAddToast.mock.calls.find(([msg]) => msg === 'Link deleted, tap to undo')![2].onClick
+      act(() => undo())
+
+      expect(result.current.totalCount).toBe(3)
+      expect(result.current.unreadCount).toBe(1)
+    })
+
+    it('handleCreate with an unread link raises both counts', async () => {
+      const { result } = await renderLoaded()
+
+      act(() => result.current.handleCreate({ ...LINK_A, id: '99', title: 'Brand New' }))
+
+      expect(result.current.totalCount).toBe(4)
+      expect(result.current.unreadCount).toBe(2)
     })
   })
 

@@ -238,6 +238,82 @@ describe('usePaginatedQuery', () => {
     })
   })
 
+  describe('fetchedItems', () => {
+    it('matches the first page', async () => {
+      const fetchPage = makeFetchPage([{ id: '1' }, { id: '2' }, { id: '3' }])
+      const { result } = await renderLoaded(fetchPage, {}, 2)
+      expect(result.current.fetchedItems).toEqual([{ id: '1' }, { id: '2' }])
+    })
+
+    it('grows on loadMore and is replaced on refresh', async () => {
+      const all = [{ id: '1' }, { id: '2' }, { id: '3' }]
+      const fetchPage = makeFetchPage(all)
+      const { result } = await renderLoaded(fetchPage, {}, 2)
+
+      await act(async () => { result.current.loadMore() })
+      expect(result.current.fetchedItems).toEqual([{ id: '1' }, { id: '2' }, { id: '3' }])
+
+      all.splice(0, 3, { id: '7' })
+      await act(async () => { await result.current.refresh() })
+      expect(result.current.fetchedItems).toEqual([{ id: '7' }])
+    })
+
+    it('de-duplicates an id a later page repeats', async () => {
+      const fetchPage = vi.fn(async (_params: unknown, _limit: number, offset: number): Promise<PageResult<Item>> =>
+        offset === 0
+          ? { items: [{ id: '1' }, { id: '2' }], totalCount: 4 }
+          : { items: [{ id: '2' }, { id: '3' }], totalCount: 4 },
+      )
+      const { result } = await renderLoaded(fetchPage, {}, 2)
+      await act(async () => { result.current.loadMore() })
+      expect(result.current.fetchedItems).toEqual([{ id: '1' }, { id: '2' }, { id: '3' }])
+    })
+
+    it('is not changed by setItems', async () => {
+      const fetchPage = makeFetchPage([{ id: '1' }, { id: '2' }])
+      const { result } = await renderLoaded(fetchPage, {}, 2)
+
+      act(() => result.current.setItems(prev => prev.filter(item => item.id !== '1')))
+
+      expect(result.current.items).toEqual([{ id: '2' }])
+      expect(result.current.fetchedItems).toEqual([{ id: '1' }, { id: '2' }])
+    })
+
+    it('is reset by a params change', async () => {
+      const fetchPage = vi.fn(async (params: { q: string }): Promise<PageResult<Item>> =>
+        ({ items: [{ id: params.q }], totalCount: 1 }),
+      )
+      const utils = renderHook(({ p }) => usePaginatedQuery(p, fetchPage, 2), { initialProps: { p: { q: 'a' } } })
+      await waitFor(() => expect(utils.result.current.loading).toBe(false))
+
+      utils.rerender({ p: { q: 'b' } })
+      expect(utils.result.current.fetchedItems).toEqual([])
+      await waitFor(() => expect(utils.result.current.loading).toBe(false))
+      expect(utils.result.current.fetchedItems).toEqual([{ id: 'b' }])
+    })
+
+    it('ignores a refresh made stale by a params change', async () => {
+      let resolveRefresh: (v: PageResult<Item>) => void
+      const fetchPage = vi.fn(async (params: { q: string }): Promise<PageResult<Item>> =>
+        ({ items: [{ id: params.q }], totalCount: 1 }),
+      )
+      const utils = renderHook(({ p }) => usePaginatedQuery(p, fetchPage, 2), { initialProps: { p: { q: 'a' } } })
+      await waitFor(() => expect(utils.result.current.loading).toBe(false))
+
+      fetchPage.mockImplementationOnce(() => new Promise(resolve => { resolveRefresh = resolve }))
+      let refreshPromise: Promise<void>
+      act(() => { refreshPromise = utils.result.current.refresh() })
+      utils.rerender({ p: { q: 'b' } })
+      await waitFor(() => expect(utils.result.current.loading).toBe(false))
+
+      await act(async () => {
+        resolveRefresh!({ items: [{ id: 'stale' }], totalCount: 1 })
+        await refreshPromise
+      })
+      expect(utils.result.current.fetchedItems).toEqual([{ id: 'b' }])
+    })
+  })
+
   describe('meta', () => {
     type Meta = { extra: number }
     function makeMetaFetchPage(all: Item[]) {

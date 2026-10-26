@@ -129,6 +129,76 @@ describe('useLinkListQuery', () => {
       expect(result.current.unreadCount).toBe(1)
     })
 
+    it('drops both counts when an unread loaded link is removed, and only the total for a read one', async () => {
+      mockGetLinksPage.mockResolvedValue({ links: [LINK_A, LINK_B], totalCount: 10, unreadCount: 4 })
+      const { result } = await renderLoaded()
+
+      act(() => result.current.setRawLinks(prev => prev.filter(l => l.id !== '1')))
+      expect(result.current.totalCount).toBe(9)
+      expect(result.current.unreadCount).toBe(3)
+
+      act(() => result.current.setRawLinks(prev => prev.filter(l => l.id !== '2')))
+      expect(result.current.totalCount).toBe(8)
+      expect(result.current.unreadCount).toBe(3)
+    })
+
+    it('restores both counts when a removed link is put back', async () => {
+      mockGetLinksPage.mockResolvedValue({ links: [LINK_A, LINK_B], totalCount: 10, unreadCount: 4 })
+      const { result } = await renderLoaded()
+
+      act(() => result.current.setRawLinks(prev => prev.filter(l => l.id !== '1')))
+      act(() => result.current.setRawLinks(prev => [LINK_A, ...prev]))
+
+      expect(result.current.totalCount).toBe(10)
+      expect(result.current.unreadCount).toBe(4)
+    })
+
+    it('raises both counts for a new unread link, and only the total for a new read one', async () => {
+      mockGetLinksPage.mockResolvedValue({ links: [LINK_A, LINK_B], totalCount: 10, unreadCount: 4 })
+      const { result } = await renderLoaded()
+
+      act(() => result.current.setRawLinks(prev => [{ ...LINK_A, id: 'new-1' }, ...prev]))
+      expect(result.current.totalCount).toBe(11)
+      expect(result.current.unreadCount).toBe(5)
+
+      act(() => result.current.setRawLinks(prev => [{ ...LINK_B, id: 'new-2' }, ...prev]))
+      expect(result.current.totalCount).toBe(12)
+      expect(result.current.unreadCount).toBe(5)
+    })
+
+    it('keeps hasMore on the server count when a link is removed', async () => {
+      mockGetLinksPage.mockResolvedValue({ links: [LINK_A, LINK_B], totalCount: 3, unreadCount: 1 })
+      const { result } = await renderLoaded()
+      expect(result.current.hasMore).toBe(true)
+
+      act(() => result.current.setRawLinks(prev => prev.filter(l => l.id !== '1')))
+
+      expect(result.current.totalCount).toBe(2)
+      expect(result.current.hasMore).toBe(true)
+    })
+
+    it('never goes below 0', async () => {
+      mockGetLinksPage.mockResolvedValue({ links: [LINK_A, LINK_B], totalCount: 0, unreadCount: 0 })
+      const { result } = await renderLoaded()
+
+      act(() => result.current.setRawLinks([]))
+
+      expect(result.current.totalCount).toBe(0)
+      expect(result.current.unreadCount).toBe(0)
+    })
+
+    it('goes back to the server counts after refresh', async () => {
+      mockGetLinksPage.mockResolvedValue({ links: [LINK_A, LINK_B], totalCount: 10, unreadCount: 4 })
+      const { result } = await renderLoaded()
+      act(() => result.current.setRawLinks(prev => prev.filter(l => l.id !== '1')))
+
+      mockGetLinksPage.mockResolvedValue({ links: [LINK_B], totalCount: 9, unreadCount: 3 })
+      await act(async () => { await result.current.refresh() })
+
+      expect(result.current.totalCount).toBe(9)
+      expect(result.current.unreadCount).toBe(3)
+    })
+
     it('includes the count from the latest loaded page', async () => {
       mockGetLinksPage.mockResolvedValue({ links: [LINK_A], totalCount: 2, unreadCount: 1 })
       const { result } = await renderLoaded()
