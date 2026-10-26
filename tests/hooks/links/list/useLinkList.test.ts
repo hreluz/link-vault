@@ -125,35 +125,6 @@ describe('useLinkList (integration)', () => {
     expect(mockAddToast).toHaveBeenCalledWith('hello')
   })
 
-  describe('handleDelete', () => {
-    it('removes the active link from links', async () => {
-      const { result } = await renderLoaded()
-
-      act(() => result.current.setActiveLink(LINK_A))
-      act(() => result.current.handleDelete())
-
-      expect(result.current.links.find(l => l.id === '1')).toBeUndefined()
-    })
-
-    it('clears activeLink after deletion', async () => {
-      const { result } = await renderLoaded()
-
-      act(() => result.current.setActiveLink(LINK_A))
-      act(() => result.current.handleDelete())
-
-      expect(result.current.activeLink).toBeNull()
-    })
-
-    it('does nothing when activeLink is null', async () => {
-      const { result } = await renderLoaded()
-
-      act(() => result.current.handleDelete())
-
-      expect(result.current.links).toHaveLength(3)
-      expect(mockAddToast).not.toHaveBeenCalled()
-    })
-  })
-
   describe('handleStatusChange', () => {
     it('syncs activeLink status when it is the target', async () => {
       const { result } = await renderLoaded()

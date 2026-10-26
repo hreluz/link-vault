@@ -101,12 +101,6 @@ export function useLinkList(autoFetchDefault = true) {
     modals.setEditingLink(null)
   }
 
-  function handleDelete() {
-    if (!modals.activeLink) return
-    deleteLink(modals.activeLink.id)
-    modals.setActiveLink(null)
-  }
-
   function handleDeleteById(id: string) {
     deleteLink(id)
   }
@@ -198,7 +192,6 @@ export function useLinkList(autoFetchDefault = true) {
     undoingMove,
     handleUndoMove,
     handleEdit,
-    handleDelete,
     handleDeleteById,
     handleFavoriteToggle,
     handleCreate,
