@@ -77,3 +77,45 @@ describe('LinkCard edit shortcut', () => {
     expect(screen.queryByRole('button', { name: 'Edit link' })).toBeNull()
   })
 })
+
+describe('LinkCard delete button', () => {
+  it('is the first button in the row, before the favorite star', () => {
+    renderCard({ onDelete: vi.fn(), onEdit: vi.fn() })
+
+    const names = screen.getAllByRole('button').map(b => b.getAttribute('aria-label'))
+    expect(names).toEqual(['Delete link', 'Add to favorites', 'Edit link', 'Link options'])
+  })
+
+  it('calls onDelete once on a non-favorite link', () => {
+    const onDelete = vi.fn()
+    renderCard({ onDelete })
+
+    const button = screen.getByRole('button', { name: 'Delete link' })
+    expect(button).toHaveProperty('disabled', false)
+    expect(button.getAttribute('title')).toBe('Delete')
+    fireEvent.click(button)
+
+    expect(onDelete).toHaveBeenCalledOnce()
+  })
+
+  it('is disabled on a favorite link and does not call onDelete', () => {
+    const onDelete = vi.fn()
+    renderCard({ link: { ...LINK, is_favorite: true }, onDelete })
+
+    const button = screen.getByRole('button', { name: 'Delete link' })
+    expect(button).toHaveProperty('disabled', true)
+    expect(button.getAttribute('title')).toBe('Unfavorite to delete')
+    fireEvent.click(button)
+
+    expect(onDelete).not.toHaveBeenCalled()
+  })
+
+  it('is not rendered in selection mode or without onDelete', () => {
+    renderCard({ onDelete: vi.fn(), isSelectionMode: true })
+    expect(screen.queryByRole('button', { name: 'Delete link' })).toBeNull()
+    cleanup()
+
+    renderCard()
+    expect(screen.queryByRole('button', { name: 'Delete link' })).toBeNull()
+  })
+})

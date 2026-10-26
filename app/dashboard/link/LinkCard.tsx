@@ -121,6 +121,23 @@ export default function LinkCard({
             </span>
             {!isSelectionMode && (
               <div className="relative z-10 flex items-center gap-1">
+                {onDelete && (
+                  <button
+                    onClick={onDelete}
+                    disabled={link.is_favorite}
+                    aria-label="Delete link"
+                    title={link.is_favorite ? 'Unfavorite to delete' : 'Delete'}
+                    className={`flex h-8 w-8 items-center justify-center rounded-lg text-surface-400 transition disabled:cursor-not-allowed disabled:opacity-40 lg:h-10 lg:w-10 dark:text-surface-500 ${
+                      link.is_favorite
+                        ? ''
+                        : 'hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400'
+                    }`}
+                  >
+                    <svg aria-hidden="true" className="h-4 w-4 lg:h-5 lg:w-5" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3.5 5.5h13M8 5.5V4a1 1 0 011-1h2a1 1 0 011 1v1.5M5 5.5l.8 10.6a1 1 0 001 .9h6.4a1 1 0 001-.9L15 5.5M8.5 9v5M11.5 9v5" />
+                    </svg>
+                  </button>
+                )}
                 <button
                   onClick={onFavoriteToggle}
                   aria-label={link.is_favorite ? 'Remove from favorites' : 'Add to favorites'}

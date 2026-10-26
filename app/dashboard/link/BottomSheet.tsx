@@ -15,11 +15,10 @@ const STATUS_ICONS: Record<LinkStatus, string> = {
 interface Props {
   link: LinkWithTags | null
   onStatusChange: (id: string, status: LinkStatus) => void
-  onDelete: () => void
   onClose: () => void
 }
 
-export default function BottomSheet({ link, onStatusChange, onDelete, onClose }: Props) {
+export default function BottomSheet({ link, onStatusChange, onClose }: Props) {
   const backdrop = useBackdropClose(onClose)
 
   if (!link) return null
@@ -73,22 +72,6 @@ export default function BottomSheet({ link, onStatusChange, onDelete, onClose }:
               )
             })}
           </div>
-        </div>
-
-        {/* delete */}
-        <div className="border-t border-surface-100 p-4 dark:border-surface-800">
-          {link.is_favorite ? (
-            <p className="flex w-full cursor-not-allowed items-center justify-center gap-2 py-2.5 text-sm font-medium text-surface-400 dark:text-surface-600">
-              <span aria-hidden="true">🔒</span> Unfavorite to delete
-            </p>
-          ) : (
-            <button
-              onClick={() => { onDelete(); onClose() }}
-              className="flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-medium text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
-            >
-              <span aria-hidden="true">🗑️</span> Delete link
-            </button>
-          )}
         </div>
 
         <div className="h-6 lg:hidden" />

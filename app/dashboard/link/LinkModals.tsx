@@ -23,7 +23,6 @@ export default function LinkModals() {
     totalCount,
     handleCreate,
     handleEdit,
-    handleDelete,
     handleStatusChange,
     resetFilters,
     addToast,
@@ -70,7 +69,6 @@ export default function LinkModals() {
       <BottomSheet
         link={activeLink}
         onStatusChange={handleStatusChange}
-        onDelete={handleDelete}
         onClose={() => setActiveLink(null)}
       />
     </>
