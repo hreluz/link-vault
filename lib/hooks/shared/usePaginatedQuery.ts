@@ -9,6 +9,8 @@ export type FetchPage<T, P, M = undefined> = (params: P, limit: number, offset: 
 export type PaginatedQuery<T, M = undefined> = {
   items: T[]
   setItems: Dispatch<SetStateAction<T[]>>
+  /** Items exactly as fetched, before any `setItems` change -- lets callers tell what changed locally. */
+  fetchedItems: T[]
   totalCount: number
   meta: M | undefined
   hasMore: boolean
@@ -22,6 +24,7 @@ export type PaginatedQuery<T, M = undefined> = {
 
 type PageState<T, M> = {
   items: T[]
+  fetchedItems: T[]
   fetchedCount: number
   totalCount: number
   meta: M | undefined
@@ -31,7 +34,7 @@ type PageState<T, M> = {
 }
 
 function initialState<T, M>(): PageState<T, M> {
-  return { items: [], fetchedCount: 0, totalCount: 0, meta: undefined, loading: true, loadingMore: false, refreshing: false }
+  return { items: [], fetchedItems: [], fetchedCount: 0, totalCount: 0, meta: undefined, loading: true, loadingMore: false, refreshing: false }
 }
 
 /**
@@ -66,7 +69,7 @@ export function usePaginatedQuery<T extends { id: string }, P, M = undefined>(
 
     fetchPageRef.current(params, pageSize, 0).then(({ items, totalCount, meta }) => {
       if (requestId !== requestIdRef.current) return
-      setState({ items, fetchedCount: items.length, totalCount, meta, loading: false, loadingMore: false, refreshing: false })
+      setState({ items, fetchedItems: items, fetchedCount: items.length, totalCount, meta, loading: false, loadingMore: false, refreshing: false })
     })
     // paramsKey is the intentional dependency — params itself is a new object each render
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -83,8 +86,10 @@ export function usePaginatedQuery<T extends { id: string }, P, M = undefined>(
       if (requestId !== requestIdRef.current) return
       setState(prev => {
         const loadedIds = new Set(prev.items.map(item => item.id))
+        const fetchedIds = new Set(prev.fetchedItems.map(item => item.id))
         return {
           items: [...prev.items, ...page.filter(item => !loadedIds.has(item.id))],
+          fetchedItems: [...prev.fetchedItems, ...page.filter(item => !fetchedIds.has(item.id))],
           fetchedCount: prev.fetchedCount + page.length,
           totalCount,
           meta,
@@ -107,7 +112,7 @@ export function usePaginatedQuery<T extends { id: string }, P, M = undefined>(
       const { items, totalCount, meta } = await fetchPageRef.current(params, pageSize, 0)
       if (requestId !== requestIdRef.current) return
       loadingMoreRef.current = false
-      setState({ items, fetchedCount: items.length, totalCount, meta, loading: false, loadingMore: false, refreshing: false })
+      setState({ items, fetchedItems: items, fetchedCount: items.length, totalCount, meta, loading: false, loadingMore: false, refreshing: false })
     } catch (err) {
       if (requestId === requestIdRef.current) {
         setState(prev => ({ ...prev, refreshing: false }))
@@ -127,6 +132,7 @@ export function usePaginatedQuery<T extends { id: string }, P, M = undefined>(
   return {
     items: state.items,
     setItems,
+    fetchedItems: state.fetchedItems,
     totalCount: state.totalCount,
     meta: state.meta,
     hasMore: state.fetchedCount < state.totalCount,
