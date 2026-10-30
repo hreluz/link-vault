@@ -17,6 +17,7 @@ export function useLinkList(autoFetchDefault = true) {
   const filters = useLinkFilters()
   const {
     links, loadedLinks, totalCount, unreadCount, hasMore, loading, loadingMore, loadMore, refresh, refreshing,
+    imageStateById, handleImageError,
     handleStatusChange: changeStatus,
     handleEdit: editLink,
     handleDelete: deleteLink,
@@ -192,6 +193,8 @@ export function useLinkList(autoFetchDefault = true) {
     handleStatusChange,
     handleLinkOpen,
     lastOpenedId,
+    imageStateById,
+    handleImageError,
     lastMovedLink,
     undoingMove,
     handleUndoMove,

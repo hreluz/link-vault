@@ -11,6 +11,7 @@ export default function LinkGrid() {
     loading, links: results, hasActiveFilters, favoritesOnly,
     hasMore, loadingMore, loadMore, refreshKey,
     setActiveLink, setEditingLink, handleFavoriteToggle, handleLinkOpen, lastOpenedId, handleDeleteById, resetFilters,
+    imageStateById, handleImageError,
     isSelectionMode, isSelected, toggleSelected, enterSelectionMode,
   } = useLinkListContext()
   const { categories } = useCategoryList(refreshKey)
@@ -79,6 +80,8 @@ export default function LinkGrid() {
             onOpen={() => handleLinkOpen(link.id, link.status)}
             isLastOpened={link.id === lastOpenedId}
             pulse={pulse && link.id === lastOpenedId}
+            imageState={imageStateById[link.id]}
+            onImageError={() => handleImageError(link.id)}
             onDelete={() => handleDeleteById(link.id)}
             isSelectionMode={isSelectionMode}
             isSelected={isSelected(link.id)}

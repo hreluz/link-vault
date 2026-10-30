@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, beforeAll, afterEach } from 'vitest'
 import {
   getLinks, getLinksByIds, createLink, updateLink, toggleLinkFavorite, updateLinkStatus, markLinkMovedToEnd,
+  updateLinkImage, type LinkWithTags,
   deleteLink, importLinks,
   getLinksPage, getMatchingLinkIds, SELECT_ALL_MATCHING_CAP, findLinkIdByUrl,
   type LinkFilterParams, type LinkContent,
@@ -55,7 +56,8 @@ const {
   const mockLinksUpdateSelect = vi.fn(() => ({ single: mockLinksUpdateSingle }))
   const mockLinksUpdateEq = vi.fn(() => ({ select: mockLinksUpdateSelect }))
   const mockFavoriteToggleEq = vi.fn()
-  // updateLinkStatus / markLinkMovedToEnd: update({ status } | { moved_to_end_at }).eq('id', id)
+  // updateLinkStatus / markLinkMovedToEnd / updateLinkImage:
+  // update({ status } | { moved_to_end_at } | { enc_payload, enc_iv }).eq('id', id)
   const mockSingleColumnUpdateEq = vi.fn()
   const mockLinksDeleteSelect = vi.fn()
   const mockLinksDeleteEq2 = vi.fn(() => ({ select: mockLinksDeleteSelect }))
@@ -65,6 +67,7 @@ const {
     if (args && Object.keys(args).length === 1 && ('status' in args || 'moved_to_end_at' in args)) {
       return { eq: mockSingleColumnUpdateEq }
     }
+    if (args && Object.keys(args).sort().join(',') === 'enc_iv,enc_payload') return { eq: mockSingleColumnUpdateEq }
     if (args && 'deleted_at' in args) return { eq: mockLinksDeleteEq }
     return { eq: mockLinksUpdateEq }
   })
@@ -1600,6 +1603,39 @@ describe('markLinkMovedToEnd', () => {
     mockSingleColumnUpdateEq.mockResolvedValue({ error: { message: 'update failed' } })
 
     expect(await markLinkMovedToEnd('1', '2026-10-24T12:00:00.000Z')).toBe(false)
+  })
+})
+
+// ── updateLinkImage ───────────────────────────────────────────────────────────
+
+describe('updateLinkImage', () => {
+  const LINK: LinkWithTags = {
+    ...CONTENT, image_url: 'https://cdn.example.com/old.jpg', notes: 'my note', duration: '1:00',
+    id: '42', user_id: 'user-1', category_id: 'cat-1', status: 'read', is_favorite: true,
+    created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+    deleted_at: null, moved_to_end_at: null, tags: ['tag-1'],
+  }
+
+  it('sends only enc_payload/enc_iv for the given link, with the new image_url and the rest of the content kept', async () => {
+    await updateLinkImage(LINK, 'https://cdn.example.com/new.jpg', dek)
+
+    const args = mockLinksUpdate.mock.calls[0][0] as { enc_payload: string; enc_iv: string }
+    expect(Object.keys(args).sort()).toEqual(['enc_iv', 'enc_payload'])
+    expect(mockSingleColumnUpdateEq).toHaveBeenCalledWith('id', '42')
+    expect(await decryptJson<LinkContent>(args.enc_payload, args.enc_iv, dek)).toEqual({
+      url: 'https://example.com', title: 'Example', description: 'A description', site_name: 'example.com',
+      image_url: 'https://cdn.example.com/new.jpg', duration: '1:00', notes: 'my note',
+    })
+  })
+
+  it('returns true when the update succeeds', async () => {
+    expect(await updateLinkImage(LINK, 'https://cdn.example.com/new.jpg', dek)).toBe(true)
+  })
+
+  it('returns false when the update fails', async () => {
+    mockSingleColumnUpdateEq.mockResolvedValue({ error: { message: 'update failed' } })
+
+    expect(await updateLinkImage(LINK, 'https://cdn.example.com/new.jpg', dek)).toBe(false)
   })
 })
 

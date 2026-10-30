@@ -50,6 +50,7 @@ vi.mock('@/lib/services/links', () => ({
   deleteLink: vi.fn().mockResolvedValue('deleted'),
   toggleLinkFavorite: vi.fn().mockResolvedValue(true),
   markLinkMovedToEnd: vi.fn().mockResolvedValue(true),
+  updateLinkImage: vi.fn().mockResolvedValue(true),
   updateLinkStatus: vi.fn().mockResolvedValue(true),
   bulkUpdateStatus: vi.fn().mockResolvedValue(true),
   bulkSoftDelete: vi.fn().mockResolvedValue({ deletedIds: [] }),

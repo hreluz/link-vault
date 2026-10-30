@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import LinkGrid from '@/app/dashboard/link/LinkGrid'
+import type { LinkWithTags } from '@/lib/services/links'
 
 const mockUseLinkListContext = vi.fn()
 vi.mock('@/app/dashboard/link/LinkListContext', () => ({
@@ -11,6 +12,10 @@ vi.mock('@/app/dashboard/link/LinkListContext', () => ({
 
 vi.mock('@/lib/hooks/categories/useCategoryList', () => ({
   useCategoryList: () => ({ categories: [] }),
+}))
+
+vi.mock('@/lib/context/TagsContext', () => ({
+  useTagsContext: () => ({ tags: [], loading: false, refetchTags: vi.fn() }),
 }))
 
 const mockLoadMore = vi.fn()
@@ -37,6 +42,8 @@ function setContext(overrides: Record<string, unknown> = {}) {
     isSelected: () => false,
     toggleSelected: vi.fn(),
     enterSelectionMode: vi.fn(),
+    imageStateById: {},
+    handleImageError: vi.fn(),
     ...overrides,
   })
 }
@@ -83,5 +90,28 @@ describe('LinkGrid empty state', () => {
     setContext({ hasMore: true, favoritesOnly: true })
     render(<LinkGrid />)
     expect(screen.queryByText(/No favorites yet/)).toBeNull()
+  })
+})
+
+describe('LinkGrid card images', () => {
+  const link = (id: string): LinkWithTags => ({
+    id, user_id: 'user-1', url: `https://${id}.com`, title: `Link ${id}`,
+    description: null, site_name: `${id}.com`, image_url: `https://cdn.example.com/${id}.jpg`, duration: null, notes: null,
+    category_id: null, status: 'unread', is_favorite: false, tags: [],
+    created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', deleted_at: null, moved_to_end_at: null,
+  })
+
+  it("passes each card its own image state and reports image errors with that card's id", () => {
+    const handleImageError = vi.fn()
+    setContext({ links: [link('a'), link('b')], imageStateById: { a: 'refreshing' }, handleImageError })
+    const { container } = render(<LinkGrid />)
+
+    expect(screen.getAllByTestId('card-image-refreshing')).toHaveLength(1)
+    const images = container.querySelectorAll('img')
+    expect(images).toHaveLength(1)
+    expect(images[0].getAttribute('src')).toBe('https://cdn.example.com/b.jpg')
+
+    fireEvent.error(images[0])
+    expect(handleImageError).toHaveBeenCalledExactlyOnceWith('b')
   })
 })
