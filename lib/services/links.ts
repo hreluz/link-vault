@@ -180,6 +180,28 @@ export async function markLinkMovedToEnd(id: string, at: string | null): Promise
   return !error
 }
 
+/** Re-encrypts the link's content with a new image_url and updates only enc_payload/enc_iv
+ *  (no tags, status, category or url_fingerprint change); true on success. */
+export async function updateLinkImage(link: LinkWithTags, imageUrl: string, dek: CryptoKey): Promise<boolean> {
+  const content: LinkContent = {
+    url: link.url,
+    title: link.title,
+    description: link.description,
+    site_name: link.site_name,
+    image_url: imageUrl,
+    duration: link.duration,
+    notes: link.notes ?? null,
+  }
+  const { enc_payload, enc_iv } = await toEncryptedColumns<LinkContent>(content, dek)
+
+  const supabase = createClient()
+  const { error } = await supabase
+    .from('links')
+    .update({ enc_payload, enc_iv })
+    .eq('id', link.id)
+  return !error
+}
+
 export async function updateLink(input: UpdateLinkInput, dek: CryptoKey): Promise<LinkWithTags | null> {
   if (!input.url.trim() || !isValidUrl(input.url)) return null
   if (!input.category_id) return null

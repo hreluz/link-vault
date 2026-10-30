@@ -119,3 +119,40 @@ describe('LinkCard delete button', () => {
     expect(screen.queryByRole('button', { name: 'Delete link' })).toBeNull()
   })
 })
+
+describe('LinkCard image states', () => {
+  const WITH_IMAGE: LinkWithTags = { ...LINK, image_url: 'https://cdn.example.com/a.jpg', duration: '4:33' }
+
+  it('shows the image with the duration badge over it when there is no state', () => {
+    const { container } = renderCard({ link: WITH_IMAGE })
+
+    expect(container.querySelector('img')?.getAttribute('src')).toBe('https://cdn.example.com/a.jpg')
+    expect(screen.queryByTestId('card-image-refreshing')).toBeNull()
+    expect(screen.getAllByText('4:33')).toHaveLength(1)
+  })
+
+  it('calls onImageError when the image fails to load', () => {
+    const onImageError = vi.fn()
+    const { container } = renderCard({ link: WITH_IMAGE, onImageError })
+
+    fireEvent.error(container.querySelector('img')!)
+
+    expect(onImageError).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows a pulsing placeholder instead of the image while refreshing, keeping the duration badge', () => {
+    const { container } = renderCard({ link: WITH_IMAGE, imageState: 'refreshing' })
+
+    expect(container.querySelector('img')).toBeNull()
+    expect(screen.getByTestId('card-image-refreshing').className).toContain('animate-pulse')
+    expect(screen.getAllByText('4:33')).toHaveLength(1)
+  })
+
+  it('shows the no-image layout with the duration inline when the refresh failed', () => {
+    const { container } = renderCard({ link: WITH_IMAGE, imageState: 'failed' })
+
+    expect(container.querySelector('img')).toBeNull()
+    expect(screen.queryByTestId('card-image-refreshing')).toBeNull()
+    expect(screen.getByText('4:33').closest('p')?.textContent).toContain('alpha.com')
+  })
+})

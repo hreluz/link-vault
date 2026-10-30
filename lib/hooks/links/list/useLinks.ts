@@ -5,6 +5,7 @@ import { useVault } from '@/lib/context/VaultContext'
 import { useLinkListQuery } from './useLinkListQuery'
 import { useLinkMutations } from './useLinkMutations'
 import { useLinkBulkMutations } from './useLinkBulkMutations'
+import { useCardImageRefresh } from './useCardImageRefresh'
 
 export function useLinks(filterParams: LinkFilterParams) {
   const { dek } = useVault()
@@ -19,9 +20,11 @@ export function useLinks(filterParams: LinkFilterParams) {
     onMoveUndone: () => shiftServerOffset(1),
   })
   const bulkMutations = useLinkBulkMutations(rawLinks, setRawLinks, filterParams, dek)
+  const { imageStateById, handleImageError } = useCardImageRefresh({ links: loadedLinks, setRawLinks, dek })
 
   return {
     links, loadedLinks, totalCount, unreadCount, hasMore, loading, loadingMore, loadMore, refresh, refreshing,
+    imageStateById, handleImageError,
     ...mutations,
     ...bulkMutations,
   }

@@ -4,6 +4,7 @@ import { useRef } from 'react'
 import SwipeableCard from '@/components/SwipeableCard'
 import type { LinkWithTags } from '@/lib/services/links'
 import type { Category } from '@/lib/services/categories'
+import type { CardImageState } from '@/lib/hooks/links/list/useCardImageRefresh'
 import { useTagNameLookup } from '@/lib/hooks/tags/useTagNameLookup'
 import { STATUS_CONFIG } from '../config'
 
@@ -21,13 +22,17 @@ interface Props {
   onLongPress?: (id: string) => void
   isLastOpened?: boolean
   pulse?: boolean
+  /** 'refreshing' shows a placeholder while a broken image is refetched; 'failed' drops the image. */
+  imageState?: CardImageState
+  onImageError?: () => void
 }
 
 export default function LinkCard({
   link, category, onMenuOpen, onFavoriteToggle, onEdit, onOpen, onDelete,
-  isSelectionMode, isSelected, onSelect, onLongPress, isLastOpened, pulse,
+  isSelectionMode, isSelected, onSelect, onLongPress, isLastOpened, pulse, imageState, onImageError,
 }: Props) {
   const status = STATUS_CONFIG[link.status]
+  const showImage = !!link.image_url && imageState !== 'failed'
   const showLastOpened = isLastOpened && !isSelectionMode
   const tagNameById = useTagNameLookup()
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -92,16 +97,25 @@ export default function LinkCard({
           </div>
         )}
 
-        {link.image_url && (
+        {showImage && (
           <div className="overflow-hidden rounded-t-2xl">
             <div className="relative">
-              <img
-                src={link.image_url}
-                alt=""
-                className="w-full object-cover"
-                style={{ aspectRatio: '16/9' }}
-                loading="lazy"
-              />
+              {imageState === 'refreshing' ? (
+                <div
+                  data-testid="card-image-refreshing"
+                  className="w-full animate-pulse bg-surface-100 dark:bg-surface-800"
+                  style={{ aspectRatio: '16/9' }}
+                />
+              ) : (
+                <img
+                  src={link.image_url!}
+                  alt=""
+                  className="w-full object-cover"
+                  style={{ aspectRatio: '16/9' }}
+                  loading="lazy"
+                  onError={onImageError}
+                />
+              )}
               {link.duration && (
                 <span className="absolute bottom-2 right-2 rounded-md bg-black/80 px-1.5 py-0.5 text-xs font-semibold text-white">
                   {link.duration}
@@ -193,7 +207,7 @@ export default function LinkCard({
             </h3>
             <p className="mt-0.5 text-xs text-surface-400 dark:text-surface-500">
               {link.site_name} ↗
-              {!link.image_url && link.duration && (
+              {!showImage && link.duration && (
                 <span className="ml-2 rounded-full bg-surface-100 px-1.5 py-0.5 font-medium text-surface-500 dark:bg-surface-800 dark:text-surface-400">
                   {link.duration}
                 </span>
