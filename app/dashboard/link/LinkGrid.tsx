@@ -27,7 +27,9 @@ export default function LinkGrid() {
     )
   }
 
-  if (results.length === 0) {
+  // Moved links are held back while pages remain, so an empty list can still
+  // have more to load -- keep the sentinel instead of the empty state.
+  if (results.length === 0 && !hasMore) {
     if (favoritesOnly) {
       return (
         <div className="flex flex-col items-center justify-center py-20 text-center">

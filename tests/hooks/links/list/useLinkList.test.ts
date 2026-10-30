@@ -430,6 +430,54 @@ describe('useLinkList (integration)', () => {
         expect(result.current.lastMovedLink).toBeNull()
       })
     })
+
+    describe('with more pages left to load', () => {
+      const PAGE_1 = Array.from({ length: 40 }, (_, i) => ({ ...LINK_C, id: `p${i}` }))
+      const PAGE_2 = [{ ...LINK_B, id: 'q0' }, { ...LINK_B, id: 'q1' }]
+
+      beforeEach(() => {
+        mockGetLinksPage.mockImplementation(async (_params, _limit, offset) =>
+          offset === 0
+            ? { links: PAGE_1, totalCount: 42, unreadCount: 0 }
+            : { links: PAGE_2, totalCount: 42, unreadCount: 0 })
+      })
+
+      it('holds the moved link back from links, but keeps it as lastMovedLink', async () => {
+        const { result } = await renderLoadedWithFakeTimers()
+
+        act(() => result.current.handleLinkOpen('p0', 'watching'))
+        await advance(30_000)
+
+        expect(ids(result.current.links)).not.toContain('p0')
+        expect(result.current.links).toHaveLength(39)
+        expect(result.current.lastMovedLink?.id).toBe('p0')
+        expect(result.current.totalCount).toBe(42)
+      })
+
+      it('undo brings the held-back link back at its old index', async () => {
+        const { result } = await renderLoadedWithFakeTimers()
+
+        act(() => result.current.handleLinkOpen('p1', 'watching'))
+        await advance(30_000)
+        await act(async () => { result.current.handleUndoMove() })
+
+        expect(ids(result.current.links).slice(0, 3)).toEqual(['p0', 'p1', 'p2'])
+        expect(mockMarkLinkMovedToEnd).toHaveBeenLastCalledWith('p1', null)
+        expect(result.current.lastMovedLink).toBeNull()
+      })
+
+      it('the next page follows the remaining page-1 links, and the moved link is last once all pages are in', async () => {
+        const { result } = await renderLoadedWithFakeTimers()
+
+        act(() => result.current.handleLinkOpen('p0', 'watching'))
+        await advance(30_000)
+        await act(async () => { result.current.loadMore() })
+
+        expect(result.current.hasMore).toBe(false)
+        expect(ids(result.current.links).slice(-4)).toEqual(['p39', 'q0', 'q1', 'p0'])
+        expect(result.current.links).toHaveLength(42)
+      })
+    })
   })
 
   describe('handleEdit', () => {
