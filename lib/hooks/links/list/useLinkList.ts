@@ -16,7 +16,7 @@ export function useLinkList(autoFetchDefault = true) {
   const modals = useLinkModals()
   const filters = useLinkFilters()
   const {
-    links, totalCount, unreadCount, hasMore, loading, loadingMore, loadMore, refresh, refreshing,
+    links, loadedLinks, totalCount, unreadCount, hasMore, loading, loadingMore, loadMore, refresh, refreshing,
     handleStatusChange: changeStatus,
     handleEdit: editLink,
     handleDelete: deleteLink,
@@ -72,7 +72,7 @@ export function useLinkList(autoFetchDefault = true) {
 
   const lastMovedId = lastMove?.id ?? null
   useEffect(() => {
-    const loadedIds = new Set(links.map(l => l.id))
+    const loadedIds = new Set(loadedLinks.map(l => l.id))
     for (const id of pendingMoveIdsRef.current) {
       if (!loadedIds.has(id)) {
         pendingMoveIdsRef.current.delete(id)
@@ -80,9 +80,9 @@ export function useLinkList(autoFetchDefault = true) {
       }
     }
     if (lastMovedId !== null && !loadedIds.has(lastMovedId)) clearLastMove()
-  }, [links, cancelMove, lastMovedId, clearLastMove])
+  }, [loadedLinks, cancelMove, lastMovedId, clearLastMove])
 
-  const lastMovedLink = lastMovedId === null ? null : links.find(l => l.id === lastMovedId) ?? null
+  const lastMovedLink = lastMovedId === null ? null : loadedLinks.find(l => l.id === lastMovedId) ?? null
 
   // Undoing also drops a pending re-move, so the card doesn't jump away again.
   function handleUndoMove() {
@@ -107,7 +107,7 @@ export function useLinkList(autoFetchDefault = true) {
   }
 
   function handleLinkOpen(id: string, currentStatus: LinkStatus) {
-    rememberMoveTitle(links.find(l => l.id === id))
+    rememberMoveTitle(loadedLinks.find(l => l.id === id))
     logMove('opened', { id, status: currentStatus })
     setLastOpenedId(id)
     if (currentStatus === 'unread') changeStatus(id, 'watching')

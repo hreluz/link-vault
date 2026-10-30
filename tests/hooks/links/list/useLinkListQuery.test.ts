@@ -351,6 +351,104 @@ describe('useLinkListQuery', () => {
     })
   })
 
+  describe('holding moved links back until the last page', () => {
+    const PAGE_1 = Array.from({ length: 40 }, (_, i) => ({ ...LINK_A, id: `p${i}`, status: 'read' as const }))
+    const PAGE_2 = [{ ...LINK_B, id: 'q0' }, { ...LINK_B, id: 'q1' }]
+
+    function markMoved(id: string, at: string) {
+      return (prev: LinkWithTags[]) => prev.map(l => l.id === id ? { ...l, moved_to_end_at: at } : l)
+    }
+
+    it('leaves a moved link out of links while more pages remain, but keeps it in loadedLinks and the counts', async () => {
+      mockGetLinksPage.mockResolvedValue({ links: PAGE_1, totalCount: 42, unreadCount: 0 })
+      const { result } = await renderLoaded()
+
+      act(() => result.current.setRawLinks(markMoved('p3', '2026-02-01T00:00:00Z')))
+
+      expect(result.current.hasMore).toBe(true)
+      expect(result.current.links.map(l => l.id)).not.toContain('p3')
+      expect(result.current.links).toHaveLength(39)
+      expect(result.current.loadedLinks.map(l => l.id)).toContain('p3')
+      expect(result.current.totalCount).toBe(42)
+      expect(result.current.unreadCount).toBe(0)
+    })
+
+    it('shows the next page right after the remaining unmoved links, and moved ones at the end once all pages are in', async () => {
+      mockGetLinksPage.mockResolvedValue({ links: PAGE_1, totalCount: 42, unreadCount: 0 })
+      const { result } = await renderLoaded()
+      act(() => result.current.setRawLinks(markMoved('p3', '2026-02-01T00:00:00Z')))
+
+      mockGetLinksPage.mockResolvedValue({ links: PAGE_2, totalCount: 42, unreadCount: 0 })
+      await act(async () => { result.current.loadMore() })
+
+      const ids = result.current.links.map(l => l.id)
+      expect(result.current.hasMore).toBe(false)
+      expect(ids.slice(38)).toEqual(['p39', 'q0', 'q1', 'p3'])
+    })
+
+    it('shows several held-back links oldest move first', async () => {
+      mockGetLinksPage.mockResolvedValue({ links: PAGE_1, totalCount: 42, unreadCount: 0 })
+      const { result } = await renderLoaded()
+      act(() => result.current.setRawLinks(markMoved('p1', '2026-02-03T00:00:00Z')))
+      act(() => result.current.setRawLinks(markMoved('p2', '2026-02-01T00:00:00Z')))
+      act(() => result.current.setRawLinks(markMoved('p5', '2026-02-02T00:00:00Z')))
+
+      mockGetLinksPage.mockResolvedValue({ links: PAGE_2, totalCount: 42, unreadCount: 0 })
+      await act(async () => { result.current.loadMore() })
+
+      expect(result.current.links.map(l => l.id).slice(-3)).toEqual(['p2', 'p5', 'p1'])
+    })
+
+    it('holds back a link that came from the server already moved', async () => {
+      const page = [...PAGE_1.slice(0, 39), { ...LINK_A, id: 'old-move', moved_to_end_at: '2026-01-15T00:00:00Z' }]
+      mockGetLinksPage.mockResolvedValue({ links: page, totalCount: 42, unreadCount: 0 })
+      const { result } = await renderLoaded()
+
+      expect(result.current.links.map(l => l.id)).not.toContain('old-move')
+      expect(result.current.loadedLinks.map(l => l.id)).toContain('old-move')
+    })
+
+    it('puts a moved link at the end right away when there are no more pages', async () => {
+      mockGetLinksPage.mockResolvedValue({ links: [LINK_A, LINK_B], totalCount: 2, unreadCount: 0 })
+      const { result } = await renderLoaded()
+
+      act(() => result.current.setRawLinks(markMoved('1', '2026-02-01T00:00:00Z')))
+
+      expect(result.current.hasMore).toBe(false)
+      expect(result.current.links.map(l => l.id)).toEqual(['2', '1'])
+    })
+
+    it('holds moved links back in Branch B too (alphabetical sort)', async () => {
+      const candidates = Array.from({ length: 42 }, (_, i) => ({ ...LINK_A, id: `c${i}`, title: `T${String(i).padStart(2, '0')}` }))
+      mockGetMatchingLinkIds.mockResolvedValue({ ids: candidates.map(l => l.id), totalCount: 42 })
+      mockGetLinksByIds.mockResolvedValue(candidates)
+      const { result } = await renderLoaded({ ...FILTER_PARAMS, sortBy: 'alphabetical' })
+
+      act(() => result.current.setRawLinks(markMoved('c0', '2026-02-01T00:00:00Z')))
+      expect(result.current.hasMore).toBe(true)
+      expect(result.current.links[0].id).toBe('c1')
+
+      await act(async () => { result.current.loadMore() })
+      const ids = result.current.links.map(l => l.id)
+      expect(result.current.hasMore).toBe(false)
+      expect(ids.slice(-3)).toEqual(['c40', 'c41', 'c0'])
+      expect(new Set(ids).size).toBe(42)
+    })
+
+    it('holds moved links back in Branch B too (text search)', async () => {
+      const candidates = Array.from({ length: 42 }, (_, i) => ({ ...LINK_A, id: `c${i}`, url: `https://match.com/${i}` }))
+      mockGetMatchingLinkIds.mockResolvedValue({ ids: candidates.map(l => l.id), totalCount: 42 })
+      mockGetLinksByIds.mockResolvedValue(candidates)
+      const { result } = await renderLoaded({ ...FILTER_PARAMS, textSearch: 'match' })
+
+      act(() => result.current.setRawLinks(markMoved('c0', '2026-02-01T00:00:00Z')))
+      expect(result.current.links.map(l => l.id)).not.toContain('c0')
+
+      await act(async () => { result.current.loadMore() })
+      expect(result.current.links.map(l => l.id).slice(-2)).toEqual(['c41', 'c0'])
+    })
+  })
+
   describe('refresh', () => {
     it('re-fetches and re-decrypts candidates when a text search is active', async () => {
       const params: LinkFilterParams = { ...FILTER_PARAMS, textSearch: 'alpha' }

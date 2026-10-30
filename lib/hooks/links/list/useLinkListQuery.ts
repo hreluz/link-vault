@@ -154,12 +154,19 @@ export function useLinkListQuery(filterParams: LinkFilterParams, dek: CryptoKey 
   // Defense-in-depth: the server already excludes locked private tags from
   // every query, but re-check on the (small) loaded page too, given the
   // password/nuke security posture around private tags.
-  const links = rawLinks.filter(link =>
+  const loadedLinks = rawLinks.filter(link =>
     link.tags.every(tagId => isTagVisible(privateTagIds.has(tagId), tagId, unlockedTagIds))
   )
 
+  // Moved links belong at the end of the whole list, not of the pages loaded
+  // so far, so they're held back until the last page is in. They stay in
+  // loadedLinks (counts, undo, move timers still see them).
+  const links = hasMore
+    ? loadedLinks.filter(link => link.moved_to_end_at === null)
+    : movedLinksLast(loadedLinks)
+
   return {
-    links, rawLinks, setRawLinks, totalCount, unreadCount, hasMore, loading, loadingMore, loadMore, refresh, refreshing,
+    links, loadedLinks, rawLinks, setRawLinks, totalCount, unreadCount, hasMore, loading, loadingMore, loadMore, refresh, refreshing,
     shiftServerOffset,
   }
 }
