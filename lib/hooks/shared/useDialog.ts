@@ -27,7 +27,8 @@ interface Options {
 // Gives a modal panel dialog semantics and keyboard behaviour: it's announced as a
 // dialog named by its heading, Escape closes it, focus moves in on open (to the
 // [data-autofocus] element, or the panel itself on touch screens so the on-screen
-// keyboard doesn't pop up), Tab cycles inside it, and focus goes back on close.
+// keyboard doesn't pop up; a [data-autofocus="always"] element wins on every device),
+// Tab cycles inside it, and focus goes back on close.
 export function useDialog({ isOpen, onClose, returnFocus }: Options) {
   const titleId = useId()
   const panelRef = useRef<HTMLDivElement>(null)
@@ -48,7 +49,9 @@ export function useDialog({ isOpen, onClose, returnFocus }: Options) {
     const opener = active instanceof HTMLElement && active !== document.body ? active : null
 
     const coarsePointer = window.matchMedia?.('(pointer: coarse)').matches ?? false
-    const initial = coarsePointer ? panel : panel?.querySelector<HTMLElement>('[data-autofocus]') ?? panel
+    const initial =
+      panel?.querySelector<HTMLElement>('[data-autofocus="always"]') ??
+      (coarsePointer ? panel : panel?.querySelector<HTMLElement>('[data-autofocus]') ?? panel)
     initial?.focus()
 
     function onKeyDown(e: KeyboardEvent) {

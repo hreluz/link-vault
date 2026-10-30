@@ -13,9 +13,11 @@ type Props = {
   disabled?: boolean
   /** Optional id of a hint element, for aria-describedby. */
   describedBy?: string
+  /** Puts data-autofocus="always" on the input, so a dialog focuses it on open. */
+  autoFocusInDialog?: boolean
 }
 
-export default function TagChipsInput({ label, value, onChange, disabled = false, describedBy }: Props) {
+export default function TagChipsInput({ label, value, onChange, disabled = false, describedBy, autoFocusInDialog = false }: Props) {
   const availableTags = useAvailableTags()
   const {
     confirmedTags, currentInput, onKeyPress, onInputChange, onPaste,
@@ -54,6 +56,7 @@ export default function TagChipsInput({ label, value, onChange, disabled = false
           <input
             id={id}
             ref={inputRef}
+            data-autofocus={autoFocusInDialog ? 'always' : undefined}
             type="text"
             value={currentInput}
             disabled={disabled}
