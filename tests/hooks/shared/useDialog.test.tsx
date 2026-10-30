@@ -8,7 +8,7 @@ import { useDialog } from '@/lib/hooks/shared/useDialog'
 interface HarnessProps {
   onClose?: () => void
   returnFocus?: () => HTMLElement | null
-  autofocus?: boolean
+  autofocus?: boolean | 'always'
   removeOpenerOnOpen?: boolean
 }
 
@@ -24,7 +24,7 @@ function Harness({ onClose = () => {}, returnFocus, autofocus = true, removeOpen
         <div data-testid="panel" {...dialog.dialogProps}>
           <h2 id={dialog.titleId}>My dialog</h2>
           <input data-testid="first" />
-          <input data-testid="field" data-autofocus={autofocus || undefined} />
+          <input data-testid="field" data-autofocus={autofocus === 'always' ? 'always' : autofocus || undefined} />
           <button data-testid="disabled" disabled>Disabled</button>
           <button data-testid="last" onClick={() => setOpen(false)}>Close</button>
         </div>
@@ -77,6 +77,18 @@ describe('useDialog', () => {
   it('focuses the [data-autofocus] element with a fine pointer', () => {
     stubPointer(false)
     const { getByTestId } = setup()
+    expect(document.activeElement).toBe(getByTestId('field'))
+  })
+
+  it('focuses a [data-autofocus="always"] element on touch screens', () => {
+    stubPointer(true)
+    const { getByTestId } = setup({ autofocus: 'always' })
+    expect(document.activeElement).toBe(getByTestId('field'))
+  })
+
+  it('focuses a [data-autofocus="always"] element with a fine pointer', () => {
+    stubPointer(false)
+    const { getByTestId } = setup({ autofocus: 'always' })
     expect(document.activeElement).toBe(getByTestId('field'))
   })
 

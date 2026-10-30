@@ -3,6 +3,7 @@ import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import LinkForm from '@/app/dashboard/link/LinkForm'
+import { useDialog } from '@/lib/hooks/shared/useDialog'
 import { LinkFormContext } from '@/app/dashboard/link/LinkFormContext'
 import type { LinkFormContextValue } from '@/app/dashboard/link/LinkFormContext'
 import type { Category } from '@/lib/services/categories'
@@ -204,5 +205,55 @@ describe('LinkForm error message', () => {
     rerenderWith(rerender, { error: 'Category is required.' })
     expect(scrollIntoView).toHaveBeenCalledTimes(1)
     expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' })
+  })
+})
+
+// The form inside a dialog panel, the way EditLinkModal/AddLinkModal mount it.
+function DialogForm({ ctx }: { ctx: LinkFormContextValue }) {
+  const dialog = useDialog({ isOpen: true, onClose: () => {} })
+  return (
+    <div {...dialog.dialogProps} data-testid="panel">
+      <h2 id={dialog.titleId}>Dialog</h2>
+      <LinkFormContext.Provider value={ctx}>
+        <LinkForm scrollable collapsible />
+      </LinkFormContext.Provider>
+    </div>
+  )
+}
+
+function stubPointer(coarse: boolean) {
+  window.matchMedia = vi.fn().mockReturnValue({ matches: coarse }) as unknown as typeof window.matchMedia
+}
+
+describe('LinkForm focus on open', () => {
+  afterEach(() => {
+    delete (window as { matchMedia?: unknown }).matchMedia
+  })
+
+  it('marks Tags (not Title) to be focused in edit mode', () => {
+    renderForm()
+    expect(screen.getByLabelText('Tags').getAttribute('data-autofocus')).toBe('always')
+    expect(screen.getByLabelText('Title').hasAttribute('data-autofocus')).toBe(false)
+  })
+
+  it('keeps URL as the autofocus field in add mode, with none on Tags', () => {
+    renderForm({ mode: 'add', url: '' }, true)
+    expect(screen.getByLabelText('URL').hasAttribute('data-autofocus')).toBe(true)
+    expect(screen.getByLabelText('Tags').hasAttribute('data-autofocus')).toBe(false)
+  })
+
+  it.each([
+    ['a fine pointer', false],
+    ['a touch screen', true],
+  ])('focuses Tags when the edit dialog opens with %s', (_, coarse) => {
+    stubPointer(coarse)
+    render(<DialogForm ctx={makeContext()} />)
+    expect(document.activeElement).toBe(screen.getByLabelText('Tags'))
+  })
+
+  it('focuses the panel, not a field, when the add dialog opens on a touch screen', () => {
+    stubPointer(true)
+    render(<DialogForm ctx={makeContext({ mode: 'add', url: '' })} />)
+    expect(document.activeElement).toBe(screen.getByTestId('panel'))
   })
 })

@@ -69,6 +69,54 @@ describe('useTagInput', () => {
   })
 
 
+  describe('onInputChange — trailing space (Android keyboards)', () => {
+    it('adds the first suggestion when the value ends in a space', () => {
+      const { result, onChange } = render('', vi.fn(), ['react'])
+      act(() => result.current.onInputChange('rea '))
+      expect(result.current.confirmedTags).toEqual(['react'])
+      expect(result.current.currentInput).toBe('')
+      expect(onChange).toHaveBeenLastCalledWith('react')
+    })
+
+    it('adds the highlighted suggestion when the value ends in a space', () => {
+      const { result } = render('', vi.fn(), ['react', 'preact'])
+      act(() => result.current.onInputChange('react'))
+      act(() => result.current.onKeyPress('ArrowDown'))
+      act(() => result.current.onKeyPress('ArrowDown'))
+      act(() => result.current.onInputChange('react '))
+      expect(result.current.confirmedTags).toEqual(['preact'])
+    })
+
+    it('confirms the typed text when no tags match', () => {
+      const { result } = render('', vi.fn(), ['react'])
+      act(() => result.current.onInputChange('zzz '))
+      expect(result.current.confirmedTags).toEqual(['zzz'])
+      expect(result.current.currentInput).toBe('')
+    })
+
+    it('confirms the typed text after Escape closed the suggestions', () => {
+      const { result } = render('', vi.fn(), ['react'])
+      act(() => result.current.onInputChange('rea'))
+      act(() => result.current.onKeyPress('Escape'))
+      act(() => result.current.onInputChange('rea '))
+      expect(result.current.confirmedTags).toEqual(['rea'])
+    })
+
+    it('adds nothing for a lone space on an empty input', () => {
+      const { result } = render('', vi.fn(), ['react'])
+      act(() => result.current.onInputChange(' '))
+      expect(result.current.confirmedTags).toEqual([])
+      expect(result.current.currentInput).toBe('')
+    })
+
+    it('removes a space typed in the middle of the text', () => {
+      const { result } = render('', vi.fn(), ['react'])
+      act(() => result.current.onInputChange('re a'))
+      expect(result.current.currentInput).toBe('rea')
+      expect(result.current.confirmedTags).toEqual([])
+    })
+  })
+
   describe('onKeyPress — confirming tags', () => {
     it('comma confirms current input as a tag', () => {
       const { result, onChange } = render()
@@ -79,8 +127,9 @@ describe('useTagInput', () => {
       expect(onChange).toHaveBeenLastCalledWith('react')
     })
 
-    it('space confirms current input as a tag', () => {
+    it('space confirms current input as a tag when no suggestions match', () => {
       const { result } = render()
+      expect(result.current.suggestions).toEqual([])
       act(() => result.current.onInputChange('react'))
       act(() => result.current.onKeyPress(' '))
       expect(result.current.confirmedTags).toEqual(['react'])
@@ -418,6 +467,66 @@ describe('useTagInput', () => {
       let handled: boolean | undefined
       act(() => { handled = result.current.onKeyPress('Tab') })
       expect(handled).toBe(false)
+      expect(result.current.confirmedTags).toEqual(['rea'])
+    })
+
+    it('Space selects highlighted suggestion when selectedIndex >= 0', () => {
+      const { result } = render('', vi.fn(), ['react', 'css'])
+      act(() => result.current.onInputChange('rea'))
+      act(() => result.current.onKeyPress('ArrowDown'))
+      act(() => result.current.onKeyPress(' '))
+      expect(result.current.confirmedTags).toEqual(['react'])
+      expect(result.current.currentInput).toBe('')
+    })
+
+    it('Space selects the first suggestion when none is highlighted', () => {
+      const { result, onChange } = render('', vi.fn(), ['react', 'css'])
+      act(() => result.current.onInputChange('rea'))
+      let handled: boolean | undefined
+      act(() => { handled = result.current.onKeyPress(' ') })
+      expect(handled).toBe(true)
+      expect(result.current.confirmedTags).toEqual(['react'])
+      expect(result.current.currentInput).toBe('')
+      expect(result.current.suggestions).toEqual([])
+      expect(onChange).toHaveBeenLastCalledWith('react')
+    })
+
+    it('Space selects the second suggestion after ArrowDown twice', () => {
+      const { result } = render('', vi.fn(), ['react', 'preact'])
+      act(() => result.current.onInputChange('react'))
+      act(() => result.current.onKeyPress('ArrowDown'))
+      act(() => result.current.onKeyPress('ArrowDown'))
+      act(() => result.current.onKeyPress(' '))
+      expect(result.current.confirmedTags).toEqual(['preact'])
+    })
+
+    it('Space confirms typed input after Escape closed the suggestions', () => {
+      const { result } = render('', vi.fn(), ['react'])
+      act(() => result.current.onInputChange('rea'))
+      act(() => result.current.onKeyPress('Escape'))
+      let handled: boolean | undefined
+      act(() => { handled = result.current.onKeyPress(' ') })
+      expect(handled).toBe(true)
+      expect(result.current.confirmedTags).toEqual(['rea'])
+    })
+
+    it('Space confirms typed input when no tags match', () => {
+      const { result } = render('', vi.fn(), ['react'])
+      act(() => result.current.onInputChange('zzz'))
+      act(() => result.current.onKeyPress(' '))
+      expect(result.current.confirmedTags).toEqual(['zzz'])
+    })
+
+    it('Space on an empty input adds nothing', () => {
+      const { result } = render('', vi.fn(), ['react'])
+      act(() => result.current.onKeyPress(' '))
+      expect(result.current.confirmedTags).toEqual([])
+    })
+
+    it('comma confirms typed text, not the first suggestion', () => {
+      const { result } = render('', vi.fn(), ['react'])
+      act(() => result.current.onInputChange('rea'))
+      act(() => result.current.onKeyPress(','))
       expect(result.current.confirmedTags).toEqual(['rea'])
     })
 

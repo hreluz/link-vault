@@ -64,6 +64,32 @@ describe('TagChipsInput', () => {
     expect(screen.queryByText('#rea')).toBeNull()
   })
 
+  it('adds the first suggestion with Space when none is highlighted', () => {
+    const onChange = vi.fn()
+    render(<TagChipsInput label="Tags" value="" onChange={onChange} />)
+    const input = screen.getByLabelText('Tags')
+
+    fireEvent.change(input, { target: { value: 'rea' } })
+    fireEvent.keyDown(input, { key: ' ' })
+
+    expect(onChange).toHaveBeenLastCalledWith('react')
+    expect(screen.getByText('#react')).toBeTruthy()
+    expect(screen.queryByText('#rea')).toBeNull()
+  })
+
+  it('adds the first suggestion when a mobile keyboard types the space into the value', () => {
+    const onChange = vi.fn()
+    render(<TagChipsInput label="Tags" value="" onChange={onChange} />)
+    const input = screen.getByLabelText('Tags') as HTMLInputElement
+
+    fireEvent.change(input, { target: { value: 'rea' } })
+    fireEvent.change(input, { target: { value: 'rea ' } })
+
+    expect(onChange).toHaveBeenLastCalledWith('react')
+    expect(screen.getByText('#react')).toBeTruthy()
+    expect(input.value).toBe('')
+  })
+
   it('disables the input and remove buttons when disabled', () => {
     render(<TagChipsInput label="Tags" value="react" onChange={vi.fn()} disabled describedBy="hint" />)
 
