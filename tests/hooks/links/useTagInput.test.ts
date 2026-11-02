@@ -637,6 +637,99 @@ describe('useTagInput', () => {
     })
   })
 
+  describe('options.onTagAdded', () => {
+    function renderWithCallback(availableTags: string[] = ['react']) {
+      const onTagAdded = vi.fn()
+      const hook = renderHook(() => useTagInput('', vi.fn(), availableTags, { onTagAdded }))
+      return { ...hook, onTagAdded }
+    }
+
+    it('is called once when Space completes to a suggestion', () => {
+      const { result, onTagAdded } = renderWithCallback()
+      act(() => result.current.onInputChange('rea'))
+      act(() => result.current.onKeyPress(' '))
+      expect(result.current.confirmedTags).toEqual(['react'])
+      expect(onTagAdded).toHaveBeenCalledTimes(1)
+    })
+
+    it('is called once when Tab completes to a suggestion', () => {
+      const { result, onTagAdded } = renderWithCallback()
+      act(() => result.current.onInputChange('rea'))
+      act(() => result.current.onKeyPress('Tab'))
+      expect(result.current.confirmedTags).toEqual(['react'])
+      expect(onTagAdded).toHaveBeenCalledTimes(1)
+    })
+
+    it.each([
+      ['rea', 'Enter'],
+      ['rea', ','],
+      ['zzz', ' '],
+    ])('is called once for %s + "%s"', (text, key) => {
+      const { result, onTagAdded } = renderWithCallback()
+      act(() => result.current.onInputChange(text))
+      act(() => result.current.onKeyPress(key))
+      expect(result.current.confirmedTags).toEqual([text])
+      expect(onTagAdded).toHaveBeenCalledTimes(1)
+    })
+
+    it('is called once by selectSuggestion', () => {
+      const { result, onTagAdded } = renderWithCallback()
+      act(() => result.current.selectSuggestion('react'))
+      expect(onTagAdded).toHaveBeenCalledTimes(1)
+    })
+
+    it('is called once for a trailing space that picks a suggestion', () => {
+      const { result, onTagAdded } = renderWithCallback()
+      act(() => result.current.onInputChange('rea '))
+      expect(result.current.confirmedTags).toEqual(['react'])
+      expect(onTagAdded).toHaveBeenCalledTimes(1)
+    })
+
+    it('is called once for a trailing space that confirms the typed text', () => {
+      const { result, onTagAdded } = renderWithCallback()
+      act(() => result.current.onInputChange('zzz '))
+      expect(result.current.confirmedTags).toEqual(['zzz'])
+      expect(onTagAdded).toHaveBeenCalledTimes(1)
+    })
+
+    it.each([' ', 'Enter', ','])('is not called for "%s" on an empty input', key => {
+      const { result, onTagAdded } = renderWithCallback()
+      act(() => result.current.onKeyPress(key))
+      expect(result.current.confirmedTags).toEqual([])
+      expect(onTagAdded).not.toHaveBeenCalled()
+    })
+
+    it('is not called when Tab saves the typed text with no matching tags', () => {
+      const { result, onTagAdded } = renderWithCallback([])
+      act(() => result.current.onInputChange('rea'))
+      let handled: boolean | undefined
+      act(() => { handled = result.current.onKeyPress('Tab') })
+      expect(handled).toBe(false)
+      expect(result.current.confirmedTags).toEqual(['rea'])
+      expect(onTagAdded).not.toHaveBeenCalled()
+    })
+
+    it('is not called when pasting several tags', () => {
+      const { result, onTagAdded } = renderWithCallback()
+      act(() => result.current.onPaste('a, b'))
+      expect(result.current.confirmedTags).toEqual(['a', 'b'])
+      expect(onTagAdded).not.toHaveBeenCalled()
+    })
+
+    it('calls the callback from the latest render', () => {
+      const first = vi.fn()
+      const second = vi.fn()
+      const { result, rerender } = renderHook(
+        ({ onTagAdded }) => useTagInput('', vi.fn(), ['react'], { onTagAdded }),
+        { initialProps: { onTagAdded: first } },
+      )
+      rerender({ onTagAdded: second })
+      act(() => result.current.selectSuggestion('react'))
+      expect(first).not.toHaveBeenCalled()
+      expect(second).toHaveBeenCalledTimes(1)
+    })
+  })
+
   describe('onChange serialization', () => {
     it('serializes confirmed tags and pending input together', () => {
       const { result, onChange } = render()

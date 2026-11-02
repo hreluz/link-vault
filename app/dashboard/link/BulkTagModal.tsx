@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTagInput } from '@/lib/hooks/links/useTagInput'
 import { useAvailableTags } from '@/lib/hooks/tags/useAvailableTags'
 import { useLinkListContext } from './LinkListContext'
@@ -19,7 +19,8 @@ export default function BulkTagModal({ onClose }: Props) {
   const {
     confirmedTags, currentInput, onKeyPress, onInputChange, onPaste,
     suggestions, selectedIndex, selectSuggestion, closeSuggestions, removeTag,
-  } = useTagInput('', setTagString, availableTags)
+  } = useTagInput('', setTagString, availableTags, { onTagAdded: () => inputRef.current?.blur() })
+  const inputRef = useRef<HTMLInputElement>(null)
 
   function handleConfirm() {
     const finalTags = currentInput.trim()
@@ -78,6 +79,7 @@ export default function BulkTagModal({ onClose }: Props) {
                 </span>
               ))}
               <input
+                ref={inputRef}
                 type="text"
                 value={currentInput}
                 placeholder={confirmedTags.length === 0 ? 'Type tags, separated by commas…' : ''}
