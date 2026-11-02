@@ -22,7 +22,7 @@ export default function TagChipsInput({ label, value, onChange, disabled = false
   const {
     confirmedTags, currentInput, onKeyPress, onInputChange, onPaste,
     suggestions, selectedIndex, selectSuggestion, closeSuggestions, removeTag,
-  } = useTagInput(value, onChange, availableTags)
+  } = useTagInput(value, onChange, availableTags, { onTagAdded: () => inputRef.current?.blur() })
   const inputRef = useRef<HTMLInputElement>(null)
   const id = useId()
 

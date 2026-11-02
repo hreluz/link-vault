@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 
 function parseTags(raw: string): string[] {
   return raw.split(',').map(t => t.trim()).filter(Boolean)
@@ -24,7 +24,12 @@ function matchesFor(text: string, availableTags: string[], confirmedTags: string
 export function useTagInput(
   initialTags: string,
   onChange: (tags: string) => void,
-  availableTags: string[] = []
+  availableTags: string[] = [],
+  options?: {
+    /** Called right after a tag is added by a pick or a confirm key (not paste, not
+     *  Tab-with-no-suggestions). Components blur their input here. */
+    onTagAdded?: () => void
+  },
 ) {
   const [confirmedTags, setConfirmedTags] = useState<string[]>(() => parseTags(initialTags))
   const [currentInput, setCurrentInput] = useState('')
@@ -32,6 +37,10 @@ export function useTagInput(
   // Set by Escape so the list actually closes (it's otherwise derived from the typed
   // text and would stay open); typing or pasting brings it back.
   const [dismissed, setDismissed] = useState(false)
+  const onTagAddedRef = useRef(options?.onTagAdded)
+  useEffect(() => {
+    onTagAddedRef.current = options?.onTagAdded
+  })
 
   const suggestions = useMemo(
     () => (dismissed ? [] : matchesFor(currentInput, availableTags, confirmedTags)),
@@ -44,6 +53,7 @@ export function useTagInput(
     setCurrentInput('')
     setSelectedIndex(-1)
     onChange(serialize(next, ''))
+    onTagAddedRef.current?.()
   }
 
   function closeSuggestions() {
@@ -60,7 +70,7 @@ export function useTagInput(
     confirmText(currentInput)
   }
 
-  function confirmText(text: string) {
+  function confirmText(text: string, notify = true) {
     const tag = text.trim().toLowerCase()
     if (!tag) return
     const next = [...confirmedTags, tag]
@@ -68,6 +78,7 @@ export function useTagInput(
     setCurrentInput('')
     setSelectedIndex(-1)
     onChange(serialize(next, ''))
+    if (notify) onTagAddedRef.current?.()
   }
 
   /** Runs the key's effect, if any, and reports whether the caller should preventDefault. */
@@ -99,8 +110,8 @@ export function useTagInput(
       return true
     }
     if (key === ','|| key === ' ' || key === 'Enter' || key === 'Tab') {
-      confirmCurrent()
       // Tab should still move focus to the next field when no suggestions are open.
+      confirmText(currentInput, key !== 'Tab')
       return key === 'Tab' ? suggestions.length > 0 : true
     }
     if (key === 'Backspace') {
