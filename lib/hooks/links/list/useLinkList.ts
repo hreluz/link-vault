@@ -17,6 +17,7 @@ export function useLinkList(autoFetchDefault = true, moveToEndDelaySeconds = DEF
   const filters = useLinkFilters()
   const {
     links, loadedLinks, totalCount, unreadCount, hasMore, loading, loadingMore, loadMore, refresh, refreshing,
+    error: loadError, retry: retryLoad,
     imageStateById, handleImageError,
     handleStatusChange: changeStatus,
     handleEdit: editLink,
@@ -151,6 +152,8 @@ export function useLinkList(autoFetchDefault = true, moveToEndDelaySeconds = DEF
     loading,
     loadingMore,
     loadMore,
+    loadError,
+    retryLoad,
     refreshing,
     refreshKey,
     handleRefresh,

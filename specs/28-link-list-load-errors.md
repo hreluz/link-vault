@@ -1,6 +1,6 @@
 # SPEC 28 — Show an error when the link list fails to load
 
-> **Status:** Draft
+> **Status:** Approved
 > **Depends on:** SPEC 10
 > **Date:** 2026-11-02
 > **Objective:** When the dashboard list can't load, the user sees an error with a Retry button, instead of a false "no links" message or skeletons that never end.

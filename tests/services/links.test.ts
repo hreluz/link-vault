@@ -248,6 +248,12 @@ describe('getLinksByIds', () => {
     expect(result[0].tags).toEqual(['t1'])
     expect(mockInIds).toHaveBeenCalledWith('id', ['1'])
   })
+
+  it('throws on a database error instead of returning fewer links', async () => {
+    mockInReturns.mockResolvedValue({ data: null, error: { message: 'DB error' } })
+
+    await expect(getLinksByIds(['1'], dek)).rejects.toThrow('DB error')
+  })
 })
 
 // ── createLink ────────────────────────────────────────────────────────────────
@@ -1734,12 +1740,10 @@ describe('getLinksPage', () => {
     expect(result.unreadCount).toBe(40)
   })
 
-  it('returns an empty page with totalCount 0 on error', async () => {
+  it('throws on a database error instead of returning an empty page', async () => {
     mockRpcReturns.mockResolvedValue({ data: null, error: { message: 'DB error' } })
 
-    const result = await getLinksPage(BASE_FILTER_PARAMS, 40, 0, dek)
-
-    expect(result).toEqual({ links: [], totalCount: 0, unreadCount: 0 })
+    await expect(getLinksPage(BASE_FILTER_PARAMS, 40, 0, dek)).rejects.toThrow('DB error')
   })
 
   it('returns an empty page with totalCount 0 when data is null', async () => {
@@ -1807,12 +1811,10 @@ describe('getMatchingLinkIds', () => {
     expect(result.totalCount).toBe(5000)
   })
 
-  it('returns empty ids and totalCount 0 on error', async () => {
+  it('throws on a database error instead of returning no ids', async () => {
     mockRpcReturns.mockResolvedValue({ data: null, error: { message: 'DB error' } })
 
-    const result = await getMatchingLinkIds(BASE_FILTER_PARAMS)
-
-    expect(result).toEqual({ ids: [], totalCount: 0 })
+    await expect(getMatchingLinkIds(BASE_FILTER_PARAMS)).rejects.toThrow('DB error')
   })
 
   it('returns empty ids and totalCount 0 when data is null', async () => {

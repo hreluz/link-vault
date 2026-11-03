@@ -314,6 +314,174 @@ describe('usePaginatedQuery', () => {
     })
   })
 
+  describe('errors', () => {
+    it('starts with no error', async () => {
+      const { result } = await renderLoaded(makeFetchPage([{ id: '1' }]))
+      expect(result.current.error).toBeNull()
+    })
+
+    it("reports a failed first load as 'load', with loading off and nothing loaded", async () => {
+      const fetchPage = vi.fn().mockRejectedValueOnce(new Error('offline'))
+      const { result } = renderHook(() => usePaginatedQuery({}, fetchPage, 2))
+
+      await waitFor(() => expect(result.current.loading).toBe(false))
+      expect(result.current.error).toBe('load')
+      expect(result.current.items).toEqual([])
+      expect(result.current.hasMore).toBe(false)
+    })
+
+    it('retry() after a failed first load refetches page 1 and clears the error', async () => {
+      const fetchPage = vi.fn()
+        .mockRejectedValueOnce(new Error('offline'))
+        .mockResolvedValueOnce({ items: [{ id: '1' }, { id: '2' }], totalCount: 3 })
+      const { result } = renderHook(() => usePaginatedQuery({}, fetchPage, 2))
+      await waitFor(() => expect(result.current.error).toBe('load'))
+
+      act(() => { result.current.retry() })
+      expect(result.current.error).toBeNull()
+      expect(result.current.loading).toBe(true)
+
+      await waitFor(() => expect(result.current.loading).toBe(false))
+      expect(fetchPage).toHaveBeenLastCalledWith({}, 2, 0)
+      expect(result.current.items).toEqual([{ id: '1' }, { id: '2' }])
+      expect(result.current.error).toBeNull()
+      expect(result.current.hasMore).toBe(true)
+    })
+
+    it("reports a failed loadMore as 'loadMore' and keeps the loaded items", async () => {
+      const fetchPage = vi.fn()
+        .mockResolvedValueOnce({ items: [{ id: '1' }, { id: '2' }], totalCount: 4 })
+        .mockRejectedValueOnce(new Error('offline'))
+      const { result } = await renderLoaded(fetchPage, {}, 2)
+
+      await act(async () => { result.current.loadMore() })
+
+      expect(result.current.error).toBe('loadMore')
+      expect(result.current.loadingMore).toBe(false)
+      expect(result.current.items).toEqual([{ id: '1' }, { id: '2' }])
+      expect(result.current.hasMore).toBe(true)
+    })
+
+    it('a failed loadMore does not block later loads: retry() fetches the same offset, then scrolling continues', async () => {
+      const all = [{ id: '1' }, { id: '2' }, { id: '3' }, { id: '4' }, { id: '5' }]
+      const fetchPage = vi.fn(async (_p: unknown, limit: number, offset: number): Promise<PageResult<Item>> => ({
+        items: all.slice(offset, offset + limit), totalCount: all.length,
+      }))
+      const { result } = await renderLoaded(fetchPage, {}, 2)
+
+      fetchPage.mockRejectedValueOnce(new Error('offline'))
+      await act(async () => { result.current.loadMore() })
+      expect(result.current.error).toBe('loadMore')
+
+      await act(async () => { result.current.retry() })
+      expect(fetchPage).toHaveBeenLastCalledWith({}, 2, 2)
+      expect(result.current.error).toBeNull()
+      expect(result.current.items).toEqual(all.slice(0, 4))
+
+      await act(async () => { result.current.loadMore() })
+      expect(fetchPage).toHaveBeenLastCalledWith({}, 2, 4)
+      expect(result.current.items).toEqual(all)
+    })
+
+    it('a new loadMore clears a previous loadMore error', async () => {
+      const fetchPage = vi.fn()
+        .mockResolvedValueOnce({ items: [{ id: '1' }], totalCount: 2 })
+        .mockRejectedValueOnce(new Error('offline'))
+        .mockImplementationOnce(() => new Promise(() => {}))
+      const { result } = await renderLoaded(fetchPage, {}, 1)
+
+      await act(async () => { result.current.loadMore() })
+      expect(result.current.error).toBe('loadMore')
+
+      act(() => { result.current.loadMore() })
+      expect(result.current.error).toBeNull()
+      expect(result.current.loadingMore).toBe(true)
+    })
+
+    it('retry() is a no-op when nothing failed', async () => {
+      const fetchPage = makeFetchPage([{ id: '1' }])
+      const { result } = await renderLoaded(fetchPage)
+
+      act(() => { result.current.retry() })
+
+      expect(fetchPage).toHaveBeenCalledTimes(1)
+    })
+
+    it('a params change clears the error', async () => {
+      const fetchPage = vi.fn(async (params: { q: string }): Promise<PageResult<Item>> => {
+        if (params.q === 'a') throw new Error('offline')
+        return { items: [{ id: params.q }], totalCount: 1 }
+      })
+      const utils = renderHook(({ p }) => usePaginatedQuery(p, fetchPage, 2), { initialProps: { p: { q: 'a' } } })
+      await waitFor(() => expect(utils.result.current.error).toBe('load'))
+
+      utils.rerender({ p: { q: 'b' } })
+      expect(utils.result.current.error).toBeNull()
+      await waitFor(() => expect(utils.result.current.loading).toBe(false))
+      expect(utils.result.current.items).toEqual([{ id: 'b' }])
+      expect(utils.result.current.error).toBeNull()
+    })
+
+    it('ignores a failed first load made stale by a params change', async () => {
+      let rejectStale: (err: Error) => void
+      const fetchPage = vi.fn(async (params: { q: string }): Promise<PageResult<Item>> =>
+        ({ items: [{ id: params.q }], totalCount: 1 }),
+      )
+      fetchPage.mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectStale = reject }))
+      const utils = renderHook(({ p }) => usePaginatedQuery(p, fetchPage, 2), { initialProps: { p: { q: 'a' } } })
+
+      utils.rerender({ p: { q: 'b' } })
+      await waitFor(() => expect(utils.result.current.loading).toBe(false))
+
+      await act(async () => { rejectStale!(new Error('offline')) })
+      expect(utils.result.current.error).toBeNull()
+      expect(utils.result.current.items).toEqual([{ id: 'b' }])
+    })
+
+    it('ignores a failed loadMore made stale by a params change, and later loads still work', async () => {
+      let rejectStale: (err: Error) => void
+      const fetchPage = vi.fn(async (params: { q: string }, limit: number, offset: number): Promise<PageResult<Item>> => {
+        const all = [{ id: `${params.q}1` }, { id: `${params.q}2` }]
+        return { items: all.slice(offset, offset + limit), totalCount: all.length }
+      })
+      const utils = renderHook(({ p }) => usePaginatedQuery(p, fetchPage, 1), { initialProps: { p: { q: 'a' } } })
+      await waitFor(() => expect(utils.result.current.loading).toBe(false))
+
+      fetchPage.mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectStale = reject }))
+      act(() => { utils.result.current.loadMore() })
+      utils.rerender({ p: { q: 'b' } })
+      await waitFor(() => expect(utils.result.current.loading).toBe(false))
+
+      await act(async () => { rejectStale!(new Error('offline')) })
+      expect(utils.result.current.error).toBeNull()
+      expect(utils.result.current.loadingMore).toBe(false)
+
+      await act(async () => { utils.result.current.loadMore() })
+      expect(utils.result.current.items).toEqual([{ id: 'b1' }, { id: 'b2' }])
+    })
+
+    it('a failed refresh keeps the items and leaves error unchanged; a successful one clears a loadMore error', async () => {
+      const fetchPage = vi.fn()
+        .mockResolvedValueOnce({ items: [{ id: '1' }], totalCount: 2 })
+        .mockRejectedValueOnce(new Error('offline'))   // loadMore
+        .mockRejectedValueOnce(new Error('offline'))   // refresh
+        .mockResolvedValueOnce({ items: [{ id: '1' }], totalCount: 2 }) // refresh
+      const { result } = await renderLoaded(fetchPage, {}, 1)
+
+      await act(async () => { result.current.loadMore() })
+      expect(result.current.error).toBe('loadMore')
+
+      await act(async () => {
+        await expect(result.current.refresh()).rejects.toThrow('offline')
+      })
+      expect(result.current.items).toEqual([{ id: '1' }])
+      expect(result.current.error).toBe('loadMore')
+
+      await act(async () => { await result.current.refresh() })
+      expect(result.current.error).toBeNull()
+    })
+  })
+
   describe('meta', () => {
     type Meta = { extra: number }
     function makeMetaFetchPage(all: Item[]) {

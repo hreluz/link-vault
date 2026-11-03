@@ -10,7 +10,7 @@ export function useLinks(filterParams: LinkFilterParams) {
   const { dek } = useVault()
   const {
     links, loadedLinks, rawLinks, setRawLinks, totalCount, unreadCount, hasMore, loading, loadingMore, loadMore, refresh, refreshing,
-    shiftServerOffset,
+    error, retry, shiftServerOffset,
   } = useLinkListQuery(filterParams, dek)
   // A saved move takes one loaded link out of the server order ahead of the next page;
   // a saved undo puts it back.
@@ -22,6 +22,7 @@ export function useLinks(filterParams: LinkFilterParams) {
 
   return {
     links, loadedLinks, totalCount, unreadCount, hasMore, loading, loadingMore, loadMore, refresh, refreshing,
+    error, retry,
     imageStateById, handleImageError,
     ...mutations,
   }
