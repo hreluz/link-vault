@@ -3,7 +3,7 @@ import { importLinks, type ImportLinkInput, type ImportResult, type ImportRowOut
 import { getCategories, getOrCreateCategoryByName } from '@/lib/services/categories'
 import { addCategoryDomain } from '@/lib/services/category-domains'
 import { getTags, syncTagDefinitions, toKebabCase } from '@/lib/services/tags/tags'
-import { setThemeMode, setAccentColor, setSurfaceFamily, setAutoFetchPreference } from '@/lib/services/userPreferences'
+import { setThemeMode, setAccentColor, setSurfaceFamily, setAutoFetchPreference, setMoveToEndDelay } from '@/lib/services/userPreferences'
 import type { ToggleResult } from '@/lib/hooks/shared/useAsyncToggle'
 import { getVaultExportValidationError, type VaultExportV2 } from '@/lib/types/importExport'
 
@@ -169,6 +169,10 @@ export async function importVaultExport(
       ['surface', setSurfaceFamily(supabase, prefs.surface_family)],
       ['auto-fetch', setAutoFetchPreference(supabase, prefs.auto_fetch_enabled)],
     ]
+    // Older files don't have it; leave the destination's value alone then.
+    if (prefs.move_to_end_delay_seconds !== undefined) {
+      entries.push(['move-to-end delay', setMoveToEndDelay(supabase, prefs.move_to_end_delay_seconds)])
+    }
     const results = await Promise.all(entries.map(async ([label, promise]) => [label, await promise] as const))
     for (const [label, result] of results) {
       if (!result.success) {

@@ -1,4 +1,5 @@
 import type { AccentColor, LinkStatus, SurfaceFamily, ThemeMode } from '@/lib/types/database'
+import { validateMoveToEndDelay } from '@/lib/services/userPreferences'
 
 export const EXPORT_FORMAT = 'link-vault-export' as const
 export const EXPORT_VERSION = 2 as const
@@ -45,6 +46,8 @@ export type ExportedPreferences = {
   accent_color_dark: AccentColor
   surface_family: SurfaceFamily
   auto_fetch_enabled: boolean
+  /** Optional: older "everything" files don't have it. */
+  move_to_end_delay_seconds?: number
 }
 
 export type VaultExportV2 = {
@@ -154,6 +157,12 @@ export function getVaultExportValidationError(data: VaultExportV2): string | nul
       return 'Invalid export file: invalid preferences fields.'
     }
     if (!isBoolean(p.auto_fetch_enabled)) return 'Invalid export file: invalid auto_fetch_enabled in preferences.'
+    if (
+      p.move_to_end_delay_seconds !== undefined
+      && (typeof p.move_to_end_delay_seconds !== 'number' || validateMoveToEndDelay(p.move_to_end_delay_seconds) !== null)
+    ) {
+      return 'Invalid export file: invalid move_to_end_delay_seconds in preferences.'
+    }
   }
 
   return null

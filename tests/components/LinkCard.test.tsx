@@ -156,3 +156,36 @@ describe('LinkCard image states', () => {
     expect(screen.getByText('4:33').closest('p')?.textContent).toContain('alpha.com')
   })
 })
+
+describe('LinkCard send to end', () => {
+  it('calls onSendToEnd and not onOpen when clicked', () => {
+    const onSendToEnd = vi.fn()
+    const onOpen = vi.fn()
+    renderCard({ onSendToEnd, onOpen })
+
+    const button = screen.getByRole('button', { name: 'Send to end' })
+    expect(button.getAttribute('title')).toBe('Send to end')
+    fireEvent.click(button)
+
+    expect(onSendToEnd).toHaveBeenCalledOnce()
+    expect(onOpen).not.toHaveBeenCalled()
+  })
+
+  it('sits between Edit and the options menu', () => {
+    renderCard({ onSendToEnd: vi.fn(), onEdit: vi.fn() })
+
+    const names = screen.getAllByRole('button').map(b => b.getAttribute('aria-label'))
+    expect(names.indexOf('Send to end')).toBe(names.indexOf('Edit link') + 1)
+    expect(names.indexOf('Link options')).toBe(names.indexOf('Send to end') + 1)
+  })
+
+  it('is hidden in selection mode', () => {
+    renderCard({ onSendToEnd: vi.fn(), isSelectionMode: true })
+    expect(screen.queryByRole('button', { name: 'Send to end' })).toBeNull()
+  })
+
+  it('is not rendered without onSendToEnd', () => {
+    renderCard()
+    expect(screen.queryByRole('button', { name: 'Send to end' })).toBeNull()
+  })
+})

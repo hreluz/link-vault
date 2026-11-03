@@ -9,12 +9,14 @@ const LinkListContext = createContext<LinkListContextValue | null>(null)
 
 export function LinkListProvider({
   autoFetchDefault,
+  moveToEndDelaySeconds,
   children,
 }: {
   autoFetchDefault?: boolean
+  moveToEndDelaySeconds?: number
   children: React.ReactNode
 }) {
-  const value = useLinkList(autoFetchDefault)
+  const value = useLinkList(autoFetchDefault, moveToEndDelaySeconds)
   return <LinkListContext.Provider value={value}>{children}</LinkListContext.Provider>
 }
 

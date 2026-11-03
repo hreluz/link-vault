@@ -137,6 +137,7 @@ export interface Database {
           accent_color_dark: AccentColor
           surface_family: SurfaceFamily
           theme_mode: ThemeMode
+          move_to_end_delay_seconds: number
           created_at: string
           updated_at: string
         }
@@ -148,6 +149,7 @@ export interface Database {
           accent_color_dark?: AccentColor
           surface_family?: SurfaceFamily
           theme_mode?: ThemeMode
+          move_to_end_delay_seconds?: number
           created_at?: string
           updated_at?: string
         }
@@ -157,6 +159,7 @@ export interface Database {
           accent_color_dark?: AccentColor
           surface_family?: SurfaceFamily
           theme_mode?: ThemeMode
+          move_to_end_delay_seconds?: number
           updated_at?: string
         }
         Relationships: []

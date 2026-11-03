@@ -79,9 +79,11 @@ export default function LinkListHeader() {
         </button>
         <button
           onClick={() => setModalOpen(true)}
-          className="rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500"
+          aria-label="Add link"
+          title="Add link"
+          className="min-w-10 rounded-xl border border-transparent bg-primary-600 px-3 py-2 text-base font-semibold leading-5 text-white shadow-sm transition hover:bg-primary-500"
         >
-          + Add link
+          +
         </button>
       </div>
     </div>

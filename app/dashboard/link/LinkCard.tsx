@@ -16,6 +16,7 @@ interface Props {
   onEdit?: () => void
   onOpen?: () => void
   onDelete?: () => void
+  onSendToEnd?: () => void
   isSelectionMode?: boolean
   isSelected?: boolean
   onSelect?: (id: string) => void
@@ -28,7 +29,7 @@ interface Props {
 }
 
 export default function LinkCard({
-  link, category, onMenuOpen, onFavoriteToggle, onEdit, onOpen, onDelete,
+  link, category, onMenuOpen, onFavoriteToggle, onEdit, onOpen, onDelete, onSendToEnd,
   isSelectionMode, isSelected, onSelect, onLongPress, isLastOpened, pulse, imageState, onImageError,
 }: Props) {
   const status = STATUS_CONFIG[link.status]
@@ -127,14 +128,14 @@ export default function LinkCard({
 
         <div className="relative flex flex-1 flex-col gap-3 p-5">
           <div className="flex items-start justify-between gap-2">
-            <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full bg-surface-100 px-2.5 py-1 text-xs font-medium text-surface-700 dark:bg-surface-800 dark:text-surface-300 ${isSelectionMode ? 'ml-8' : ''}`}>
+            <span className={`inline-flex min-w-0 items-center gap-1.5 rounded-full bg-surface-100 px-2.5 py-1 text-xs font-medium text-surface-700 dark:bg-surface-800 dark:text-surface-300 ${isSelectionMode ? 'ml-8' : ''}`}>
               {category
-                ? <>{category.emoticon && <span aria-hidden="true">{category.emoticon}</span>}{category.name}</>
-                : <span className="text-surface-400 dark:text-surface-500">Uncategorized</span>
+                ? <>{category.emoticon && <span aria-hidden="true" className="shrink-0">{category.emoticon}</span>}<span className="truncate">{category.name}</span></>
+                : <span className="truncate text-surface-400 dark:text-surface-500">Uncategorized</span>
               }
             </span>
             {!isSelectionMode && (
-              <div className="relative z-10 flex items-center gap-1">
+              <div className="relative z-10 flex shrink-0 items-center gap-1">
                 {onDelete && (
                   <button
                     onClick={onDelete}
@@ -174,6 +175,18 @@ export default function LinkCard({
                   >
                     <svg aria-hidden="true" className="h-4 w-4 lg:h-5 lg:w-5" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M13.5 3.5l3 3L7 16H4v-3l9.5-9.5z" />
+                    </svg>
+                  </button>
+                )}
+                {onSendToEnd && (
+                  <button
+                    onClick={onSendToEnd}
+                    aria-label="Send to end"
+                    title="Send to end"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-surface-400 transition hover:bg-surface-100 hover:text-surface-700 active:bg-surface-200 lg:h-10 lg:w-10 dark:text-surface-500 dark:hover:bg-surface-800 dark:hover:text-surface-200"
+                  >
+                    <svg aria-hidden="true" className="h-4 w-4 lg:h-5 lg:w-5" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M10 3.5v9M6 8.5l4 4 4-4M4 16.5h12" />
                     </svg>
                   </button>
                 )}
