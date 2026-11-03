@@ -6,7 +6,6 @@ import FavoritesToggle from './FavoritesToggle'
 import LinkSearchBar from './LinkSearchBar'
 import StatusTabBar from './StatusTabBar'
 import ActiveFilterChips from './ActiveFilterChips'
-import BulkActionToolbar from './BulkActionToolbar'
 import LinkGrid from './LinkGrid'
 import LinkModals from './LinkModals'
 
@@ -25,7 +24,6 @@ export default function LinkList({
         <LinkSearchBar />
         <StatusTabBar />
         <ActiveFilterChips />
-        <BulkActionToolbar />
         <LinkGrid />
         <LinkModals />
       </main>

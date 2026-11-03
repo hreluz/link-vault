@@ -3,7 +3,7 @@ import {
   getLinks, getLinksByIds, createLink, updateLink, toggleLinkFavorite, updateLinkStatus, markLinkMovedToEnd,
   updateLinkImage, type LinkWithTags,
   deleteLink, importLinks,
-  getLinksPage, getMatchingLinkIds, SELECT_ALL_MATCHING_CAP, findLinkIdByUrl,
+  getLinksPage, getMatchingLinkIds, MATCHING_LINK_IDS_CAP, findLinkIdByUrl,
   type LinkFilterParams, type LinkContent,
 } from '@/lib/services/links'
 import { generateDek, encryptJson, decryptJson } from '@/lib/crypto/vault'
@@ -1772,7 +1772,7 @@ describe('getMatchingLinkIds', () => {
       p_tag_mode: 'any',
       p_favorites_only: false,
       p_unlocked_tag_ids: null,
-      p_limit: SELECT_ALL_MATCHING_CAP,
+      p_limit: MATCHING_LINK_IDS_CAP,
     })
   })
 

@@ -4,27 +4,11 @@ import { useLinkListContext } from './LinkListContext'
 
 export default function LinkListHeader() {
   const {
-    totalCount, unreadCount, setModalOpen, isSelectionMode, selectedCount, enterSelectionMode, exitSelectionMode, favoritesOnly,
+    totalCount, unreadCount, setModalOpen, favoritesOnly,
     refreshing, handleRefresh, lastMovedLink, undoingMove, handleUndoMove, selectedStatuses,
   } = useLinkListContext()
   // Only meaningful across all statuses -- any status filter already says what is (or isn't) unread.
   const showUnreadCount = selectedStatuses.length === 0
-
-  if (isSelectionMode) {
-    return (
-      <div className="mb-5 flex items-center justify-between gap-4">
-        <p className="text-sm font-semibold text-surface-700 dark:text-surface-300">
-          {selectedCount} selected
-        </p>
-        <button
-          onClick={exitSelectionMode}
-          className="rounded-xl border border-surface-200 bg-surface-card px-4 py-2 text-sm font-medium text-surface-600 shadow-sm transition hover:bg-surface-50 hover:text-surface-900 dark:border-surface-700 dark:bg-surface-900 dark:text-surface-300 dark:hover:bg-surface-800"
-        >
-          Cancel
-        </button>
-      </div>
-    )
-  }
 
   return (
     <div className="mb-5 flex items-center justify-between gap-4">
@@ -69,13 +53,6 @@ export default function LinkListHeader() {
             <path d="M16 10a6 6 0 1 1-1.76-4.24" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             <path d="M16 3.5v3h-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-        </button>
-        <button
-          onClick={enterSelectionMode}
-          aria-label="Select links"
-          className="rounded-xl border border-surface-200 bg-surface-card px-3 py-2 text-sm font-medium text-surface-600 shadow-sm transition hover:bg-surface-50 hover:text-surface-900 dark:border-surface-700 dark:bg-surface-900 dark:text-surface-300 dark:hover:bg-surface-800"
-        >
-          Select
         </button>
         <button
           onClick={() => setModalOpen(true)}

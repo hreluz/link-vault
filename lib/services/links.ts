@@ -41,7 +41,7 @@ export type LinkFilterParams = {
   unlockedTagIds: string[]
 }
 
-export const SELECT_ALL_MATCHING_CAP = 2000
+export const MATCHING_LINK_IDS_CAP = 2000
 const FETCH_CHUNK_SIZE = 200
 
 type LinkRow = {
@@ -327,14 +327,14 @@ export async function getLinksPage(
 
 export type MatchingLinkIds = { ids: string[]; totalCount: number }
 
-/** Ids-only, matching only structural filters -- used for "select all matching" and client-side search/sort. */
+/** Ids-only, matching only structural filters -- used for client-side search/sort. */
 export async function getMatchingLinkIds(params: LinkFilterParams): Promise<MatchingLinkIds> {
   const supabase = createClient()
 
   const { data, error } = await supabase
     .rpc('search_link_ids', {
       ...toRpcFilterArgs(params),
-      p_limit: SELECT_ALL_MATCHING_CAP,
+      p_limit: MATCHING_LINK_IDS_CAP,
     })
     .returns<{ id: string; total_count: number }[]>()
 
@@ -359,52 +359,6 @@ export async function deleteLink(id: string): Promise<DeleteLinkResult> {
     .select('id')
   if (error) return 'error'
   return (data?.length ?? 0) > 0 ? 'deleted' : 'blocked'
-}
-
-export async function bulkUpdateStatus(ids: string[], status: LinkStatus): Promise<boolean> {
-  if (!ids.length) return true
-  const supabase = createClient()
-  const { error } = await supabase.from('links').update({ status }).in('id', ids)
-  return !error
-}
-
-export type BulkSoftDeleteResult = { deletedIds: string[] }
-
-/** Favorited links are skipped -- `.eq('is_favorite', false)` makes this a real DB-enforced invariant. */
-export async function bulkSoftDelete(ids: string[]): Promise<BulkSoftDeleteResult | null> {
-  if (!ids.length) return { deletedIds: [] }
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from('links')
-    .update({ deleted_at: new Date().toISOString() })
-    .in('id', ids)
-    .eq('is_favorite', false)
-    .select('id')
-  if (error) return null
-  return { deletedIds: (data ?? []).map(row => row.id) }
-}
-
-export async function bulkUpdateCategory(ids: string[], categoryId: string | null): Promise<boolean> {
-  if (!ids.length) return true
-  const supabase = createClient()
-  const { error } = await supabase.from('links').update({ category_id: categoryId }).in('id', ids)
-  return !error
-}
-
-/** Returns the resolved tag ids on success (so callers can patch already-loaded links), or null on failure. */
-export async function bulkAddTags(ids: string[], tagNames: string[], dek: CryptoKey): Promise<string[] | null> {
-  if (!ids.length || !tagNames.length) return []
-  const supabase = createClient()
-
-  const tagIds = await syncTagsByName(tagNames.filter(Boolean), dek)
-  if (!tagIds.length) return null
-
-  const pairs = ids.flatMap(link_id => tagIds.map(tag_id => ({ link_id, tag_id })))
-  const { error } = await supabase
-    .from('link_tags')
-    .upsert(pairs, { onConflict: 'link_id,tag_id', ignoreDuplicates: true })
-
-  return error ? null : tagIds
 }
 
 /** Returns the id of the user's existing non-deleted link with this URL, if any. */

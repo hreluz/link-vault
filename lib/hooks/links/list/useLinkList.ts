@@ -6,9 +6,8 @@ import { useTagsContext } from '@/lib/context/TagsContext'
 import { useLinkModals } from './useLinkModals'
 import { useLinks } from './useLinks'
 import { useLinkFilters } from './useLinkFilters'
-import { useLinksSelection } from './useLinksSelection'
 import { useMoveOpenedToEnd } from './useMoveOpenedToEnd'
-import { getMatchingLinkIds, SELECT_ALL_MATCHING_CAP, type LinkWithTags } from '@/lib/services/links'
+import type { LinkWithTags } from '@/lib/services/links'
 import { DEFAULT_MOVE_TO_END_DELAY_SECONDS } from '@/lib/services/userPreferences'
 import type { LinkStatus } from '@/lib/types/database'
 import { logMove, rememberMoveTitle } from '@/lib/utils/moveLog'
@@ -29,14 +28,8 @@ export function useLinkList(autoFetchDefault = true, moveToEndDelaySeconds = DEF
     undoingMove,
     handleUndoMove: undoMove,
     clearLastMove,
-    handleBulkStatusChange,
-    handleBulkDelete,
-    handleBulkCategoryChange,
-    handleBulkAddTags,
   } = useLinks(filters.filterParams)
   const { addToast } = useToast()
-  const selection = useLinksSelection()
-  const [selectingAllMatching, setSelectingAllMatching] = useState(false)
   const { refetchTags } = useTagsContext()
   const [refreshKey, setRefreshKey] = useState(0)
   const [lastOpenedId, setLastOpenedId] = useState<string | null>(null)
@@ -52,7 +45,7 @@ export function useLinkList(autoFetchDefault = true, moveToEndDelaySeconds = DEF
       pendingMoveIdsRef.current.delete(id)
       handleMoveToEnd(id)
     },
-    pausedAll: modals.editingLink !== null || selection.isSelectionMode,
+    pausedAll: modals.editingLink !== null,
     pausedId: modals.activeLink?.id ?? null,
     delayMs: moveToEndDelaySeconds * 1000,
   })
@@ -130,42 +123,6 @@ export function useLinkList(autoFetchDefault = true, moveToEndDelaySeconds = DEF
     modals.setActiveLink(prev => prev?.id === id ? { ...prev, is_favorite: !prev.is_favorite } : prev)
   }
 
-  function handleBulkArchive() {
-    const ids = [...selection.selectedIds]
-    selection.exitSelectionMode()
-    handleBulkStatusChange(ids, 'archived')
-  }
-
-  function handleBulkDeleteSelected() {
-    const ids = [...selection.selectedIds]
-    selection.exitSelectionMode()
-    handleBulkDelete(ids)
-  }
-
-  function handleBulkRecategorize(categoryId: string | null) {
-    const ids = [...selection.selectedIds]
-    selection.exitSelectionMode()
-    handleBulkCategoryChange(ids, categoryId)
-  }
-
-  function handleBulkTagSelected(tagNames: string[]) {
-    const ids = [...selection.selectedIds]
-    selection.exitSelectionMode()
-    handleBulkAddTags(ids, tagNames)
-  }
-
-  async function handleSelectAllMatching() {
-    setSelectingAllMatching(true)
-    const { ids, totalCount: matchingCount } = await getMatchingLinkIds(filters.filterParams)
-    selection.selectAll(ids)
-    setSelectingAllMatching(false)
-    if (matchingCount > SELECT_ALL_MATCHING_CAP) {
-      addToast(
-        `Selected first ${SELECT_ALL_MATCHING_CAP.toLocaleString()} of ${matchingCount.toLocaleString()} matching — narrow your filter to select more.`
-      )
-    }
-  }
-
   // Reloads links, tags and categories in place -- never touches the vault
   // key or unlocked private tags, so no password prompt.
   async function handleRefresh() {
@@ -186,7 +143,6 @@ export function useLinkList(autoFetchDefault = true, moveToEndDelaySeconds = DEF
   return {
     ...modals,
     ...filters,
-    ...selection,
     autoFetchDefault,
     links,
     totalCount,
@@ -198,7 +154,6 @@ export function useLinkList(autoFetchDefault = true, moveToEndDelaySeconds = DEF
     refreshing,
     refreshKey,
     handleRefresh,
-    selectingAllMatching,
     handleStatusChange,
     handleLinkOpen,
     handleSendToEnd,
@@ -212,11 +167,6 @@ export function useLinkList(autoFetchDefault = true, moveToEndDelaySeconds = DEF
     handleDeleteById,
     handleFavoriteToggle,
     handleCreate,
-    handleBulkArchive,
-    handleBulkDeleteSelected,
-    handleBulkRecategorize,
-    handleBulkTagSelected,
-    handleSelectAllMatching,
     addToast,
   }
 }
