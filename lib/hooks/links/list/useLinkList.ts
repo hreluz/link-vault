@@ -9,10 +9,11 @@ import { useLinkFilters } from './useLinkFilters'
 import { useLinksSelection } from './useLinksSelection'
 import { useMoveOpenedToEnd } from './useMoveOpenedToEnd'
 import { getMatchingLinkIds, SELECT_ALL_MATCHING_CAP, type LinkWithTags } from '@/lib/services/links'
+import { DEFAULT_MOVE_TO_END_DELAY_SECONDS } from '@/lib/services/userPreferences'
 import type { LinkStatus } from '@/lib/types/database'
 import { logMove, rememberMoveTitle } from '@/lib/utils/moveLog'
 
-export function useLinkList(autoFetchDefault = true) {
+export function useLinkList(autoFetchDefault = true, moveToEndDelaySeconds = DEFAULT_MOVE_TO_END_DELAY_SECONDS) {
   const modals = useLinkModals()
   const filters = useLinkFilters()
   const {
@@ -43,7 +44,7 @@ export function useLinkList(autoFetchDefault = true) {
   // the private-tag re-read that runs first against a second click.
   const refreshInFlightRef = useRef(false)
 
-  // Opened links move to the end of the list 30 s later. Ids still waiting
+  // Opened links move to the end of the list after the user's delay. Ids still waiting
   // are tracked here so a link that leaves the list drops its pending move.
   const pendingMoveIdsRef = useRef(new Set<string>())
   const moveOpened = useMoveOpenedToEnd({
@@ -53,6 +54,7 @@ export function useLinkList(autoFetchDefault = true) {
     },
     pausedAll: modals.editingLink !== null || selection.isSelectionMode,
     pausedId: modals.activeLink?.id ?? null,
+    delayMs: moveToEndDelaySeconds * 1000,
   })
   const { cancel: cancelMove, cancelAll: cancelAllMoves } = moveOpened
 
@@ -114,6 +116,13 @@ export function useLinkList(autoFetchDefault = true) {
     if (currentStatus === 'unread') changeStatus(id, 'watching')
     pendingMoveIdsRef.current.add(id)
     moveOpened.schedule(id)
+  }
+
+  // Moves right away and drops any pending timer, so the card doesn't move twice.
+  function handleSendToEnd(id: string) {
+    pendingMoveIdsRef.current.delete(id)
+    cancelMove(id, 'sent to end')
+    handleMoveToEnd(id)
   }
 
   function handleFavoriteToggle(id: string) {
@@ -192,6 +201,7 @@ export function useLinkList(autoFetchDefault = true) {
     selectingAllMatching,
     handleStatusChange,
     handleLinkOpen,
+    handleSendToEnd,
     lastOpenedId,
     imageStateById,
     handleImageError,

@@ -234,6 +234,61 @@ describe('useLinkList (integration)', () => {
       expect(result.current.lastOpenedId).toBe('1')
     })
 
+    describe('send to end', () => {
+      it('moves the link right away and saves it once', async () => {
+        const { result } = await renderLoadedWithFakeTimers()
+
+        await act(async () => { result.current.handleSendToEnd('1') })
+
+        expect(ids(result.current.links)).toEqual(['2', '3', '1'])
+        expect(mockMarkLinkMovedToEnd).toHaveBeenCalledOnce()
+        expect(mockMarkLinkMovedToEnd).toHaveBeenCalledWith('1', expect.any(String))
+      })
+
+      it('leaves the status and lastOpenedId alone', async () => {
+        const { result } = await renderLoadedWithFakeTimers()
+
+        await act(async () => { result.current.handleSendToEnd('1') })
+
+        expect(result.current.links.find(l => l.id === '1')?.status).toBe('unread')
+        expect(result.current.lastOpenedId).toBeNull()
+      })
+
+      it('cancels the pending timer of an opened link, so it does not move twice', async () => {
+        const { result } = await renderLoadedWithFakeTimers()
+
+        act(() => result.current.handleLinkOpen('1', 'unread'))
+        await act(async () => { result.current.handleSendToEnd('1') })
+        expect(mockMarkLinkMovedToEnd).toHaveBeenCalledOnce()
+
+        await advance(30_000)
+        expect(mockMarkLinkMovedToEnd).toHaveBeenCalledOnce()
+      })
+
+      it('can be undone, back to the old index', async () => {
+        const { result } = await renderLoadedWithFakeTimers()
+
+        await act(async () => { result.current.handleSendToEnd('1') })
+        expect(result.current.lastMovedLink?.id).toBe('1')
+
+        await act(async () => { result.current.handleUndoMove() })
+        expect(ids(result.current.links)).toEqual(['1', '2', '3'])
+      })
+    })
+
+    it('uses the delay passed in', async () => {
+      const utils = renderHook(() => useLinkList(true, 5))
+      await waitFor(() => expect(utils.result.current.loading).toBe(false))
+      vi.useFakeTimers()
+
+      act(() => utils.result.current.handleLinkOpen('1', 'unread'))
+      await advance(4_999)
+      expect(ids(utils.result.current.links)).toEqual(['1', '2', '3'])
+
+      await advance(1)
+      expect(ids(utils.result.current.links)).toEqual(['2', '3', '1'])
+    })
+
     it('moves a link whatever its status', async () => {
       const { result } = await renderLoadedWithFakeTimers()
 

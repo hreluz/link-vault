@@ -157,3 +157,20 @@ describe('LinkListHeader undo button', () => {
     expect(screen.queryByRole('button', { name: 'Undo last move' })).toBeNull()
   })
 })
+
+describe('LinkListHeader Add button', () => {
+  it('shows only + while keeping the Add link name and tooltip', () => {
+    render(<LinkListHeader />)
+    const button = screen.getByRole('button', { name: 'Add link' })
+    expect(button.textContent).toBe('+')
+    expect(button.getAttribute('title')).toBe('Add link')
+  })
+
+  it('opens the modal on click', () => {
+    const setModalOpen = vi.fn()
+    setContext({ setModalOpen })
+    render(<LinkListHeader />)
+    fireEvent.click(screen.getByRole('button', { name: 'Add link' }))
+    expect(setModalOpen).toHaveBeenCalledWith(true)
+  })
+})

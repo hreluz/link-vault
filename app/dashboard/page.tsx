@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { getAutoFetchPreference } from '@/lib/services/userPreferences'
+import { getAutoFetchPreference, getMoveToEndDelay } from '@/lib/services/userPreferences'
 import LinkList from './link/LinkList'
 
 export const metadata = {
@@ -8,7 +8,10 @@ export const metadata = {
 
 export default async function DashboardPage() {
   const supabase = await createClient()
-  const autoFetchDefault = await getAutoFetchPreference(supabase)
+  const [autoFetchDefault, moveToEndDelaySeconds] = await Promise.all([
+    getAutoFetchPreference(supabase),
+    getMoveToEndDelay(supabase),
+  ])
 
-  return <LinkList autoFetchDefault={autoFetchDefault} />
+  return <LinkList autoFetchDefault={autoFetchDefault} moveToEndDelaySeconds={moveToEndDelaySeconds} />
 }

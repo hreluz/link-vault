@@ -10,9 +10,15 @@ import BulkActionToolbar from './BulkActionToolbar'
 import LinkGrid from './LinkGrid'
 import LinkModals from './LinkModals'
 
-export default function LinkList({ autoFetchDefault }: { autoFetchDefault?: boolean }) {
+export default function LinkList({
+  autoFetchDefault,
+  moveToEndDelaySeconds,
+}: {
+  autoFetchDefault?: boolean
+  moveToEndDelaySeconds?: number
+}) {
   return (
-    <LinkListProvider autoFetchDefault={autoFetchDefault}>
+    <LinkListProvider autoFetchDefault={autoFetchDefault} moveToEndDelaySeconds={moveToEndDelaySeconds}>
       <main className="mx-auto max-w-5xl px-4 py-8">
         <LinkListHeader />
         <FavoritesToggle />

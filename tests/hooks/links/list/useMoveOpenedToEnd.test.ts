@@ -250,3 +250,46 @@ describe('useMoveOpenedToEnd', () => {
     })
   })
 })
+
+describe('useMoveOpenedToEnd with delayMs', () => {
+  type DelayProps = Props & { delayMs?: number }
+  function setupDelay(initial: DelayProps) {
+    return renderHook((props: DelayProps) => useMoveOpenedToEnd({ onMove, ...props }), { initialProps: initial })
+  }
+
+  it('fires at delayMs, not before', () => {
+    const { result } = setupDelay({ pausedAll: false, pausedId: null, delayMs: 5000 })
+    act(() => result.current.schedule('a'))
+
+    advance(4900)
+    expect(onMove).not.toHaveBeenCalled()
+
+    advance(100)
+    expect(onMove).toHaveBeenCalledExactlyOnceWith('a')
+  })
+
+  it('restarts from the full delayMs after a pause ends', () => {
+    const { result, rerender } = setupDelay({ pausedAll: false, pausedId: null, delayMs: 5000 })
+    act(() => result.current.schedule('a'))
+    advance(3000)
+
+    rerender({ pausedAll: true, pausedId: null, delayMs: 5000 })
+    advance(60_000)
+    expect(onMove).not.toHaveBeenCalled()
+
+    rerender({ pausedAll: false, pausedId: null, delayMs: 5000 })
+    advance(4900)
+    expect(onMove).not.toHaveBeenCalled()
+    advance(100)
+    expect(onMove).toHaveBeenCalledExactlyOnceWith('a')
+  })
+
+  it('still fires at 30 s when delayMs is not passed', () => {
+    const { result } = setupDelay({ pausedAll: false, pausedId: null })
+    act(() => result.current.schedule('a'))
+    advance(29_900)
+    expect(onMove).not.toHaveBeenCalled()
+    advance(100)
+    expect(onMove).toHaveBeenCalledOnce()
+  })
+})

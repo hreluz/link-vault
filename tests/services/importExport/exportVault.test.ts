@@ -7,7 +7,7 @@ import type { CategoryDomain } from '@/lib/services/category-domains'
 
 const {
   mockGetLinks, mockGetCategories, mockGetAllCategoryDomains, mockGetTags,
-  mockGetAutoFetchPreference, mockGetAccentColors, mockGetSurfaceFamily, mockGetThemeMode,
+  mockGetAutoFetchPreference, mockGetAccentColors, mockGetSurfaceFamily, mockGetThemeMode, mockGetMoveToEndDelay,
 } = vi.hoisted(() => ({
   mockGetLinks: vi.fn(),
   mockGetCategories: vi.fn(),
@@ -17,6 +17,7 @@ const {
   mockGetAccentColors: vi.fn(),
   mockGetSurfaceFamily: vi.fn(),
   mockGetThemeMode: vi.fn(),
+  mockGetMoveToEndDelay: vi.fn(),
 }))
 
 vi.mock('@/lib/supabase/client', () => ({ createClient: vi.fn(() => ({})) }))
@@ -28,6 +29,7 @@ vi.mock('@/lib/services/userPreferences', () => ({
   getAccentColors: mockGetAccentColors,
   getSurfaceFamily: mockGetSurfaceFamily,
   getThemeMode: mockGetThemeMode,
+  getMoveToEndDelay: mockGetMoveToEndDelay,
 }))
 // isTagVisible is pure logic under test elsewhere -- keep the real implementation here.
 vi.mock('@/lib/services/tags/tags', async (importOriginal) => {
@@ -63,6 +65,7 @@ beforeEach(() => {
   mockGetTags.mockResolvedValue([])
   mockGetAllCategoryDomains.mockResolvedValue([])
   mockGetAutoFetchPreference.mockResolvedValue(true)
+  mockGetMoveToEndDelay.mockResolvedValue(45)
   mockGetAccentColors.mockResolvedValue({ light: 'indigo', dark: 'violet' })
   mockGetSurfaceFamily.mockResolvedValue('slate')
   mockGetThemeMode.mockResolvedValue('dark')
@@ -141,7 +144,7 @@ describe('buildVaultExport', () => {
       expect(data.tags).toEqual([{ name: 'react', color: '#61dafb', is_private: false }])
       expect(data.preferences).toEqual({
         theme_mode: 'dark', accent_color_light: 'indigo', accent_color_dark: 'violet',
-        surface_family: 'slate', auto_fetch_enabled: true,
+        surface_family: 'slate', auto_fetch_enabled: true, move_to_end_delay_seconds: 45,
       })
     })
 

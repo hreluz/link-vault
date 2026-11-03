@@ -8,7 +8,7 @@ const {
   mockGetCategories, mockGetOrCreateCategoryByName, mockAddCategoryDomain,
   mockGetTags, mockSyncTagDefinitions,
   mockImportLinks,
-  mockSetThemeMode, mockSetAccentColor, mockSetSurfaceFamily, mockSetAutoFetchPreference,
+  mockSetThemeMode, mockSetAccentColor, mockSetSurfaceFamily, mockSetAutoFetchPreference, mockSetMoveToEndDelay,
 } = vi.hoisted(() => ({
   mockGetCategories: vi.fn(),
   mockGetOrCreateCategoryByName: vi.fn(),
@@ -20,6 +20,7 @@ const {
   mockSetAccentColor: vi.fn(),
   mockSetSurfaceFamily: vi.fn(),
   mockSetAutoFetchPreference: vi.fn(),
+  mockSetMoveToEndDelay: vi.fn(),
 }))
 
 vi.mock('@/lib/supabase/client', () => ({ createClient: vi.fn(() => ({})) }))
@@ -34,6 +35,8 @@ vi.mock('@/lib/services/userPreferences', () => ({
   setAccentColor: mockSetAccentColor,
   setSurfaceFamily: mockSetSurfaceFamily,
   setAutoFetchPreference: mockSetAutoFetchPreference,
+  setMoveToEndDelay: mockSetMoveToEndDelay,
+  validateMoveToEndDelay: () => null,
 }))
 // toKebabCase is pure logic under test elsewhere -- keep the real implementation here.
 vi.mock('@/lib/services/tags/tags', async (importOriginal) => {
@@ -75,6 +78,7 @@ beforeEach(() => {
   mockSetAccentColor.mockResolvedValue({ success: true })
   mockSetSurfaceFamily.mockResolvedValue({ success: true })
   mockSetAutoFetchPreference.mockResolvedValue({ success: true })
+  mockSetMoveToEndDelay.mockResolvedValue({ success: true })
 })
 
 describe('importVaultExport', () => {
@@ -273,6 +277,34 @@ describe('importVaultExport', () => {
       expect(mockSetAccentColor).toHaveBeenCalledWith(expect.anything(), 'dark', 'violet')
       expect(mockSetSurfaceFamily).toHaveBeenCalledWith(expect.anything(), 'slate')
       expect(mockSetAutoFetchPreference).toHaveBeenCalledWith(expect.anything(), true)
+    })
+
+    it('applies the move-to-end delay when the file has it', async () => {
+      await importVaultExport(
+        makeExport({ mode: 'everything', preferences: { ...PREFS, move_to_end_delay_seconds: 45 } }),
+        { defaultCategoryId: null, applyPreferences: true },
+        FAKE_DEK,
+      )
+      expect(mockSetMoveToEndDelay).toHaveBeenCalledWith(expect.anything(), 45)
+    })
+
+    it('leaves the delay alone for an older file without it', async () => {
+      await importVaultExport(
+        makeExport({ mode: 'everything', preferences: PREFS }),
+        { defaultCategoryId: null, applyPreferences: true },
+        FAKE_DEK,
+      )
+      expect(mockSetMoveToEndDelay).not.toHaveBeenCalled()
+    })
+
+    it('reports a failed delay by label', async () => {
+      mockSetMoveToEndDelay.mockResolvedValue({ success: false, error: 'nope' })
+      const result = await importVaultExport(
+        makeExport({ mode: 'everything', preferences: { ...PREFS, move_to_end_delay_seconds: 45 } }),
+        { defaultCategoryId: null, applyPreferences: true },
+        FAKE_DEK,
+      )
+      expect(result.preferencesFailed).toEqual(['move-to-end delay'])
     })
 
     it('reports failed preferences by label without failing the whole import', async () => {

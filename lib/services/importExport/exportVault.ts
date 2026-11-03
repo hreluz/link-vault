@@ -3,7 +3,7 @@ import { getLinks } from '@/lib/services/links'
 import { getCategories } from '@/lib/services/categories'
 import { getAllCategoryDomains } from '@/lib/services/category-domains'
 import { getTags, isTagVisible } from '@/lib/services/tags/tags'
-import { getAutoFetchPreference, getAccentColors, getSurfaceFamily, getThemeMode } from '@/lib/services/userPreferences'
+import { getAutoFetchPreference, getAccentColors, getSurfaceFamily, getThemeMode, getMoveToEndDelay } from '@/lib/services/userPreferences'
 import { EXPORT_FORMAT, EXPORT_VERSION, type ExportMode, type VaultExportV2 } from '@/lib/types/importExport'
 
 export type BuildVaultExportResult = {
@@ -56,12 +56,13 @@ export async function buildVaultExport(
 
   if (mode === 'everything') {
     const supabase = createClient()
-    const [categoryDomains, autoFetchEnabled, accentColors, surfaceFamily, themeMode] = await Promise.all([
+    const [categoryDomains, autoFetchEnabled, accentColors, surfaceFamily, themeMode, moveToEndDelaySeconds] = await Promise.all([
       getAllCategoryDomains(dek),
       getAutoFetchPreference(supabase),
       getAccentColors(supabase),
       getSurfaceFamily(supabase),
       getThemeMode(supabase),
+      getMoveToEndDelay(supabase),
     ])
 
     // Same visibility rule as links: a locked private tag's definition isn't migrated either.
@@ -80,6 +81,7 @@ export async function buildVaultExport(
       accent_color_dark: accentColors.dark,
       surface_family: surfaceFamily,
       auto_fetch_enabled: autoFetchEnabled,
+      move_to_end_delay_seconds: moveToEndDelaySeconds,
     }
   }
 

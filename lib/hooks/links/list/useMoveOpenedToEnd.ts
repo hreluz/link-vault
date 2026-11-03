@@ -8,19 +8,21 @@ export const MOVE_TO_END_DELAY_MS = 30_000
 type Timer = ReturnType<typeof setTimeout>
 
 /**
- * One 30 s timer per opened link; when it ends, `onMove(id)` is called.
+ * One timer per opened link (`delayMs`, 30 s by default); when it ends, `onMove(id)` is called.
  * While a pause applies to a link (`pausedAll`, or `pausedId === id`) its
  * timer is stopped but the link stays pending; when the pause ends it gets a
- * fresh 30 s. Keeps running while the tab is hidden (plain `setTimeout`).
+ * fresh full delay. Keeps running while the tab is hidden (plain `setTimeout`).
  */
 export function useMoveOpenedToEnd({
   onMove,
   pausedAll,
   pausedId,
+  delayMs = MOVE_TO_END_DELAY_MS,
 }: {
   onMove: (id: string) => void
   pausedAll: boolean
   pausedId: string | null
+  delayMs?: number
 }) {
   const onMoveRef = useRef(onMove)
   useEffect(() => { onMoveRef.current = onMove })
@@ -45,9 +47,9 @@ export function useMoveOpenedToEnd({
       pending.delete(id)
       logMove('fired', { id, pendingCount: pending.size })
       onMoveRef.current(id)
-    }, MOVE_TO_END_DELAY_MS))
-    logMove(existing ? 'restarted' : 'started', { id, delayMs: MOVE_TO_END_DELAY_MS, pendingCount: pending.size })
-  }, [])
+    }, delayMs))
+    logMove(existing ? 'restarted' : 'started', { id, delayMs, pendingCount: pending.size })
+  }, [delayMs])
 
   useEffect(() => {
     pausedAllRef.current = pausedAll

@@ -10,7 +10,7 @@ export default function LinkGrid() {
   const {
     loading, links: results, hasActiveFilters, favoritesOnly,
     hasMore, loadingMore, loadMore, refreshKey,
-    setActiveLink, setEditingLink, handleFavoriteToggle, handleLinkOpen, lastOpenedId, handleDeleteById, resetFilters,
+    setActiveLink, setEditingLink, handleFavoriteToggle, handleLinkOpen, handleSendToEnd, lastOpenedId, handleDeleteById, resetFilters,
     imageStateById, handleImageError,
     isSelectionMode, isSelected, toggleSelected, enterSelectionMode,
   } = useLinkListContext()
@@ -78,6 +78,7 @@ export default function LinkGrid() {
             onFavoriteToggle={() => handleFavoriteToggle(link.id)}
             onEdit={() => setEditingLink(link)}
             onOpen={() => handleLinkOpen(link.id, link.status)}
+            onSendToEnd={() => handleSendToEnd(link.id)}
             isLastOpened={link.id === lastOpenedId}
             pulse={pulse && link.id === lastOpenedId}
             imageState={imageStateById[link.id]}

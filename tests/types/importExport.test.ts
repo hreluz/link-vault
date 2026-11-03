@@ -149,6 +149,26 @@ describe('getVaultExportValidationError', () => {
     expect(getVaultExportValidationError(data)).toMatch(/theme_mode/i)
   })
 
+  describe('move_to_end_delay_seconds in preferences', () => {
+    const withDelay = (value: unknown) => makeExport({
+      preferences: {
+        theme_mode: 'dark', accent_color_light: 'indigo', accent_color_dark: 'violet',
+        surface_family: 'slate', auto_fetch_enabled: true, move_to_end_delay_seconds: value,
+      },
+    })
+
+    it('accepts a value in range', () => {
+      expect(getVaultExportValidationError(withDelay(5))).toBeNull()
+      expect(getVaultExportValidationError(withDelay(600))).toBeNull()
+    })
+
+    it('rejects out-of-range, fractional and non-number values', () => {
+      for (const value of [4, 601, 30.5, '30', null]) {
+        expect(getVaultExportValidationError(withDelay(value))).toMatch(/move_to_end_delay_seconds/)
+      }
+    })
+  })
+
   it('rejects a non-boolean auto_fetch_enabled in preferences', () => {
     const data = makeExport({
       preferences: {

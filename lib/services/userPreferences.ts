@@ -40,6 +40,54 @@ export async function setAutoFetchPreference(
   return { success: true }
 }
 
+export const DEFAULT_MOVE_TO_END_DELAY_SECONDS = 30
+/** Inclusive [min, max]; mirrored by the `check` constraint in 0021_move_to_end_delay_preference.sql. */
+export const MOVE_TO_END_DELAY_LIMITS = [5, 600] as const
+
+/** `null` when valid; otherwise the error message. */
+export function validateMoveToEndDelay(seconds: number): string | null {
+  const [min, max] = MOVE_TO_END_DELAY_LIMITS
+  if (!Number.isInteger(seconds) || seconds < min || seconds > max) {
+    return `The delay must be a whole number from ${min} to ${max}.`
+  }
+  return null
+}
+
+/** Returns the default when there is no user or the read fails. */
+export async function getMoveToEndDelay(
+  supabase: SupabaseClient<Database>,
+): Promise<number> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return DEFAULT_MOVE_TO_END_DELAY_SECONDS
+
+  const { data } = await supabase
+    .from('user_preferences')
+    .select('move_to_end_delay_seconds')
+    .eq('user_id', user.id)
+    .single()
+
+  return data?.move_to_end_delay_seconds ?? DEFAULT_MOVE_TO_END_DELAY_SECONDS
+}
+
+export async function setMoveToEndDelay(
+  supabase: SupabaseClient<Database>,
+  seconds: number,
+): Promise<ToggleResult> {
+  const invalid = validateMoveToEndDelay(seconds)
+  if (invalid) return { success: false, error: invalid }
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'Not authenticated' }
+
+  const { error } = await supabase
+    .from('user_preferences')
+    .update({ move_to_end_delay_seconds: seconds })
+    .eq('user_id', user.id)
+
+  if (error) return { success: false, error: error.message }
+  return { success: true }
+}
+
 export async function getAccentColors(
   supabase: SupabaseClient<Database>,
 ): Promise<{ light: AccentColor; dark: AccentColor }> {
