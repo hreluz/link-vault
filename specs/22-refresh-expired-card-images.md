@@ -1,6 +1,6 @@
 # SPEC 22 — Refresh a card image that fails to load
 
-> **Status:** Approved
+> **Status:** Implemented
 > **Depends on:** SPEC 07
 > **Date:** 2026-10-30
 > **Objective:** When a dashboard card's image fails to load (e.g. an Instagram CDN URL whose signature has expired), fetch the link's metadata again once. If that returns a new image, show it and save it; otherwise show the card without an image for the rest of the session.

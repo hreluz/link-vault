@@ -1,6 +1,6 @@
 # SPEC 19 — Header counts follow deleted and added links
 
-> **Status:** Approved
+> **Status:** Implemented
 > **Depends on:** none (follows up the unread count in the list header, added on branch `spec-19-unread-count` without a spec)
 > **Date:** 2026-10-26
 > **Objective:** The list header's `N links (M unread)` drops at once when a loaded link is deleted or leaves the list, comes back on Undo, and goes up when a new link is added, with no refetch.

@@ -1,6 +1,6 @@
 # SPEC 02 — CSV import format template and guide
 
-> **Status:** Approved
+> **Status:** Implemented
 > **Depends on:** —
 > **Date:** 2026-10-15
 > **Objective:** Show users the CSV format the importer expects, through a downloadable template and a column guide on the Upload file tab, and make the parser accept what it documents (multi-line fields, CRLF, forgiving headers).

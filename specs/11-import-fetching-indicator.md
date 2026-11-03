@@ -1,6 +1,6 @@
 # SPEC 11 — "Fetching" indicator while an import fetches metadata
 
-> **Status:** Approved
+> **Status:** Implemented
 > **Depends on:** SPEC 07, SPEC 09
 > **Date:** 2026-10-18
 > **Objective:** While an import fetches a link's metadata, show a spinner with `Fetching <host>…` under the progress modal's status line, which changes to `Still waiting on <host>…` once the fetch passes 10 s.

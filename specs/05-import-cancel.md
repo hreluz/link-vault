@@ -1,6 +1,6 @@
 # SPEC 05 — Cancel an import
 
-> **Status:** Approved
+> **Status:** Implemented
 > **Depends on:** SPEC 04
 > **Date:** 2026-10-15
 > **Objective:** Add a Cancel button to the running import progress modal that stops the import after the current row, keeps everything already saved, and ends with a "cancelled" summary that counts unprocessed links and can copy their URLs.

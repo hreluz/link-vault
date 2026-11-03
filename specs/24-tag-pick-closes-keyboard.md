@@ -1,6 +1,6 @@
 # SPEC 24 — Adding a tag closes the keyboard
 
-> **Status:** Approved
+> **Status:** Implemented
 > **Depends on:** SPEC 17, SPEC 23
 > **Date:** 2026-10-30
 > **Objective:** In every `useTagInput` chip input, adding a tag (tapping a suggestion, Space/Tab completion, Return or comma) blurs the input, so the on-screen keyboard closes on iOS.

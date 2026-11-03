@@ -1,6 +1,6 @@
 # SPEC 04 — Import progress modal
 
-> **Status:** Approved
+> **Status:** Implemented
 > **Depends on:** SPEC 03
 > **Date:** 2026-10-15
 > **Objective:** Show a locked modal during every import that reports live progress (processed, remaining, imported, already existed, failed, without metadata) and ends with a summary listing each failed URL and its reason.

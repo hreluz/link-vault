@@ -1,6 +1,6 @@
 # SPEC 07 — Rate-limit guard for import auto-fetch
 
-> **Status:** Approved
+> **Status:** Implemented
 > **Depends on:** SPEC 03, SPEC 05
 > **Date:** 2026-10-16
 > **Objective:** Space out import auto-fetch requests per host, and when a host still looks blocked, pause the import so the user can wait 1 minute and retry, import that host's links without metadata, or leave.

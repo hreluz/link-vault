@@ -1,6 +1,6 @@
 # SPEC 16 — Undo the last move-to-end from the list header
 
-> **Status:** Approved
+> **Status:** Implemented
 > **Depends on:** SPEC 15
 > **Date:** 2026-10-25
 > **Objective:** After an opened link's card moves to the end of the list (SPEC 15), an "Undo" button in the list header puts the most recently moved card back where it was and restores its saved `moved_to_end_at`, so a refresh keeps it there.

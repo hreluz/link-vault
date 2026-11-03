@@ -1,6 +1,6 @@
 # SPEC 15 — Move an opened link to the end of the list after 30 seconds
 
-> **Status:** Approved
+> **Status:** Implemented
 > **Depends on:** SPEC 10
 > **Date:** 2026-10-23
 > **Objective:** 30 seconds after the user opens a link from the dashboard list, its card moves to the end of the list and that position is saved, so after a refresh the not-yet-opened links come first; the countdown pauses (then restarts from 30 s) while the user is editing or acting on links.
