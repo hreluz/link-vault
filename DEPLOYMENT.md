@@ -2,7 +2,7 @@
 
 ## 1. Supabase (hosted project)
 
-1. Create/open a project at [supabase.com/dashboard](https://supabase.com/dashboard) → **Settings → API** → grab the **Project URL** and **anon public key**.
+1. Create/open a project at [supabase.com/dashboard](https://supabase.com/dashboard) → **Settings → API** → grab the **Project URL**, the **anon public key** and the **service_role secret key**. The service-role key bypasses RLS: never prefix it with `NEXT_PUBLIC_`, and never commit it.
 2. Link the repo and push migrations:
    ```bash
    nvm use v24.13.0
@@ -36,6 +36,7 @@
    | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | from step 1.1 |
    | `YOUTUBE_API_KEY` | optional — enables YouTube duration auto-fetch |
    | `ADMIN_EMAIL` | account email to grant the `admin` role on email confirmation |
+   | `SUPABASE_SERVICE_ROLE_KEY` | service_role key from step 1.1 — server-only; used solely to promote the `ADMIN_EMAIL` account when it confirms its email (users can't change their own `role`, migration `0022`). If it's missing, that promotion fails with a logged error and the confirmation still succeeds |
 
 4. Deploy.
 
@@ -44,3 +45,20 @@
 1. Open the deployed URL and sign in as `test@linkvault.dev` / `password123` (seeded demo account), or your own account.
 2. First login bootstraps the vault client-side; for the seeded test account it auto-populates demo links.
 3. Confirm the dashboard loads, search/filter work, and there are no console errors.
+
+## 4. Audit admins (once, after deploying migration `0022`)
+
+Before migration `0022_lock_user_role.sql`, any signed-in user could set their own `users.role` to `admin`. The migration closes that, but can't tell which existing admins are legitimate. Run this once in the Supabase SQL editor:
+
+```sql
+select u.id, u.email, u.role, u.created_at
+from public.users u
+where u.role = 'admin'
+order by u.created_at;
+```
+
+The only row should be the `ADMIN_EMAIL` account. Set any other row back to `user` in Supabase Studio (Table Editor → `users` → `role`), or with:
+
+```sql
+update public.users set role = 'user' where id = '<id>';
+```

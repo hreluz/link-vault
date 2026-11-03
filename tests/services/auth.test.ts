@@ -11,6 +11,8 @@ const {
   mockUpdateEq,
   mockUpdate,
   mockFrom,
+  mockServerFrom,
+  mockCreateAdminClient,
 } = vi.hoisted(() => {
   const mockUpdateEq = vi.fn().mockResolvedValue({ error: null })
   const mockUpdate = vi.fn(() => ({ eq: mockUpdateEq }))
@@ -25,6 +27,9 @@ const {
     mockUpdateEq,
     mockUpdate,
     mockFrom,
+    // The user-session client must never write to `users` (migration 0022).
+    mockServerFrom: vi.fn(),
+    mockCreateAdminClient: vi.fn(() => ({ from: mockFrom })),
   }
 })
 
@@ -37,8 +42,12 @@ vi.mock('@/lib/supabase/server', () => ({
       verifyOtp: mockVerifyOtp,
       resetPasswordForEmail: mockResetPasswordForEmail,
     },
-    from: mockFrom,
+    from: mockServerFrom,
   }),
+}))
+
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: mockCreateAdminClient,
 }))
 
 vi.mock('@/lib/auth/admin', () => ({
@@ -47,6 +56,8 @@ vi.mock('@/lib/auth/admin', () => ({
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mockUpdateEq.mockResolvedValue({ error: null })
+  mockCreateAdminClient.mockImplementation(() => ({ from: mockFrom }))
 })
 
 describe('signIn', () => {
@@ -130,31 +141,36 @@ describe('confirmSignup', () => {
     expect(result).toEqual({ success: false, error: 'Token has expired or is invalid' })
   })
 
-  it('assigns admin role when the verified email matches ADMIN_EMAIL', async () => {
+  it('promotes an ADMIN_EMAIL account through the admin client', async () => {
     mockVerifyOtp.mockResolvedValue({
       data: { user: { id: 'admin-uid', email: 'admin@example.com' } },
       error: null,
     })
     mockIsAdminEmail.mockReturnValue(true)
-    mockUpdateEq.mockResolvedValue({ error: null })
 
     const result = await confirmSignup('token-abc', 'signup')
 
     expect(result).toEqual({ success: true })
+    expect(mockCreateAdminClient).toHaveBeenCalledOnce()
+    expect(mockFrom).toHaveBeenCalledWith('users')
     expect(mockUpdate).toHaveBeenCalledWith({ role: 'admin' })
     expect(mockUpdateEq).toHaveBeenCalledWith('id', 'admin-uid')
+    expect(mockServerFrom).not.toHaveBeenCalled()
   })
 
-  it('does not assign admin role when the verified email does not match ADMIN_EMAIL', async () => {
+  it('never creates the admin client for any other email', async () => {
     mockVerifyOtp.mockResolvedValue({
       data: { user: { id: 'user-uid', email: 'other@example.com' } },
       error: null,
     })
     mockIsAdminEmail.mockReturnValue(false)
 
-    await confirmSignup('token-abc', 'signup')
+    const result = await confirmSignup('token-abc', 'signup')
 
+    expect(result).toEqual({ success: true })
+    expect(mockCreateAdminClient).not.toHaveBeenCalled()
     expect(mockUpdate).not.toHaveBeenCalled()
+    expect(mockServerFrom).not.toHaveBeenCalled()
   })
 
   it('does not assign admin role when verifyOtp returns no user', async () => {
@@ -164,7 +180,42 @@ describe('confirmSignup', () => {
     const result = await confirmSignup('token-abc', 'signup')
 
     expect(result).toEqual({ success: true })
+    expect(mockCreateAdminClient).not.toHaveBeenCalled()
+  })
+
+  it('still succeeds and logs when the promotion update fails', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    mockVerifyOtp.mockResolvedValue({
+      data: { user: { id: 'admin-uid', email: 'admin@example.com' } },
+      error: null,
+    })
+    mockIsAdminEmail.mockReturnValue(true)
+    mockUpdateEq.mockResolvedValue({ error: { message: 'permission denied for table users' } })
+
+    const result = await confirmSignup('token-abc', 'signup')
+
+    expect(result).toEqual({ success: true })
+    expect(consoleError).toHaveBeenCalled()
+    consoleError.mockRestore()
+  })
+
+  it('still succeeds and logs when the service-role key is missing', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    mockVerifyOtp.mockResolvedValue({
+      data: { user: { id: 'admin-uid', email: 'admin@example.com' } },
+      error: null,
+    })
+    mockIsAdminEmail.mockReturnValue(true)
+    mockCreateAdminClient.mockImplementation(() => {
+      throw new Error('SUPABASE_SERVICE_ROLE_KEY is not set')
+    })
+
+    const result = await confirmSignup('token-abc', 'signup')
+
+    expect(result).toEqual({ success: true })
     expect(mockUpdate).not.toHaveBeenCalled()
+    expect(consoleError).toHaveBeenCalled()
+    consoleError.mockRestore()
   })
 })
 
