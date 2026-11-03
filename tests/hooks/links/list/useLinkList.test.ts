@@ -46,16 +46,11 @@ vi.mock('@/lib/services/links', () => ({
   getLinksPage: vi.fn(),
   getMatchingLinkIds: vi.fn(),
   getLinksByIds: vi.fn(),
-  SELECT_ALL_MATCHING_CAP: 2000,
   deleteLink: vi.fn().mockResolvedValue('deleted'),
   toggleLinkFavorite: vi.fn().mockResolvedValue(true),
   markLinkMovedToEnd: vi.fn().mockResolvedValue(true),
   updateLinkImage: vi.fn().mockResolvedValue(true),
   updateLinkStatus: vi.fn().mockResolvedValue(true),
-  bulkUpdateStatus: vi.fn().mockResolvedValue(true),
-  bulkSoftDelete: vi.fn().mockResolvedValue({ deletedIds: [] }),
-  bulkUpdateCategory: vi.fn().mockResolvedValue(true),
-  bulkAddTags: vi.fn().mockResolvedValue([]),
 }))
 
 vi.mock('@/lib/services/tags/tags', () => ({
@@ -326,19 +321,6 @@ describe('useLinkList (integration)', () => {
       act(() => result.current.setActiveLink(null))
       await advance(30_000)
       expect(ids(result.current.links)).toEqual(['3', '2', '1'])
-    })
-
-    it('does not move while selection mode is active, then moves 30 s after leaving it', async () => {
-      const { result } = await renderLoadedWithFakeTimers()
-
-      act(() => result.current.handleLinkOpen('1', 'unread'))
-      act(() => result.current.enterSelectionMode())
-      await advance(60_000)
-      expect(mockMarkLinkMovedToEnd).not.toHaveBeenCalled()
-
-      act(() => result.current.exitSelectionMode())
-      await advance(30_000)
-      expect(ids(result.current.links)).toEqual(['2', '3', '1'])
     })
 
     it('a filter change before 30 s cancels the move and saves nothing', async () => {

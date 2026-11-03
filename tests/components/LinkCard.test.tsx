@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, cleanup, fireEvent } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, act } from '@testing-library/react'
 import LinkCard from '@/app/dashboard/link/LinkCard'
 import type { LinkWithTags } from '@/lib/services/links'
 
@@ -49,11 +49,6 @@ describe('LinkCard last-opened marker', () => {
     expect(screen.queryByTestId('last-opened-pulse')).toBeNull()
   })
 
-  it('hides the marker in selection mode', () => {
-    renderCard({ isLastOpened: true, pulse: true, isSelectionMode: true })
-
-    expect(screen.queryByText('Last opened')).toBeNull()
-  })
 })
 
 describe('LinkCard edit shortcut', () => {
@@ -68,12 +63,9 @@ describe('LinkCard edit shortcut', () => {
     expect(onMenuOpen).not.toHaveBeenCalled()
   })
 
-  it('hides the edit button when no handler is given or in selection mode', () => {
+  it('hides the edit button when no handler is given', () => {
     renderCard()
     expect(screen.queryByRole('button', { name: 'Edit link' })).toBeNull()
-    cleanup()
-
-    renderCard({ onEdit: vi.fn(), isSelectionMode: true })
     expect(screen.queryByRole('button', { name: 'Edit link' })).toBeNull()
   })
 })
@@ -110,11 +102,7 @@ describe('LinkCard delete button', () => {
     expect(onDelete).not.toHaveBeenCalled()
   })
 
-  it('is not rendered in selection mode or without onDelete', () => {
-    renderCard({ onDelete: vi.fn(), isSelectionMode: true })
-    expect(screen.queryByRole('button', { name: 'Delete link' })).toBeNull()
-    cleanup()
-
+  it('is not rendered without onDelete', () => {
     renderCard()
     expect(screen.queryByRole('button', { name: 'Delete link' })).toBeNull()
   })
@@ -179,13 +167,26 @@ describe('LinkCard send to end', () => {
     expect(names.indexOf('Link options')).toBe(names.indexOf('Send to end') + 1)
   })
 
-  it('is hidden in selection mode', () => {
-    renderCard({ onSendToEnd: vi.fn(), isSelectionMode: true })
-    expect(screen.queryByRole('button', { name: 'Send to end' })).toBeNull()
-  })
-
   it('is not rendered without onSendToEnd', () => {
     renderCard()
     expect(screen.queryByRole('button', { name: 'Send to end' })).toBeNull()
+  })
+})
+
+describe('LinkCard long press', () => {
+  afterEach(() => vi.useRealTimers())
+
+  it('a 600 ms pointer hold does not change the card, and its title link stays rendered', () => {
+    vi.useFakeTimers()
+    renderCard()
+    const article = screen.getByRole('article')
+    const before = article.innerHTML
+
+    fireEvent.pointerDown(article)
+    act(() => { vi.advanceTimersByTime(600) })
+    fireEvent.pointerUp(article)
+
+    expect(article.innerHTML).toBe(before)
+    expect(screen.getByRole('link', { name: LINK.title! })).toBeTruthy()
   })
 })

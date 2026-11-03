@@ -12,7 +12,6 @@ export default function LinkGrid() {
     hasMore, loadingMore, loadMore, refreshKey,
     setActiveLink, setEditingLink, handleFavoriteToggle, handleLinkOpen, handleSendToEnd, lastOpenedId, handleDeleteById, resetFilters,
     imageStateById, handleImageError,
-    isSelectionMode, isSelected, toggleSelected, enterSelectionMode,
   } = useLinkListContext()
   const { categories } = useCategoryList(refreshKey)
   const sentinelRef = useInfiniteScrollSentinel(loadMore, hasMore && !loading && !loadingMore)
@@ -84,10 +83,6 @@ export default function LinkGrid() {
             imageState={imageStateById[link.id]}
             onImageError={() => handleImageError(link.id)}
             onDelete={() => handleDeleteById(link.id)}
-            isSelectionMode={isSelectionMode}
-            isSelected={isSelected(link.id)}
-            onSelect={toggleSelected}
-            onLongPress={(id) => { enterSelectionMode(); toggleSelected(id) }}
           />
         ))}
         {loadingMore && Array.from({ length: 3 }).map((_, i) => (

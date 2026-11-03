@@ -63,7 +63,7 @@ The database is **never** asked to search encrypted content — that's structura
 2. **Text matching (in the browser, on decrypted content).** The candidate rows' ciphertext is fetched and decrypted client-side, and only then is your search text checked against the decrypted `title`/`url`/`site_name`/`notes`/tag names — a simple case-insensitive substring check (`.toLowerCase().includes(...)`), functionally identical to the `ilike '%q%'` this app used before encryption.
 
 **Worked example:** a link with `url = "https://youtube.com/abc"`, `title = "My Cool Video"`. You search `"ab"`, with no other filters active, out of 5,000 total links:
-- Step 1 returns up to 2,000 candidate ids (the existing `SELECT_ALL_MATCHING_CAP`, reused from the "select all matching" bulk-action feature) — cheap, regardless of table size.
+- Step 1 returns up to 2,000 candidate ids (`MATCHING_LINK_IDS_CAP`) — cheap, regardless of table size.
 - Step 2 decrypts those 2,000 rows (sub-second, WebCrypto is hardware-accelerated) and checks `"ab"` against each one's title/url/site_name/notes/tags. `"my cool video"` doesn't contain `"ab"`, but `/abc` does — so `url` is included in the searched fields precisely so this case is caught.
 
 **Crucially, a search is never limited to only the ~40 links currently on screen.** Typing a search term always triggers step 1 fresh (up to the cap), decrypts the full candidate set, and only then applies the 40-at-a-time display chunking to whichever rows actually matched.

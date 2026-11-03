@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 
-// Per-hook behavior is covered by useLinkListQuery/useLinkMutations/useLinkBulkMutations
+// Per-hook behavior is covered by useLinkListQuery/useLinkMutations
 // tests. Unlike categories/tags, useLinks has no open/close form coordination to test here --
-// its three concerns instead share one piece of state (rawLinks/setRawLinks, owned by
+// its concerns instead share one piece of state (rawLinks/setRawLinks, owned by
 // useLinkListQuery and threaded into the mutation hooks). This file only covers that wiring:
 // behavior that's only observable once the hooks are composed together.
 
@@ -55,10 +55,6 @@ vi.mock('@/lib/services/links', () => ({
   updateLinkImage: vi.fn().mockResolvedValue(true),
   updateLinkStatus: vi.fn().mockResolvedValue(true),
   deleteLink: vi.fn(),
-  bulkUpdateStatus: vi.fn(),
-  bulkSoftDelete: vi.fn(),
-  bulkUpdateCategory: vi.fn(),
-  bulkAddTags: vi.fn(),
 }))
 
 vi.mock('@/lib/services/tags/tags', () => ({
@@ -80,18 +76,16 @@ vi.mock('@/lib/context/VaultContext', () => ({
   useVault: () => ({ dek: FAKE_DEK, isUnlocked: true, unlock: vi.fn(), changePassword: vi.fn(), lock: vi.fn() }),
 }))
 
-import { getLinksPage, bulkUpdateStatus } from '@/lib/services/links'
+import { getLinksPage } from '@/lib/services/links'
 import { getPrivateTagIds } from '@/lib/services/tags/tags'
 const mockGetLinksPage = vi.mocked(getLinksPage)
 const mockGetPrivateTagIds = vi.mocked(getPrivateTagIds)
-const mockBulkUpdateStatus = vi.mocked(bulkUpdateStatus)
 
 beforeEach(() => {
   vi.clearAllMocks()
   mockAddToast.mockReturnValue('toast-id')
   mockGetLinksPage.mockResolvedValue({ links: [LINK_A, LINK_B], totalCount: 2, unreadCount: 0 })
   mockGetPrivateTagIds.mockResolvedValue([])
-  mockBulkUpdateStatus.mockResolvedValue(true)
   mockUseUnlockedTags.mockReturnValue({ unlockedTagIds: new Set(), unlockTag: vi.fn(), lockTag: vi.fn(), lockAll: vi.fn() })
 })
 
@@ -122,15 +116,6 @@ describe('useLinks composed wiring', () => {
 
     act(() => result.current.handleDelete('99'))
     expect(result.current.links.find(l => l.id === '99')).toBeUndefined()
-  })
-
-  it('handleBulkStatusChange writes through to the composed links output', async () => {
-    const { result } = await renderLoaded()
-
-    await act(async () => { await result.current.handleBulkStatusChange(['1', '2'], 'archived') })
-
-    expect(result.current.links.find(l => l.id === '1')?.status).toBe('archived')
-    expect(result.current.links.find(l => l.id === '2')?.status).toBe('archived')
   })
 
   it('privacy filtering re-applies to a link added via handleCreate with a locked private tag', async () => {

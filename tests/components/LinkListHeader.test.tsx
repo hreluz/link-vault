@@ -18,10 +18,6 @@ function setContext(overrides: Record<string, unknown> = {}) {
     unreadCount: 2,
     selectedStatuses: [],
     setModalOpen: vi.fn(),
-    isSelectionMode: false,
-    selectedCount: 0,
-    enterSelectionMode: vi.fn(),
-    exitSelectionMode: vi.fn(),
     favoritesOnly: false,
     refreshing: false,
     handleRefresh,
@@ -79,10 +75,10 @@ describe('LinkListHeader refresh button', () => {
     expect(handleRefresh).toHaveBeenCalledOnce()
   })
 
-  it('sits left of the Select button', () => {
+  it('sits directly left of the Add link button', () => {
     render(<LinkListHeader />)
     const buttons = screen.getAllByRole('button').map(b => b.getAttribute('aria-label') ?? b.textContent)
-    expect(buttons.indexOf('Refresh links')).toBe(buttons.indexOf('Select links') - 1)
+    expect(buttons.indexOf('Refresh links')).toBe(buttons.indexOf('Add link') - 1)
   })
 
   it('is disabled with aria-busy="true" and a spinning icon while refreshing', () => {
@@ -96,14 +92,6 @@ describe('LinkListHeader refresh button', () => {
 
     fireEvent.click(button)
     expect(handleRefresh).not.toHaveBeenCalled()
-  })
-
-  it('is absent in selection mode', () => {
-    setContext({ isSelectionMode: true, selectedCount: 2 })
-    render(<LinkListHeader />)
-
-    expect(screen.getByText('2 selected')).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Refresh links' })).toBeNull()
   })
 })
 
@@ -150,15 +138,14 @@ describe('LinkListHeader undo button', () => {
     fireEvent.click(button)
     expect(handleUndoMove).not.toHaveBeenCalled()
   })
-
-  it('is absent in selection mode', () => {
-    setContext({ lastMovedLink: moved, isSelectionMode: true, selectedCount: 1 })
-    render(<LinkListHeader />)
-    expect(screen.queryByRole('button', { name: 'Undo last move' })).toBeNull()
-  })
 })
 
 describe('LinkListHeader Add button', () => {
+  it('renders no Select links button', () => {
+    render(<LinkListHeader />)
+    expect(screen.queryByRole('button', { name: 'Select links' })).toBeNull()
+  })
+
   it('shows only + while keeping the Add link name and tooltip', () => {
     render(<LinkListHeader />)
     const button = screen.getByRole('button', { name: 'Add link' })
