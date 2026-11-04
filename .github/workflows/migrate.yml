@@ -16,7 +16,9 @@ jobs:
 
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Pinned to match local dev. v3 dropped the [inbucket] config section
+          # (renamed [local_smtp]); bump this together with supabase/config.toml.
+          version: 2.119.0
 
       - name: Link project
         run: supabase link --project-ref cuhuufzorwxlzyywqwwi
