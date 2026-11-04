@@ -1,6 +1,6 @@
 # SPEC 29 — Admin setting for the slow-fetch hint
 
-> **Status:** Draft
+> **Status:** Approved
 > **Depends on:** SPEC 08, SPEC 11
 > **Date:** 2026-11-02
 > **Objective:** The admin can set how long an import fetch runs before `Fetching <host>…` becomes `Still waiting on <host>…`, from 5 to 60 s, with a default of 10 s.

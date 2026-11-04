@@ -15,6 +15,7 @@ const FIELDS: { key: Field; label: string; unit: string; hint: string }[] = [
   { key: 'fetchGapSeconds', label: 'Same-host gap', unit: 'seconds', hint: 'Wait between fetches to the same site. 0 turns it off.' },
   { key: 'retryWaitSeconds', label: 'Retry wait', unit: 'seconds', hint: 'How long "Wait and retry" waits when a site looks blocked.' },
   { key: 'emptyStreakLimit', label: 'Empty-fetch limit', unit: 'fetches', hint: 'Empty fetches in a row from one site before the import pauses.' },
+  { key: 'slowHintSeconds', label: 'Slow-fetch hint', unit: 'seconds', hint: 'How long a fetch runs before the import shows "Still waiting on <site>…".' },
 ]
 
 const INPUT_CLASS =
@@ -24,9 +25,10 @@ const toDraft = (settings: ImportFetchSettings): Record<Field, string> => ({
   fetchGapSeconds: String(settings.fetchGapSeconds),
   retryWaitSeconds: String(settings.retryWaitSeconds),
   emptyStreakLimit: String(settings.emptyStreakLimit),
+  slowHintSeconds: String(settings.slowHintSeconds),
 })
 
-/** Admin card for the import auto-fetch guard (SPEC 08): three values saved together. */
+/** Admin card for the import auto-fetch guard (SPEC 08) and the slow-fetch hint (SPEC 29): all values saved together. */
 export default function ImportFetchSettingsCard({ initialSettings }: { initialSettings: ImportFetchSettings }) {
   const [draft, setDraft] = useState(() => toDraft(initialSettings))
   const [error, setError] = useState<string | null>(null)
@@ -39,6 +41,7 @@ export default function ImportFetchSettingsCard({ initialSettings }: { initialSe
       fetchGapSeconds: draft.fetchGapSeconds.trim() === '' ? NaN : Number(draft.fetchGapSeconds),
       retryWaitSeconds: draft.retryWaitSeconds.trim() === '' ? NaN : Number(draft.retryWaitSeconds),
       emptyStreakLimit: draft.emptyStreakLimit.trim() === '' ? NaN : Number(draft.emptyStreakLimit),
+      slowHintSeconds: draft.slowHintSeconds.trim() === '' ? NaN : Number(draft.slowHintSeconds),
     }
     const invalid = validateImportFetchSettings(settings)
     if (invalid) {

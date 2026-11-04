@@ -85,7 +85,7 @@ beforeEach(() => {
   mockImportLinks.mockResolvedValue({ imported: 2, skipped: 0, duplicates: 0 })
   mockGetOrCreateCategoryByName.mockResolvedValue('cat-resolved')
   mockGetCategoryIdByDomainMap.mockResolvedValue(new Map())
-  mockGetImportFetchSettings.mockResolvedValue({ fetchGapSeconds: 2, retryWaitSeconds: 60, emptyStreakLimit: 3 })
+  mockGetImportFetchSettings.mockResolvedValue({ fetchGapSeconds: 2, retryWaitSeconds: 60, emptyStreakLimit: 3, slowHintSeconds: 10 })
   mockImportVaultExport.mockResolvedValue({
     imported: 2, skipped: 0, duplicates: 0, categoriesCreated: 0, domainsCreated: 0, tagsCreated: 0,
   })
@@ -1380,11 +1380,12 @@ describe('useLinkImport', () => {
     })
 
     it("waitAndRetry uses the admin's retry wait snapshotted at import start", async () => {
-      mockGetImportFetchSettings.mockResolvedValue({ fetchGapSeconds: 2, retryWaitSeconds: 30, emptyStreakLimit: 3 })
+      mockGetImportFetchSettings.mockResolvedValue({ fetchGapSeconds: 2, retryWaitSeconds: 30, emptyStreakLimit: 3, slowHintSeconds: 10 })
       const { result, getDecision, finish } = await startBlockedImport()
       expect(result.current.retryWaitMs).toBe(30_000)
+      expect(result.current.slowHintMs).toBe(10_000)
       // A later admin change must not reach the running import.
-      mockGetImportFetchSettings.mockResolvedValue({ fetchGapSeconds: 2, retryWaitSeconds: 90, emptyStreakLimit: 3 })
+      mockGetImportFetchSettings.mockResolvedValue({ fetchGapSeconds: 2, retryWaitSeconds: 90, emptyStreakLimit: 3, slowHintSeconds: 60 })
       vi.useFakeTimers()
       const start = Date.now()
 
@@ -1394,6 +1395,7 @@ describe('useLinkImport', () => {
       expect(getDecision()).toBeNull()
       await act(async () => { await vi.advanceTimersByTimeAsync(1) })
       expect(getDecision()).toBe('retry')
+      expect(result.current.slowHintMs).toBe(10_000)
 
       vi.useRealTimers()
       await finish()
@@ -1645,7 +1647,7 @@ describe('useLinkImport', () => {
 
   describe('admin fetch settings', () => {
     it('passes the snapshotted gap and empty-streak limit to importLinks', async () => {
-      mockGetImportFetchSettings.mockResolvedValue({ fetchGapSeconds: 5, retryWaitSeconds: 60, emptyStreakLimit: 1 })
+      mockGetImportFetchSettings.mockResolvedValue({ fetchGapSeconds: 5, retryWaitSeconds: 60, emptyStreakLimit: 1, slowHintSeconds: 10 })
       const { result } = await renderWithDefaultCategory()
       act(() => result.current.setAutoFetchOnImport(true))
       act(() => result.current.setUrlsText('https://example.com'))
@@ -1662,6 +1664,16 @@ describe('useLinkImport', () => {
       await act(async () => { await result.current.handleImport() })
 
       expect(mockImportLinks.mock.calls[0][3].guardConfig).toEqual({ gapMs: 2000, emptyStreakLimit: 3 })
+      expect(result.current.slowHintMs).toBe(10_000)
+    })
+
+    it('exposes the slow-fetch hint snapshotted at import start', async () => {
+      mockGetImportFetchSettings.mockResolvedValue({ fetchGapSeconds: 2, retryWaitSeconds: 60, emptyStreakLimit: 3, slowHintSeconds: 5 })
+      const { result } = await renderWithDefaultCategory()
+      act(() => result.current.setUrlsText('https://example.com'))
+      await act(async () => { await result.current.handleImport() })
+
+      expect(result.current.slowHintMs).toBe(5000)
     })
 
     it('uses the loaded gap in the pre-import estimate', async () => {
@@ -1671,7 +1683,7 @@ describe('useLinkImport', () => {
       act(() => withDefault.current.setUrlsText(urls))
       const defaultMs = withDefault.current.importEstimate!.ms
 
-      mockGetImportFetchSettings.mockResolvedValue({ fetchGapSeconds: 10, retryWaitSeconds: 60, emptyStreakLimit: 3 })
+      mockGetImportFetchSettings.mockResolvedValue({ fetchGapSeconds: 10, retryWaitSeconds: 60, emptyStreakLimit: 3, slowHintSeconds: 10 })
       const { result } = await renderWithDefaultCategory()
       await waitFor(() => expect(mockGetImportFetchSettings).toHaveBeenCalledTimes(2))
       act(() => result.current.setAutoFetchOnImport(true))

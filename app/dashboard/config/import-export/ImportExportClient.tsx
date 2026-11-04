@@ -51,7 +51,7 @@ export default function ImportExportClient() {
     importEstimate, importEtaMs,
     importModalState, importStats, lastImportedAt, importError, importRun, closeImportModal,
     cancelling, notProcessed, cancelImport,
-    hostBlock, waitAndRetry, skipBlockedHost, leaveImport, retryWaitMs, emptyStreakLimit, throttleWait, fetching,
+    hostBlock, waitAndRetry, skipBlockedHost, leaveImport, retryWaitMs, emptyStreakLimit, slowHintMs, throttleWait, fetching,
     fileInputRef,
     hasImportContent,
     handleDragOver, handleDragLeave, handleDrop, handleFileChange,
@@ -397,6 +397,7 @@ export default function ImportExportClient() {
         onBlockLeave={leaveImport}
         retryWaitMs={retryWaitMs}
         emptyStreakLimit={emptyStreakLimit}
+        slowHintMs={slowHintMs}
       />
     </main>
   )

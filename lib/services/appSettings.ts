@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/types/database'
+import { SLOW_FETCH_HINT_MS } from '@/lib/services/importExport/fetchGuard'
 
 export type AppSettingsResult =
   | { success: true }
@@ -82,25 +83,31 @@ export type ImportFetchSettings = {
   retryWaitSeconds: number
   /** Consecutive empty fetches from one host group that pause the import. */
   emptyStreakLimit: number
+  /** Seconds a fetch runs before the progress modal reads "Still waiting on <host>…" (SPEC 29). */
+  slowHintSeconds: number
 }
 
 export const DEFAULT_IMPORT_FETCH_SETTINGS: ImportFetchSettings = {
   fetchGapSeconds: 2,
   retryWaitSeconds: 60,
   emptyStreakLimit: 3,
+  slowHintSeconds: SLOW_FETCH_HINT_MS / 1000,
 }
 
-/** Inclusive [min, max] per field; mirrored by the `check` constraints in 0018_import_fetch_settings.sql. */
+/** Inclusive [min, max] per field; mirrored by the `check` constraints in 0018_import_fetch_settings.sql
+ *  and 0023_import_slow_hint_setting.sql. */
 export const IMPORT_FETCH_LIMITS = {
   fetchGapSeconds: [0, 30],
   retryWaitSeconds: [10, 600],
   emptyStreakLimit: [1, 10],
+  slowHintSeconds: [5, 60],
 } as const satisfies Record<keyof ImportFetchSettings, readonly [number, number]>
 
 const IMPORT_FETCH_LABELS: Record<keyof ImportFetchSettings, string> = {
   fetchGapSeconds: 'Same-host gap',
   retryWaitSeconds: 'Retry wait',
   emptyStreakLimit: 'Empty-fetch limit',
+  slowHintSeconds: 'Slow-fetch hint',
 }
 
 /** `null` when every field is a whole number within its range; otherwise the first problem. */
@@ -121,7 +128,7 @@ export async function getImportFetchSettings(
 ): Promise<ImportFetchSettings> {
   const { data, error } = await supabase
     .from('app_settings')
-    .select('import_fetch_gap_seconds, import_retry_wait_seconds, import_empty_streak_limit')
+    .select('import_fetch_gap_seconds, import_retry_wait_seconds, import_empty_streak_limit, import_slow_hint_seconds')
     .limit(1)
     .maybeSingle()
 
@@ -130,6 +137,7 @@ export async function getImportFetchSettings(
     fetchGapSeconds: data.import_fetch_gap_seconds ?? DEFAULT_IMPORT_FETCH_SETTINGS.fetchGapSeconds,
     retryWaitSeconds: data.import_retry_wait_seconds ?? DEFAULT_IMPORT_FETCH_SETTINGS.retryWaitSeconds,
     emptyStreakLimit: data.import_empty_streak_limit ?? DEFAULT_IMPORT_FETCH_SETTINGS.emptyStreakLimit,
+    slowHintSeconds: data.import_slow_hint_seconds ?? DEFAULT_IMPORT_FETCH_SETTINGS.slowHintSeconds,
   }
 }
 
@@ -154,6 +162,7 @@ export async function setImportFetchSettings(
       import_fetch_gap_seconds: settings.fetchGapSeconds,
       import_retry_wait_seconds: settings.retryWaitSeconds,
       import_empty_streak_limit: settings.emptyStreakLimit,
+      import_slow_hint_seconds: settings.slowHintSeconds,
       updated_at: new Date().toISOString(),
     })
     .eq('id', existing.id)
