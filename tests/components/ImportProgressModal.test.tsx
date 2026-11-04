@@ -511,6 +511,25 @@ describe('ImportProgressModal', () => {
       expect(screen.queryByText('Fetching youtube.com…')).toBeNull()
     })
 
+    it('uses the run threshold: with slowHintMs 5000 it switches at 5 s, not before', () => {
+      renderModal({ run: LINKS_META_RUN, fetching: { host: 'youtube.com', startedAt: Date.now() }, slowHintMs: 5000 })
+
+      act(() => { vi.advanceTimersByTime(4000) })
+      expect(screen.getByText('Fetching youtube.com…')).toBeTruthy()
+      expect(screen.queryByText('Still waiting on youtube.com…')).toBeNull()
+
+      act(() => { vi.advanceTimersByTime(1000) })
+      expect(screen.getByText('Still waiting on youtube.com…')).toBeTruthy()
+      expect(screen.queryByText('Fetching youtube.com…')).toBeNull()
+    })
+
+    it('waits the full threshold with a larger slowHintMs', () => {
+      renderModal({ run: LINKS_META_RUN, fetching: { host: 'youtube.com', startedAt: Date.now() }, slowHintMs: 60_000 })
+
+      act(() => { vi.advanceTimersByTime(30_000) })
+      expect(screen.getByText('Fetching youtube.com…')).toBeTruthy()
+    })
+
     it('is hidden while a host block pauses the import', () => {
       renderModal({
         run: LINKS_META_RUN,

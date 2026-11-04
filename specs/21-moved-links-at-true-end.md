@@ -1,6 +1,6 @@
 # SPEC 21 — Keep moved links at the true end of the list, not the end of page 1
 
-> **Status:** Approved
+> **Status:** Implemented
 > **Depends on:** SPEC 15, SPEC 16, SPEC 19
 > **Date:** 2026-10-29
 > **Objective:** While more pages are left to load, a moved card (`moved_to_end_at` set) is held back from the dashboard list, and it reappears at the very end, oldest move first, once the last page has loaded, so scrolling shows new links instead of ones already opened.

@@ -1,6 +1,6 @@
 # SPEC 01 — Tags input visible in the collapsed Add Link form
 
-> **Status:** Approved
+> **Status:** Implemented
 > **Depends on:** —
 > **Date:** 2026-10-15
 > **Objective:** Show the Tags input right after the URL in both the Add and Edit Link forms, so the Add form no longer hides it behind "More options".

@@ -14,7 +14,7 @@ vi.mock('@/lib/services/appSettings', async importOriginal => ({
   setImportFetchSettings: mockSetImportFetchSettings,
 }))
 
-const SETTINGS = { fetchGapSeconds: 5, retryWaitSeconds: 30, emptyStreakLimit: 2 }
+const SETTINGS = { fetchGapSeconds: 5, retryWaitSeconds: 30, emptyStreakLimit: 2, slowHintSeconds: 20 }
 
 beforeEach(() => {
   vi.clearAllMocks()

@@ -186,10 +186,24 @@ describe('setRestartAccountEnabled', () => {
 describe('getImportFetchSettings', () => {
   it('maps the columns', async () => {
     const { client } = makeClient({
+      data: { import_fetch_gap_seconds: 5, import_retry_wait_seconds: 30, import_empty_streak_limit: 2, import_slow_hint_seconds: 20 },
+      error: null,
+    })
+    expect(await getImportFetchSettings(client)).toEqual({
+      fetchGapSeconds: 5, retryWaitSeconds: 30, emptyStreakLimit: 2, slowHintSeconds: 20,
+    })
+  })
+
+  it('uses the 10 s default slow-fetch hint when the column is missing from the row', async () => {
+    const { client } = makeClient({
       data: { import_fetch_gap_seconds: 5, import_retry_wait_seconds: 30, import_empty_streak_limit: 2 },
       error: null,
     })
-    expect(await getImportFetchSettings(client)).toEqual({ fetchGapSeconds: 5, retryWaitSeconds: 30, emptyStreakLimit: 2 })
+    expect((await getImportFetchSettings(client)).slowHintSeconds).toBe(10)
+  })
+
+  it('defaults the slow-fetch hint to 10 s', () => {
+    expect(DEFAULT_IMPORT_FETCH_SETTINGS.slowHintSeconds).toBe(10)
   })
 
   it('returns the defaults on DB error', async () => {
@@ -208,8 +222,8 @@ describe('validateImportFetchSettings', () => {
 
   it('accepts the defaults and the range boundaries', () => {
     expect(validateImportFetchSettings(valid)).toBeNull()
-    expect(validateImportFetchSettings({ fetchGapSeconds: 0, retryWaitSeconds: 10, emptyStreakLimit: 1 })).toBeNull()
-    expect(validateImportFetchSettings({ fetchGapSeconds: 30, retryWaitSeconds: 600, emptyStreakLimit: 10 })).toBeNull()
+    expect(validateImportFetchSettings({ fetchGapSeconds: 0, retryWaitSeconds: 10, emptyStreakLimit: 1, slowHintSeconds: 5 })).toBeNull()
+    expect(validateImportFetchSettings({ fetchGapSeconds: 30, retryWaitSeconds: 600, emptyStreakLimit: 10, slowHintSeconds: 60 })).toBeNull()
   })
 
   it.each([
@@ -221,22 +235,29 @@ describe('validateImportFetchSettings', () => {
     ['wait 601', { ...valid, retryWaitSeconds: 601 }, 'Retry wait'],
     ['streak 0', { ...valid, emptyStreakLimit: 0 }, 'Empty-fetch limit'],
     ['streak 11', { ...valid, emptyStreakLimit: 11 }, 'Empty-fetch limit'],
+    ['slow hint 4', { ...valid, slowHintSeconds: 4 }, 'Slow-fetch hint'],
+    ['slow hint 61', { ...valid, slowHintSeconds: 61 }, 'Slow-fetch hint'],
+    ['slow hint 7.5', { ...valid, slowHintSeconds: 7.5 }, 'Slow-fetch hint'],
+    ['slow hint NaN', { ...valid, slowHintSeconds: NaN }, 'Slow-fetch hint'],
   ])('rejects %s', (_label, settings, field) => {
     expect(validateImportFetchSettings(settings)).toMatch(field)
   })
 })
 
 describe('setImportFetchSettings', () => {
-  it('writes the three columns plus updated_at', async () => {
+  it('writes the four columns plus updated_at', async () => {
     const { client, mockUpdate, mockUpdateEq } = makeClient({ data: { id: 'row-1' }, error: null })
 
-    const result = await setImportFetchSettings(client, { fetchGapSeconds: 5, retryWaitSeconds: 30, emptyStreakLimit: 2 })
+    const result = await setImportFetchSettings(client, {
+      fetchGapSeconds: 5, retryWaitSeconds: 30, emptyStreakLimit: 2, slowHintSeconds: 20,
+    })
 
     expect(result).toEqual({ success: true })
     expect(mockUpdate).toHaveBeenCalledWith({
       import_fetch_gap_seconds: 5,
       import_retry_wait_seconds: 30,
       import_empty_streak_limit: 2,
+      import_slow_hint_seconds: 20,
       updated_at: expect.any(String),
     })
     expect(mockUpdateEq).toHaveBeenCalledWith('id', 'row-1')

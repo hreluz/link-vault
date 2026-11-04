@@ -1,6 +1,6 @@
 # SPEC 10 — Refresh button for the link list
 
-> **Status:** Approved
+> **Status:** Implemented
 > **Depends on:** —
 > **Date:** 2026-10-18
 > **Objective:** Add a ↻ button to the Links tab header that reloads links, tags and categories in place, without a page reload and without re-asking for the vault password.

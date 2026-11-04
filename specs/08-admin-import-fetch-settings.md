@@ -1,6 +1,6 @@
 # SPEC 08 — Admin-configurable import fetch guard
 
-> **Status:** Approved
+> **Status:** Implemented
 > **Depends on:** SPEC 07
 > **Date:** 2026-10-18
 > **Objective:** Let the admin edit the import auto-fetch guard's same-host gap, retry wait and empty-streak limit from Admin Settings, instead of the hardcoded 2 s / 60 s / 3.

@@ -9,13 +9,32 @@ import LinkCard from './LinkCard'
 export default function LinkGrid() {
   const {
     loading, links: results, hasActiveFilters, favoritesOnly,
-    hasMore, loadingMore, loadMore, refreshKey,
+    hasMore, loadingMore, loadMore, loadError, retryLoad, refreshKey,
     setActiveLink, setEditingLink, handleFavoriteToggle, handleLinkOpen, handleSendToEnd, lastOpenedId, handleDeleteById, resetFilters,
     imageStateById, handleImageError,
   } = useLinkListContext()
   const { categories } = useCategoryList(refreshKey)
-  const sentinelRef = useInfiniteScrollSentinel(loadMore, hasMore && !loading && !loadingMore)
+  // After a failed page the sentinel is replaced by Try again, so it stops firing until a retry.
+  const sentinelRef = useInfiniteScrollSentinel(loadMore, hasMore && !loading && !loadingMore && loadError === null)
   const pulse = useReturnPulse(lastOpenedId !== null)
+
+  // The first page failed: nothing to show, so no skeletons and no "no links" empty state.
+  if (loadError === 'load') {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
+          Couldn&apos;t load your links.
+        </p>
+        <button
+          type="button"
+          onClick={retryLoad}
+          className="mt-4 rounded-xl border border-surface-200 bg-surface-card px-4 py-2 text-sm font-medium text-surface-600 shadow-sm transition hover:bg-surface-50 hover:text-surface-900 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          Try again
+        </button>
+      </div>
+    )
+  }
 
   if (loading) {
     return (
@@ -89,7 +108,22 @@ export default function LinkGrid() {
           <div key={`loading-more-${i}`} className="h-48 animate-pulse rounded-2xl bg-surface-100" />
         ))}
       </div>
-      {hasMore && <div ref={sentinelRef} className="h-1" />}
+      {loadError === 'loadMore' ? (
+        <div className="mt-6 flex flex-col items-center gap-3 text-center sm:flex-row sm:justify-center">
+          <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
+            Couldn&apos;t load more links.
+          </p>
+          <button
+            type="button"
+            onClick={retryLoad}
+            className="rounded-xl border border-surface-200 bg-surface-card px-4 py-2 text-sm font-medium text-surface-600 shadow-sm transition hover:bg-surface-50 hover:text-surface-900 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Try again
+          </button>
+        </div>
+      ) : (
+        hasMore && <div ref={sentinelRef} className="h-1" />
+      )}
     </>
   )
 }

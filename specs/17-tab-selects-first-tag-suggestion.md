@@ -1,6 +1,6 @@
 # SPEC 17 — Tab picks the first tag suggestion
 
-> **Status:** Approved
+> **Status:** Implemented
 > **Depends on:** none
 > **Date:** 2026-10-25
 > **Objective:** In every tag chip input, pressing Tab while tag suggestions are open adds the first suggestion (or the one highlighted with the arrow keys). The first row is marked so the user can see which tag Tab will add.

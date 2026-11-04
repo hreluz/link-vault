@@ -1,6 +1,6 @@
 # SPEC 18 — Delete icon on the link card
 
-> **Status:** Approved
+> **Status:** Implemented
 > **Depends on:** none
 > **Date:** 2026-10-25
 > **Objective:** Move "Delete link" out of the ··· sheet and into a trash icon button on the link card, placed first in the card's button row, like the Edit icon.

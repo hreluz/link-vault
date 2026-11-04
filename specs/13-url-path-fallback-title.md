@@ -1,6 +1,6 @@
 # SPEC 13 — Use the URL path as the title when a link has none
 
-> **Status:** Approved
+> **Status:** Implemented
 > **Depends on:** SPEC 03, SPEC 12
 > **Date:** 2026-10-19
 > **Objective:** When a link is saved with no title of its own and none fetched, both the add/edit form and non-v2 imports save the URL's decoded path (e.g. `reel/DPwciDeD86l`) as its title, or the hostname when there is no path.

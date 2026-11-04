@@ -266,6 +266,7 @@ export interface Database {
           import_fetch_gap_seconds: number
           import_retry_wait_seconds: number
           import_empty_streak_limit: number
+          import_slow_hint_seconds: number
           created_at: string
           updated_at: string
         }
@@ -276,6 +277,7 @@ export interface Database {
           import_fetch_gap_seconds?: number
           import_retry_wait_seconds?: number
           import_empty_streak_limit?: number
+          import_slow_hint_seconds?: number
           created_at?: string
           updated_at?: string
         }
@@ -285,6 +287,7 @@ export interface Database {
           import_fetch_gap_seconds?: number
           import_retry_wait_seconds?: number
           import_empty_streak_limit?: number
+          import_slow_hint_seconds?: number
           updated_at?: string
         }
         Relationships: []

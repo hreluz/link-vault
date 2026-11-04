@@ -266,7 +266,10 @@ export async function getLinks(dek: CryptoKey): Promise<LinkWithTags[]> {
   ))
 }
 
-/** Fetches specific links by id (chunked) and decrypts them. Used by client-side search/sort. */
+/**
+ * Fetches specific links by id (chunked) and decrypts them. Used by client-side search/sort.
+ * Throws on a database error, so a failed load is never mistaken for "no results".
+ */
 export async function getLinksByIds(ids: string[], dek: CryptoKey): Promise<LinkWithTags[]> {
   if (ids.length === 0) return []
   const supabase = createClient()
@@ -274,11 +277,12 @@ export async function getLinksByIds(ids: string[], dek: CryptoKey): Promise<Link
   const rows: LinkQueryRow[] = []
   for (let i = 0; i < ids.length; i += FETCH_CHUNK_SIZE) {
     const chunk = ids.slice(i, i + FETCH_CHUNK_SIZE)
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('links')
       .select('*, link_tags(tag_id)')
       .in('id', chunk)
       .returns<LinkQueryRow[]>()
+    if (error) throw new Error(`Failed to load links: ${error.message}`)
     if (data) rows.push(...data)
   }
 
@@ -300,7 +304,10 @@ function toRpcFilterArgs(params: LinkFilterParams) {
 
 export type LinksPage = { links: LinkWithTags[]; totalCount: number; unreadCount: number }
 
-/** Structural-only pagination -- no free-text search, no alphabetical sort (impossible against ciphertext). */
+/**
+ * Structural-only pagination -- no free-text search, no alphabetical sort (impossible against ciphertext).
+ * Throws on a database error, so a failed load is never mistaken for an empty vault.
+ */
 export async function getLinksPage(
   params: LinkFilterParams,
   limit: number,
@@ -318,7 +325,8 @@ export async function getLinksPage(
     })
     .returns<Array<LinkRow & { tags: string[]; total_count: number; unread_count: number }>>()
 
-  if (error || !data) return { links: [], totalCount: 0, unreadCount: 0 }
+  if (error) throw new Error(`Failed to load links: ${error.message}`)
+  if (!data) return { links: [], totalCount: 0, unreadCount: 0 }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- destructured only to omit them from `row`
   const links = await Promise.all(data.map(({ tags, total_count, unread_count, ...row }) => toLinkWithTags(row, tags, dek)))
@@ -327,7 +335,7 @@ export async function getLinksPage(
 
 export type MatchingLinkIds = { ids: string[]; totalCount: number }
 
-/** Ids-only, matching only structural filters -- used for client-side search/sort. */
+/** Ids-only, matching only structural filters -- used for client-side search/sort. Throws on a database error. */
 export async function getMatchingLinkIds(params: LinkFilterParams): Promise<MatchingLinkIds> {
   const supabase = createClient()
 
@@ -338,7 +346,8 @@ export async function getMatchingLinkIds(params: LinkFilterParams): Promise<Matc
     })
     .returns<{ id: string; total_count: number }[]>()
 
-  if (error || !data) return { ids: [], totalCount: 0 }
+  if (error) throw new Error(`Failed to load links: ${error.message}`)
+  if (!data) return { ids: [], totalCount: 0 }
 
   return {
     ids: data.map(row => row.id),

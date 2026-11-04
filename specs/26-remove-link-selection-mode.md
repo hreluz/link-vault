@@ -1,6 +1,6 @@
 # SPEC 26 — Remove link selection mode and bulk actions
 
-> **Status:** Approved
+> **Status:** Implemented
 > **Depends on:** SPEC 25
 > **Date:** 2026-11-02
 > **Objective:** Remove the dashboard's selection mode and every bulk action, along with the code and tests that only they use, so each link card behaves one way.

@@ -12,7 +12,7 @@ const { mockSave, mockToastSuccess } = vi.hoisted(() => ({
 vi.mock('@/app/dashboard/config/admin-settings/actions', () => ({ saveImportFetchSettingsAction: mockSave }))
 vi.mock('sonner', () => ({ toast: { success: mockToastSuccess } }))
 
-const DEFAULTS = { fetchGapSeconds: 2, retryWaitSeconds: 60, emptyStreakLimit: 3 }
+const DEFAULTS = { fetchGapSeconds: 2, retryWaitSeconds: 60, emptyStreakLimit: 3, slowHintSeconds: 10 }
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -24,6 +24,7 @@ afterEach(() => cleanup())
 const gap = () => screen.getByLabelText(/Same-host gap/)
 const wait = () => screen.getByLabelText(/Retry wait/)
 const streak = () => screen.getByLabelText(/Empty-fetch limit/)
+const slowHint = () => screen.getByLabelText(/Slow-fetch hint/)
 const save = () => fireEvent.click(screen.getByRole('button', { name: 'Save' }))
 
 describe('ImportFetchSettingsCard', () => {
@@ -32,17 +33,33 @@ describe('ImportFetchSettingsCard', () => {
     expect(gap()).toHaveProperty('value', '2')
     expect(wait()).toHaveProperty('value', '60')
     expect(streak()).toHaveProperty('value', '3')
+    expect(slowHint()).toHaveProperty('value', '10')
   })
 
-  it('submits the three values and toasts on success', async () => {
+  it('labels the slow-fetch hint field with its unit and range', () => {
+    render(<ImportFetchSettingsCard initialSettings={DEFAULTS} />)
+    expect(screen.getByText('(seconds, 5–60)')).toBeTruthy()
+  })
+
+  it('submits the four values and toasts on success', async () => {
     render(<ImportFetchSettingsCard initialSettings={DEFAULTS} />)
     fireEvent.change(gap(), { target: { value: '5' } })
     fireEvent.change(wait(), { target: { value: '30' } })
     fireEvent.change(streak(), { target: { value: '2' } })
+    fireEvent.change(slowHint(), { target: { value: '20' } })
     save()
 
     await waitFor(() => expect(mockToastSuccess).toHaveBeenCalledWith('Saved'))
-    expect(mockSave).toHaveBeenCalledWith({ fetchGapSeconds: 5, retryWaitSeconds: 30, emptyStreakLimit: 2 })
+    expect(mockSave).toHaveBeenCalledWith({ fetchGapSeconds: 5, retryWaitSeconds: 30, emptyStreakLimit: 2, slowHintSeconds: 20 })
+  })
+
+  it.each(['5', '60'])('saves the slow-fetch hint boundary %s', async value => {
+    render(<ImportFetchSettingsCard initialSettings={DEFAULTS} />)
+    fireEvent.change(slowHint(), { target: { value } })
+    save()
+
+    await waitFor(() => expect(mockToastSuccess).toHaveBeenCalledWith('Saved'))
+    expect(mockSave).toHaveBeenCalledWith({ ...DEFAULTS, slowHintSeconds: Number(value) })
   })
 
   it.each([
@@ -51,6 +68,10 @@ describe('ImportFetchSettingsCard', () => {
     ['empty gap', gap, '', 'Same-host gap'],
     ['wait 601', wait, '601', 'Retry wait'],
     ['streak 0', streak, '0', 'Empty-fetch limit'],
+    ['slow hint 4', slowHint, '4', 'Slow-fetch hint'],
+    ['slow hint 61', slowHint, '61', 'Slow-fetch hint'],
+    ['slow hint 7.5', slowHint, '7.5', 'Slow-fetch hint'],
+    ['empty slow hint', slowHint, '', 'Slow-fetch hint'],
   ])('shows an inline error and does not save for %s', (_label, field, value, message) => {
     render(<ImportFetchSettingsCard initialSettings={DEFAULTS} />)
     fireEvent.change(field(), { target: { value } })

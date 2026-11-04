@@ -1,6 +1,6 @@
 # SPEC 03 — Auto-fetch link metadata on import
 
-> **Status:** Approved
+> **Status:** Implemented
 > **Depends on:** SPEC 02
 > **Date:** 2026-10-15
 > **Objective:** Add an opt-in auto-fetch ON/OFF switch to the Import section that fills in missing title, description, image and duration for each imported link using the same `fetchLinkMeta` lookup as the Add Link form.

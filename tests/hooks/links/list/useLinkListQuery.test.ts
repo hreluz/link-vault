@@ -327,6 +327,34 @@ describe('useLinkListQuery', () => {
     })
   })
 
+  describe('load errors', () => {
+    it("surfaces a failed first page as error 'load', not an empty list", async () => {
+      mockGetLinksPage.mockRejectedValueOnce(new Error('Failed to load links: offline'))
+      const { result } = await renderLoaded()
+      expect(result.current.error).toBe('load')
+      expect(result.current.links).toEqual([])
+    })
+
+    it("surfaces a failed text-search candidate load as error 'load', not 'no results'", async () => {
+      mockGetMatchingLinkIds.mockRejectedValueOnce(new Error('Failed to load links: offline'))
+      const { result } = await renderLoaded({ ...FILTER_PARAMS, textSearch: 'alpha' })
+      expect(result.current.error).toBe('load')
+    })
+
+    it('does not cache a failed alphabetical candidate load, so retry re-fetches and recovers', async () => {
+      mockGetLinksByIds.mockRejectedValueOnce(new Error('decrypt failed'))
+      const { result } = await renderLoaded({ ...FILTER_PARAMS, sortBy: 'alphabetical' })
+      expect(result.current.error).toBe('load')
+
+      act(() => result.current.retry())
+      await waitFor(() => expect(result.current.loading).toBe(false))
+
+      expect(mockGetLinksByIds).toHaveBeenCalledTimes(2)
+      expect(result.current.error).toBeNull()
+      expect(result.current.links.map(l => l.title)).toEqual(['Alpha', 'Beta'])
+    })
+  })
+
   describe('moved links last (Branch B)', () => {
     const CANDIDATES: LinkWithTags[] = [
       { ...LINK_A, id: 'm1', title: 'Apple', moved_to_end_at: '2026-02-02T00:00:00Z' },

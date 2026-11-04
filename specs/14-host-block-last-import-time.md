@@ -1,6 +1,6 @@
 # SPEC 14 — Show the last successful import time while an import runs
 
-> **Status:** Approved
+> **Status:** Implemented
 > **Depends on:** SPEC 04, SPEC 07
 > **Date:** 2026-10-23
 > **Objective:** While an import runs, the progress modal shows when the import last saved a link, as a clock time plus a live relative time — under the status line normally, and inside the host-block notice while paused.

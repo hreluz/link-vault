@@ -1,6 +1,6 @@
 # SPEC 25 — Send-to-end card button, per-user move delay, compact Add button
 
-> **Status:** Approved
+> **Status:** Implemented
 > **Depends on:** SPEC 15, SPEC 16, SPEC 21
 > **Date:** 2026-11-02
 > **Objective:** Link cards get a button that sends them to the end right away, each user can set the 30-second move delay in Link Preferences, and the list header's "+ Add link" button shows only "+".

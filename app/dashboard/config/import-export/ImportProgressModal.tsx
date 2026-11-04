@@ -116,10 +116,10 @@ function LastImportedLine({ at }: { at: number | null }) {
 }
 
 /** `Fetching <host>…` with a spinner while a link's metadata is fetched; the text becomes
- *  `Still waiting on <host>…` once the fetch passes SLOW_FETCH_HINT_MS, in place. */
-function FetchingIndicator({ fetching }: { fetching: ImportFetching }) {
+ *  `Still waiting on <host>…` once the fetch passes `slowHintMs` (the run's admin setting), in place. */
+function FetchingIndicator({ fetching, slowHintMs }: { fetching: ImportFetching; slowHintMs: number }) {
   const now = useNow(true)
-  const slow = now - fetching.startedAt >= SLOW_FETCH_HINT_MS
+  const slow = now - fetching.startedAt >= slowHintMs
   return (
     <p className="mt-0.5 break-words text-xs text-surface-400 dark:text-surface-500">
       <span
@@ -205,9 +205,10 @@ interface Props {
   onBlockWait: () => void
   onBlockSkip: () => void
   onBlockLeave: () => void
-  /** The running import's retry wait and empty-streak limit (admin settings); defaults when omitted. */
+  /** The running import's retry wait, empty-streak limit and slow-fetch hint (admin settings); defaults when omitted. */
   retryWaitMs?: number
   emptyStreakLimit?: number
+  slowHintMs?: number
 }
 
 export default function ImportProgressModal({
@@ -215,6 +216,7 @@ export default function ImportProgressModal({
   hostBlock, lastImportedAt, throttleWait = null, fetching = null, onBlockWait, onBlockSkip, onBlockLeave,
   retryWaitMs = DEFAULT_IMPORT_FETCH_SETTINGS.retryWaitSeconds * 1000,
   emptyStreakLimit = DEFAULT_IMPORT_FETCH_SETTINGS.emptyStreakLimit,
+  slowHintMs = SLOW_FETCH_HINT_MS,
 }: Props) {
   const isOpen = state !== 'closed'
   const running = state === 'running'
@@ -360,7 +362,7 @@ export default function ImportProgressModal({
               <ThrottleCountdown key={`${throttleWait.host}-${throttleWait.until}`} wait={throttleWait} />
             )}
             {running && fetching && !hostBlock && !throttleWait && (
-              <FetchingIndicator key={`${fetching.host}-${fetching.startedAt}`} fetching={fetching} />
+              <FetchingIndicator key={`${fetching.host}-${fetching.startedAt}`} fetching={fetching} slowHintMs={slowHintMs} />
             )}
           </div>
 

@@ -1,6 +1,6 @@
 # SPEC 09 — Countdown for the same-host gap during import
 
-> **Status:** Approved
+> **Status:** Implemented
 > **Depends on:** SPEC 07, SPEC 08
 > **Date:** 2026-10-18
 > **Objective:** While an import waits out the same-host gap before fetching the next link, show a ticking `Next <host> link in N s` line under the progress modal's status line.

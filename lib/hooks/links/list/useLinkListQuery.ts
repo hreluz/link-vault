@@ -135,7 +135,7 @@ export function useLinkListQuery(filterParams: LinkFilterParams, dek: CryptoKey 
   const {
     items: rawLinks, setItems: setRawLinks, fetchedItems,
     totalCount: serverTotalCount, meta, hasMore, loading, loadingMore, loadMore,
-    refresh: refreshPage, refreshing,
+    refresh: refreshPage, refreshing, error, retry,
   } = usePaginatedQuery(filterParams, fetchPage, PAGE_SIZE)
 
   // hasMore keeps using the server count, so a local delete doesn't stop pagination early.
@@ -167,6 +167,6 @@ export function useLinkListQuery(filterParams: LinkFilterParams, dek: CryptoKey 
 
   return {
     links, loadedLinks, rawLinks, setRawLinks, totalCount, unreadCount, hasMore, loading, loadingMore, loadMore, refresh, refreshing,
-    shiftServerOffset,
+    error, retry, shiftServerOffset,
   }
 }

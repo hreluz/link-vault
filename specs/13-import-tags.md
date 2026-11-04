@@ -1,6 +1,6 @@
 # SPEC 13 — Add tags to every link in an import
 
-> **Status:** Approved
+> **Status:** Implemented
 > **Depends on:** SPEC 06
 > **Date:** 2026-10-18
 > **Objective:** The import form gets an optional "Tags for imported links" chip input whose tags are added to every link saved by a non-v2 import, on top of the tags each row already has.

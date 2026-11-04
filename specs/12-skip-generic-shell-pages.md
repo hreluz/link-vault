@@ -1,6 +1,6 @@
 # SPEC 12 — Detect generic app-shell pages and skip them during import
 
-> **Status:** Approved
+> **Status:** Implemented
 > **Depends on:** SPEC 03, SPEC 04, SPEC 07
 > **Date:** 2026-10-18
 > **Objective:** `fetchLinkMeta` retries a no-og page once with a crawler user agent and flags a brand-only `<title>` page as `generic`; an import with auto-fetch ON then leaves those links out and lists them in the summary under "Skipped (generic page)".

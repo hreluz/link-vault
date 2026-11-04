@@ -535,6 +535,7 @@ export function useLinkImport() {
     fetching,
     retryWaitMs: shownFetchSettings.retryWaitSeconds * 1000,
     emptyStreakLimit: shownFetchSettings.emptyStreakLimit,
+    slowHintMs: shownFetchSettings.slowHintSeconds * 1000,
     fileInputRef,
     hasImportContent,
     handleDragOver, handleDragLeave, handleDrop, handleFileChange,

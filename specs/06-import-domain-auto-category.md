@@ -1,6 +1,6 @@
 # SPEC 06 — Auto-assign category by domain on import
 
-> **Status:** Approved
+> **Status:** Implemented
 > **Depends on:** SPEC 05
 > **Date:** 2026-10-16
 > **Objective:** When importing links (pasted URLs, pasted JSON, or a CSV/JSON upload), give every row that has no category of its own the category mapped to its domain in `category_domains`, falling back to the "Default category" selector only when no domain rule matches.
