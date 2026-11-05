@@ -1,6 +1,6 @@
 # SPEC 33 — Reset the moved-to-end order
 
-> **Status:** Draft
+> **Status:** Approved
 > **Depends on:** SPEC 15, SPEC 25
 > **Date:** 2026-11-02
 > **Objective:** A `Reset link order` action in Link Preferences clears every move-to-end mark, so all links return to their normal sort position.

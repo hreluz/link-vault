@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { saveMoveToEndDelayAction, toggleAutoFetchPreferenceAction } from './actions'
+import { resetLinkOrderAction, saveMoveToEndDelayAction, toggleAutoFetchPreferenceAction } from './actions'
 import { useAsyncToggle } from '@/lib/hooks/shared/useAsyncToggle'
 import { MOVE_TO_END_DELAY_LIMITS, validateMoveToEndDelay } from '@/lib/services/userPreferences'
 
@@ -24,6 +24,23 @@ export default function LinkPreferencesForm({
   const [delayError, setDelayError] = useState<string | null>(null)
   const [isSavingDelay, startSavingDelay] = useTransition()
   const error = delayError ?? toggleError
+  const [confirmingReset, setConfirmingReset] = useState(false)
+  const [resetError, setResetError] = useState<string | null>(null)
+  const [isResetting, startResetting] = useTransition()
+
+  function handleResetConfirm() {
+    setResetError(null)
+    startResetting(async () => {
+      const result = await resetLinkOrderAction()
+      if (!result.success) {
+        setResetError(result.error)
+        return
+      }
+      setConfirmingReset(false)
+      if (result.count === 0) toast.success('No moved links to reset')
+      else toast.success(`Reset ${result.count} ${result.count === 1 ? 'link' : 'links'}`)
+    })
+  }
 
   function handleDelaySubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -117,6 +134,54 @@ export default function LinkPreferencesForm({
             {isSavingDelay ? 'Saving…' : 'Save'}
           </button>
         </form>
+
+        <section aria-labelledby="link-order-heading" className="mt-6 border-t border-surface-200 pt-6 dark:border-surface-700">
+          <h2 id="link-order-heading" className="font-medium text-surface-900 dark:text-surface-50">Link order</h2>
+          <p className="mt-0.5 text-sm text-surface-500 dark:text-surface-400">
+            Puts every link that was moved to the end back in its normal position, Trash included. Status and favorites stay as they are.
+          </p>
+          {resetError && (
+            <p role="alert" className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
+              {resetError}
+            </p>
+          )}
+          {confirmingReset ? (
+            <div className="mt-4">
+              <p className="text-sm text-surface-700 dark:text-surface-300">
+                Reset the order of all moved links? The old order can&apos;t be restored.
+              </p>
+              <div className="mt-3 flex gap-3">
+                <button
+                  type="button"
+                  disabled={isResetting}
+                  onClick={handleResetConfirm}
+                  className="flex-1 rounded-xl bg-primary-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isResetting ? 'Resetting…' : 'Reset'}
+                </button>
+                <button
+                  type="button"
+                  disabled={isResetting}
+                  onClick={() => {
+                    setConfirmingReset(false)
+                    setResetError(null)
+                  }}
+                  className="flex-1 rounded-xl border border-surface-200 bg-surface-card px-4 py-2 text-sm font-medium text-surface-600 shadow-sm transition hover:bg-surface-50 hover:text-surface-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-300 dark:hover:bg-surface-700 dark:hover:text-surface-100"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmingReset(true)}
+              className="mt-4 w-full rounded-xl border border-surface-200 bg-surface-card px-4 py-2 text-sm font-medium text-surface-600 shadow-sm transition hover:bg-surface-50 hover:text-surface-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-300 dark:hover:bg-surface-700 dark:hover:text-surface-100"
+            >
+              Reset link order
+            </button>
+          )}
+        </section>
       </div>
     </main>
   )

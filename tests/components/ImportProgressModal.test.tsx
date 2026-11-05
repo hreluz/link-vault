@@ -809,3 +809,116 @@ describe('ImportProgressModal undo', () => {
     expect(undo.onRetry).not.toHaveBeenCalled()
   })
 })
+
+describe('ImportProgressModal retry failed (SPEC 32)', () => {
+  const SAVE_FAILED_STATS: ImportStats = {
+    imported: 3, duplicates: 0, failed: 2, metaMissing: 0,
+    failures: [{ url: 'https://b.com', reason: 'save_error' }, { url: 'https://c.com', reason: 'save_error' }],
+    genericSkipped: [],
+  }
+  const IDLE_UNDO = {
+    linkCount: 3, favoriteCount: 0, state: { phase: 'idle' as const },
+    onRequest: vi.fn(), onCancel: vi.fn(), onConfirm: vi.fn(), onRetry: vi.fn(), onRetryCleanup: vi.fn(),
+  }
+
+  it.each(['finished', 'cancelled'] as const)('offers "Retry N failed" in the %s view', state => {
+    const onRetry = vi.fn()
+    renderModal({ state, stats: SAVE_FAILED_STATS, retryCount: 2, onRetry })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry 2 failed' }))
+
+    expect(onRetry).toHaveBeenCalled()
+  })
+
+  it('makes Done secondary while the retry button is shown', () => {
+    renderModal({ state: 'finished', stats: SAVE_FAILED_STATS, retryCount: 2, onRetry: vi.fn() })
+    expect(screen.getByRole('button', { name: 'Done' }).className).not.toContain('bg-primary-600')
+    expect(screen.getByRole('button', { name: 'Retry 2 failed' }).className).toContain('bg-primary-600')
+  })
+
+  it('shows no retry when nothing is retryable', () => {
+    renderModal({ state: 'finished', stats: SAVE_FAILED_STATS, retryCount: 0, onRetry: vi.fn() })
+    expect(screen.queryByRole('button', { name: /^Retry/ })).toBeNull()
+  })
+
+  it.each(['running', 'error'] as const)('shows no retry in the %s view', state => {
+    renderModal({ state, stats: SAVE_FAILED_STATS, retryCount: 2, onRetry: vi.fn() })
+    expect(screen.queryByRole('button', { name: 'Retry 2 failed' })).toBeNull()
+  })
+
+  it('shows no retry for a v2 restore', () => {
+    renderModal({ state: 'finished', run: { isVault: true, withMetadata: false }, stats: SAVE_FAILED_STATS, retryCount: 2, onRetry: vi.fn() })
+    expect(screen.queryByRole('button', { name: 'Retry 2 failed' })).toBeNull()
+  })
+
+  it('shows retry next to an idle undo, and hides it once the undo starts', () => {
+    const { rerender, props } = renderModal({
+      state: 'finished', stats: SAVE_FAILED_STATS, retryCount: 2, onRetry: vi.fn(), undo: IDLE_UNDO,
+    })
+    expect(screen.getByRole('button', { name: 'Retry 2 failed' })).toBeTruthy()
+
+    for (const phase of ['confirming', 'deleting'] as const) {
+      rerender(<ImportProgressModal {...props} undo={{ ...IDLE_UNDO, state: { phase } }} />)
+      expect(screen.queryByRole('button', { name: 'Retry 2 failed' })).toBeNull()
+    }
+    rerender(<ImportProgressModal {...props} undo={{ ...IDLE_UNDO, state: { phase: 'done', deleted: 3, tags: 0, categories: 0 } }} />)
+    expect(screen.queryByRole('button', { name: 'Retry 2 failed' })).toBeNull()
+  })
+
+  it('reads "Retrying N failed links…" while a retry runs', () => {
+    renderModal({ state: 'running', run: { isVault: false, withMetadata: false, retryCount: 2 }, progress: { phase: 'links', done: 0, total: 2 } })
+    expect(screen.getByText('Retrying 2 failed links…')).toBeTruthy()
+  })
+
+  it('reads "Retrying 1 failed link…" for a single row', () => {
+    renderModal({ state: 'running', run: { isVault: false, withMetadata: false, retryCount: 1 }, progress: { phase: 'links', done: 0, total: 1 } })
+    expect(screen.getByText('Retrying 1 failed link…')).toBeTruthy()
+  })
+
+  describe('carried lists', () => {
+    const CARRIED = {
+      failures: [{ url: 'not-a-url', reason: 'invalid_url' as const }],
+      genericSkipped: ['https://g.com'],
+      notProcessed: ['https://z.com'],
+    }
+    const RETRY_STATS: ImportStats = {
+      imported: 1, duplicates: 0, failed: 1, metaMissing: 0,
+      failures: [{ url: 'https://b.com', reason: 'save_error' }], genericSkipped: [],
+    }
+
+    it('lists earlier invalid URLs and generic skips with the retry results, without counting them', () => {
+      renderModal({ state: 'finished', run: { isVault: false, withMetadata: true, retryCount: 2 }, stats: RETRY_STATS, carried: CARRIED })
+
+      expect(screen.getByText('not-a-url')).toBeTruthy()
+      expect(screen.getByText('https://b.com')).toBeTruthy()
+      expect(screen.getByText('https://g.com')).toBeTruthy()
+      expect(screen.getByText('2 links processed')).toBeTruthy()
+    })
+
+    it('copies carried and current URLs together', async () => {
+      renderModal({ state: 'finished', stats: RETRY_STATS, carried: CARRIED })
+
+      fireEvent.click(screen.getByRole('button', { name: 'Copy failed URLs' }))
+      await waitFor(() => expect(writeText).toHaveBeenCalledWith('not-a-url\nhttps://b.com'))
+
+      fireEvent.click(screen.getByRole('button', { name: 'Copy skipped URLs' }))
+      await waitFor(() => expect(writeText).toHaveBeenCalledWith('https://g.com'))
+    })
+
+    it("offers the original run's unprocessed URLs after a finished retry", async () => {
+      renderModal({ state: 'finished', stats: RETRY_STATS, carried: CARRIED })
+
+      fireEvent.click(screen.getByRole('button', { name: 'Copy unprocessed URLs' }))
+
+      await waitFor(() => expect(writeText).toHaveBeenCalledWith('https://z.com'))
+    })
+
+    it("adds a cancelled retry's own unprocessed URLs after the carried ones", async () => {
+      renderModal({ state: 'cancelled', stats: RETRY_STATS, carried: CARRIED, notProcessed: ['https://c.com'] })
+
+      fireEvent.click(screen.getByRole('button', { name: 'Copy unprocessed URLs' }))
+
+      await waitFor(() => expect(writeText).toHaveBeenCalledWith('https://z.com\nhttps://c.com'))
+    })
+  })
+})

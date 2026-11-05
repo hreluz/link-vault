@@ -402,6 +402,11 @@ export type ImportLinkInput = {
   updated_at?: string
   tags?: string[]
   category_id?: string | null
+  /** Set on rows handed back in `retryable`: metadata was already tried, so a retry doesn't
+   *  fetch again. Only honored with `retry: true`, so a file can't set it. */
+  metaTried?: boolean
+  /** Set with `metaTried` when that attempt left the row without metadata, so a retry still counts it. */
+  metaMissing?: boolean
 }
 
 export type ImportResult = {
@@ -419,6 +424,9 @@ export type ImportResult = {
   /** URLs left out because the site returned a generic page, in input order.
    *  Only set when a fetcher was supplied. */
   genericSkipped?: string[]
+  /** Rows that failed with save_error, as they stood just before the insert, in input order.
+   *  With `retry: true`, rows left unprocessed by a cancel are added too. */
+  retryable: ImportLinkInput[]
 }
 
 export type ImportFailureReason = 'invalid_url' | 'save_error'
@@ -473,6 +481,9 @@ export type ImportLinksOptions = {
   titleFromUrl?: boolean
   /** Called once for each tag or category this run creates (not for existing matches). */
   onCreate?: (kind: 'tag' | 'category', id: string) => void
+  /** Set when re-running rows from a previous `retryable`: `metaTried` rows skip the fetch,
+   *  and rows left unprocessed by a cancel go back into `retryable`. */
+  retry?: boolean
 }
 
 const isEmpty = (value: string | null | undefined) => value == null || value === ''
@@ -560,7 +571,7 @@ export async function importLinks(
   dek: CryptoKey,
   options: ImportLinksOptions = {},
 ): Promise<ImportResult> {
-  const { onProgress, fetchMeta, signal, guardConfig, titleFromUrl: fillTitleFromUrl, onCreate } = options
+  const { onProgress, fetchMeta, signal, guardConfig, titleFromUrl: fillTitleFromUrl, onCreate, retry } = options
   const onTagCreate = onCreate && ((id: string) => onCreate('tag', id))
   const guard = fetchMeta ? createFetchGuard({ config: guardConfig }) : null
   const supabase = createClient()
@@ -570,6 +581,7 @@ export async function importLinks(
       imported: 0, skipped: inputs.length, duplicates: 0,
       failures: inputs.map(input => ({ url: input.url, reason: 'save_error' as const })),
       cancelled: false, notProcessed: [],
+      retryable: inputs,
     }
   }
 
@@ -579,12 +591,19 @@ export async function importLinks(
   let processed = 0
   const failures: ImportFailure[] = []
   const genericSkipped: string[] = []
+  const retryable: ImportLinkInput[] = []
   let notProcessed: string[] = []
+
+  function stopAt(index: number) {
+    notProcessed = inputs.slice(index).map(remaining => remaining.url.trim())
+    // A retry's rows were failed rows: dropping them on a cancel would lose their data.
+    if (retry) retryable.push(...inputs.slice(index))
+  }
 
   for (const [index, rawInput] of inputs.entries()) {
     // Checked between rows only, so the row in progress always finishes completely.
     if (signal?.aborted) {
-      notProcessed = inputs.slice(index).map(remaining => remaining.url.trim())
+      stopAt(index)
       break
     }
     let input = rawInput
@@ -611,7 +630,12 @@ export async function importLinks(
       // Sequential on purpose: one fetch in flight at a time, and only for new, valid URLs
       // that still have an empty metadata field. Throttled and breaker-guarded per host group.
       let rowMetaMissing = false
-      if (fetchMeta && guard && needsMetaFetch(input)) {
+      // A retried row's metadata was already tried: reuse that result, never fetch again.
+      const alreadyTried = !!retry && !!input.metaTried
+      if (alreadyTried) {
+        rowMetaMissing = !!input.metaMissing
+        if (rowMetaMissing) metaMissing++
+      } else if (fetchMeta && guard && needsMetaFetch(input)) {
         const group = hostGroupOf(trimmedUrl) ?? trimmedUrl
         if (guard.isSkipped(group)) {
           rowMetaMissing = true
@@ -619,7 +643,7 @@ export async function importLinks(
           const fetched = await fetchRowMeta(input, trimmedUrl, group, guard, fetchMeta, options)
           if (fetched === 'cancelled') {
             // Nothing was written for this row, so it counts as not processed.
-            notProcessed = inputs.slice(index).map(remaining => remaining.url.trim())
+            stopAt(index)
             break
           }
           if (fetched === 'generic') {
@@ -666,6 +690,12 @@ export async function importLinks(
 
       if (error || !link) {
         outcome = { url: trimmedUrl, status: 'failed', reason: 'save_error' }
+        // In an auto-fetch run every row that got here had its metadata tried, a skipped host included.
+        // Without one, any metaTried/metaMissing a file supplied is dropped.
+        const row: ImportLinkInput = { ...input }
+        delete row.metaTried
+        delete row.metaMissing
+        retryable.push(fetchMeta || alreadyTried ? { ...row, metaTried: true, metaMissing: rowMetaMissing } : row)
         continue
       }
 
@@ -686,6 +716,6 @@ export async function importLinks(
   const skipped = failures.length
   const cancelled = notProcessed.length > 0
   return fetchMeta
-    ? { imported, skipped, duplicates, metaMissing, failures, cancelled, notProcessed, genericSkipped }
-    : { imported, skipped, duplicates, failures, cancelled, notProcessed }
+    ? { imported, skipped, duplicates, metaMissing, failures, cancelled, notProcessed, genericSkipped, retryable }
+    : { imported, skipped, duplicates, failures, cancelled, notProcessed, retryable }
 }

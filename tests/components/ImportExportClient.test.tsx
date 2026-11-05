@@ -97,7 +97,7 @@ vi.mock('@/lib/context/TagsContext', () => ({
 beforeEach(() => {
   vi.clearAllMocks()
   mockUseCategoryList.mockReturnValue({ categories: MOCK_CATEGORIES, loading: false })
-  mockImportLinks.mockResolvedValue({ imported: 2, skipped: 0, duplicates: 0 })
+  mockImportLinks.mockResolvedValue({ imported: 2, retryable: [], skipped: 0, duplicates: 0 })
 })
 
 afterEach(() => {
@@ -322,7 +322,7 @@ describe('ImportExportClient', () => {
 
       await waitFor(() => expect(screen.getByText('Importing… links (1/2)')).toBeTruthy())
 
-      resolveImport({ imported: 2, skipped: 0, duplicates: 0 })
+      resolveImport({ imported: 2, retryable: [], skipped: 0, duplicates: 0 })
       await waitFor(() => expect(screen.getByText('Import links')).toBeTruthy())
     })
   })
@@ -386,7 +386,7 @@ describe('ImportExportClient', () => {
         { onProgress }: { onProgress?: (done: number, total: number, outcome: unknown) => void } = {},
       ) => {
         for (let i = 1; i <= 3; i++) onProgress?.(i, 3, { url: `https://e.com/${i}`, status: 'imported', metaMissing: true })
-        return { imported: 3, skipped: 0, duplicates: 0, metaMissing: 3, failures: [] }
+        return { imported: 3, retryable: [], skipped: 0, duplicates: 0, metaMissing: 3, failures: [] }
       })
       render(<ImportExportClient />)
       fireEvent.click(autoFetchSwitch())
@@ -414,7 +414,7 @@ describe('ImportExportClient', () => {
 
       await waitFor(() => expect(screen.getByText('Importing… links + metadata (1/2)')).toBeTruthy())
 
-      resolveImport({ imported: 2, skipped: 0, duplicates: 0, metaMissing: 0 })
+      resolveImport({ imported: 2, retryable: [], skipped: 0, duplicates: 0, metaMissing: 0 })
       await waitFor(() => expect(screen.getByText('Import links')).toBeTruthy())
     })
   })
