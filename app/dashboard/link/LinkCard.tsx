@@ -47,13 +47,15 @@ export default function LinkCard({
     // delete" toast from handleDelete instead of deleting (SPEC 35).
     <SwipeableCard onSwipeDelete={onDelete}>
       <article
-        className={`relative flex h-full flex-col bg-surface-card transition dark:bg-surface-900 ${
+        data-link-id={link.id}
+        className={`relative flex h-full scroll-mt-20 flex-col bg-surface-card transition dark:bg-surface-900 ${
           isLastOpened ? 'ring-2 ring-primary-500/60 ring-inset rounded-2xl' : ''
         }`}
       >
         {/* Pulse a ring overlay, not the card: fading the card's opacity would
-            reveal SwipeableCard's delete backdrop underneath. */}
-        {isLastOpened && pulse && (
+            reveal SwipeableCard's delete backdrop underneath. Used for the
+            last-opened tab-return pulse and the restored-after-undo pulse (SPEC 36). */}
+        {pulse && (
           <span
             aria-hidden="true"
             data-testid="last-opened-pulse"
@@ -105,6 +107,7 @@ export default function LinkCard({
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={onOpen}
+                data-card-title=""
                 aria-current={isLastOpened ? 'true' : undefined}
                 className="after:absolute after:inset-0 after:rounded-2xl after:content-[''] focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-primary-500"
               >

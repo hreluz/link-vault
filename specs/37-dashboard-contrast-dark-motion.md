@@ -1,4 +1,4 @@
-# SPEC 36 — Dashboard contrast, dark mode and reduced motion
+# SPEC 37 — Dashboard contrast, dark mode and reduced motion
 
 > **Status:** Draft
 > **Depends on:** SPEC 34
@@ -48,7 +48,7 @@ The 2026-11-05 dashboard review found three problems:
 
 - Contrast on pages other than `/dashboard`.
 - Changing the surface ramps' lightness values in `globals.css`.
-- SVG icons (SPEC 37).
+- SVG icons (SPEC 38).
 
 ## Data model
 
@@ -91,4 +91,4 @@ This feature introduces no new data and no DB change. `STATUS_CONFIG` keeps its 
 
 - Touch targets and focus (SPEC 34).
 - Safe areas, toasts, sheets and swipe (SPEC 35).
-- SVG icons and desktop polish (SPEC 37).
+- SVG icons and desktop polish (SPEC 38).

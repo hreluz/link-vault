@@ -121,5 +121,5 @@ const REVEAL_PX = 88
 
 - Merging the toast systems.
 - Drag-to-dismiss sheets, and full-screen modals on mobile.
-- Contrast, dark mode and motion beyond the swipe (SPEC 36).
-- SVG icons and desktop polish (SPEC 37).
+- Contrast, dark mode and motion beyond the swipe (SPEC 37).
+- SVG icons and desktop polish (SPEC 38).

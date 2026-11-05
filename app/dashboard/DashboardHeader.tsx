@@ -3,12 +3,14 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useScrollToTop } from '@/lib/hooks/shared/useScrollToTop'
+import { useDashboardHeaderSlot } from '@/lib/context/DashboardHeaderSlotContext'
 import LogoutButton from './LogoutButton'
 import ThemeToggleButton from './ThemeToggleButton'
 
 export default function DashboardHeader({ userEmail }: { userEmail: string }) {
   const pathname = usePathname()
   const scrollToTop = useScrollToTop()
+  const { setSlot } = useDashboardHeaderSlot()
   const logo = (
     <>
       <span className="text-xl" aria-hidden="true">🔖</span>
@@ -34,6 +36,8 @@ export default function DashboardHeader({ userEmail }: { userEmail: string }) {
         )}
         <div className="flex items-center gap-2">
           <span className="hidden text-sm text-surface-500 dark:text-surface-400 sm:block">{userEmail}</span>
+          {/* Page-provided controls (the link list's Undo, SPEC 36) portal in here. */}
+          <div ref={setSlot} data-testid="dashboard-header-slot" className="contents" />
           <ThemeToggleButton />
           <LogoutButton />
         </div>

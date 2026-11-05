@@ -1,22 +1,55 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useCategoryList } from '@/lib/hooks/categories/useCategoryList'
 import { useInfiniteScrollSentinel } from '@/lib/hooks/shared/useInfiniteScrollSentinel'
 import { useReturnPulse } from '@/lib/hooks/shared/useReturnPulse'
 import { useLinkListContext } from './LinkListContext'
 import LinkCard from './LinkCard'
 
+const RESTORED_PULSE_MS = 1500
+
+// Fully visible between the bottom of the sticky DashboardHeader and the bottom of the viewport.
+function isCardFullyVisible(card: Element) {
+  const headerBottom = document.querySelector('header')?.getBoundingClientRect().bottom ?? 0
+  const rect = card.getBoundingClientRect()
+  return rect.top >= headerBottom && rect.bottom <= window.innerHeight
+}
+
+function prefersReducedMotion() {
+  return typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
+
 export default function LinkGrid() {
   const {
     loading, links: results, hasActiveFilters, favoritesOnly,
     hasMore, loadingMore, loadMore, loadError, retryLoad, refreshKey,
     activeLink, setActiveLink, setEditingLink, handleFavoriteToggle, handleLinkOpen, handleSendToEnd, lastOpenedId, handleDeleteById, resetFilters,
-    imageStateById, handleImageError,
+    imageStateById, handleImageError, restoredLinkId, clearRestoredLink,
   } = useLinkListContext()
   const { categories } = useCategoryList(refreshKey)
   // After a failed page the sentinel is replaced by Try again, so it stops firing until a retry.
   const sentinelRef = useInfiniteScrollSentinel(loadMore, hasMore && !loading && !loadingMore && loadError === null)
-  const pulse = useReturnPulse(lastOpenedId !== null)
+  const returnPulse = useReturnPulse(lastOpenedId !== null)
+
+  // After a saved undo: bring the restored card into view if it's off-screen,
+  // hand it focus (the Undo button that had it is gone), and pulse it while
+  // restoredLinkId stays set -- cleared after RESTORED_PULSE_MS (SPEC 36).
+  useEffect(() => {
+    if (!restoredLinkId) return
+    const card = Array.from(document.querySelectorAll('[data-link-id]'))
+      .find(el => el.getAttribute('data-link-id') === restoredLinkId)
+    if (!card) {
+      clearRestoredLink()
+      return
+    }
+    if (!isCardFullyVisible(card)) {
+      card.scrollIntoView({ block: 'center', behavior: prefersReducedMotion() ? 'auto' : 'smooth' })
+    }
+    card.querySelector<HTMLElement>('a[data-card-title]')?.focus({ preventScroll: true })
+    const timer = setTimeout(clearRestoredLink, RESTORED_PULSE_MS)
+    return () => clearTimeout(timer)
+  }, [restoredLinkId, clearRestoredLink])
 
   // The first page failed: nothing to show, so no skeletons and no "no links" empty state.
   if (loadError === 'load') {
@@ -99,7 +132,7 @@ export default function LinkGrid() {
             onOpen={() => handleLinkOpen(link.id, link.status)}
             onSendToEnd={() => handleSendToEnd(link.id)}
             isLastOpened={link.id === lastOpenedId}
-            pulse={pulse && link.id === lastOpenedId}
+            pulse={(returnPulse && link.id === lastOpenedId) || link.id === restoredLinkId}
             imageState={imageStateById[link.id]}
             onImageError={() => handleImageError(link.id)}
             onDelete={() => handleDeleteById(link.id)}

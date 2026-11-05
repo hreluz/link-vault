@@ -1,12 +1,11 @@
 'use client'
 
-import { displayTitle } from '@/lib/utils/urlTitle'
 import { useLinkListContext } from './LinkListContext'
 
 export default function LinkListHeader() {
   const {
     totalCount, unreadCount, setModalOpen, favoritesOnly,
-    refreshing, handleRefresh, lastMovedLink, undoingMove, handleUndoMove, selectedStatuses,
+    refreshing, handleRefresh, selectedStatuses,
   } = useLinkListContext()
   // Only meaningful across all statuses -- any status filter already says what is (or isn't) unread.
   const showUnreadCount = selectedStatuses.length === 0
@@ -22,21 +21,6 @@ export default function LinkListHeader() {
         </p>
       </div>
       <div className="flex items-center gap-2">
-        {lastMovedLink && (
-          <button
-            onClick={handleUndoMove}
-            disabled={undoingMove}
-            aria-label="Undo last move"
-            title={`Move ${displayTitle(lastMovedLink)} back`}
-            className="focus-ring flex min-h-11 items-center gap-1.5 rounded-xl border border-surface-200 bg-surface-card px-3 py-2 text-sm font-medium text-surface-600 shadow-sm transition hover:bg-surface-50 hover:text-surface-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-surface-700 dark:bg-surface-900 dark:text-surface-300 dark:hover:bg-surface-800 sm:min-h-0"
-          >
-            <svg className="h-5 w-5" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-              <path d="M7.5 5 4 8.5 7.5 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M4 8.5h7.5a4.5 4.5 0 0 1 0 9H9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            Undo
-          </button>
-        )}
         <button
           onClick={handleRefresh}
           disabled={refreshing}

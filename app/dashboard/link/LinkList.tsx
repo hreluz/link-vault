@@ -8,6 +8,7 @@ import StatusTabBar from './StatusTabBar'
 import ActiveFilterChips from './ActiveFilterChips'
 import LinkGrid from './LinkGrid'
 import LinkModals from './LinkModals'
+import HeaderUndoButton from './HeaderUndoButton'
 
 export default function LinkList({
   autoFetchDefault,
@@ -20,6 +21,7 @@ export default function LinkList({
     <LinkListProvider autoFetchDefault={autoFetchDefault} moveToEndDelaySeconds={moveToEndDelaySeconds}>
       <main className="mx-auto max-w-5xl px-4 py-8">
         <LinkListHeader />
+        <HeaderUndoButton />
         <FavoritesToggle />
         <LinkSearchBar />
         <StatusTabBar />

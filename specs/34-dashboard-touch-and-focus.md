@@ -54,8 +54,8 @@ At 44px, five buttons take 252px of the card's 318px top row on a 390px phone, w
 **Out of scope (for future specs):**
 
 - Safe areas, toasts, sheet dialog semantics and swipe behaviour (SPEC 35).
-- Contrast and dark-mode colour fixes (SPEC 36).
-- Replacing emoji with SVG icons (SPEC 37).
+- Contrast and dark-mode colour fixes (SPEC 37).
+- Replacing emoji with SVG icons (SPEC 38).
 - Pages other than `/dashboard`, such as Organize, Config and auth.
 
 ## Data model
@@ -116,5 +116,5 @@ Check how dark mode is selected in `globals.css` (class or `data-theme`) and mat
 ## What is **not** in this spec
 
 - Safe areas, toasts, sheets and swipe (SPEC 35).
-- Contrast, dark mode and motion (SPEC 36).
-- SVG icons and desktop layout polish (SPEC 37).
+- Contrast, dark mode and motion (SPEC 37).
+- SVG icons and desktop layout polish (SPEC 38).

@@ -424,6 +424,39 @@ describe('useLinkList (integration)', () => {
         expect(result.current.lastMovedLink).toBeNull()
       })
 
+      it('sets restoredLinkId after a saved undo, and clearRestoredLink clears it', async () => {
+        const { result } = await renderLoadedWithFakeTimers()
+        expect(result.current.restoredLinkId).toBeNull()
+
+        act(() => result.current.handleLinkOpen('1', 'unread'))
+        await advance(30_000)
+        await act(async () => { await result.current.handleUndoMove() })
+
+        expect(result.current.restoredLinkId).toBe('1')
+        act(() => result.current.clearRestoredLink())
+        expect(result.current.restoredLinkId).toBeNull()
+      })
+
+      it('keeps clearRestoredLink stable across renders', async () => {
+        const { result } = await renderLoadedWithFakeTimers()
+        const first = result.current.clearRestoredLink
+        act(() => result.current.handleLinkOpen('1', 'unread'))
+        expect(result.current.clearRestoredLink).toBe(first)
+      })
+
+      it('leaves restoredLinkId null when the undo fails to save', async () => {
+        const { result } = await renderLoadedWithFakeTimers()
+
+        act(() => result.current.handleLinkOpen('1', 'unread'))
+        await advance(30_000)
+        mockMarkLinkMovedToEnd.mockResolvedValueOnce(false)
+        await act(async () => { await result.current.handleUndoMove() })
+
+        expect(ids(result.current.links)).toEqual(['2', '3', '1'])
+        expect(result.current.lastMovedLink?.id).toBe('1')
+        expect(result.current.restoredLinkId).toBeNull()
+      })
+
       it('cancels a pending re-move, so the link does not move again', async () => {
         const { result } = await renderLoadedWithFakeTimers()
 

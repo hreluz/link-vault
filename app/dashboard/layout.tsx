@@ -4,6 +4,7 @@ import { getAccentColors, getSurfaceFamily, getThemeMode } from '@/lib/services/
 import { ToastProvider } from '@/components/ToastProvider'
 import { UnlockedTagsProvider } from '@/lib/context/UnlockedTagsContext'
 import { TagsProvider } from '@/lib/context/TagsContext'
+import { DashboardHeaderSlotProvider } from '@/lib/context/DashboardHeaderSlotContext'
 import VaultUnlockGate from '@/components/VaultUnlockGate'
 import DashboardHeader from './DashboardHeader'
 import DashboardNav from './DashboardNav'
@@ -25,13 +26,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <UnlockedTagsProvider>
         <VaultUnlockGate>
           <TagsProvider>
-            <div className="min-h-screen bg-surface-50 dark:bg-surface-950">
-              <DashboardHeader userEmail={user.email ?? ''} />
-              <DashboardNav />
-              <div className="pb-[calc(5rem+env(safe-area-inset-bottom))] sm:pb-0">
-                {children}
+            <DashboardHeaderSlotProvider>
+              <div className="min-h-screen bg-surface-50 dark:bg-surface-950">
+                <DashboardHeader userEmail={user.email ?? ''} />
+                <DashboardNav />
+                <div className="pb-[calc(5rem+env(safe-area-inset-bottom))] sm:pb-0">
+                  {children}
+                </div>
               </div>
-            </div>
+            </DashboardHeaderSlotProvider>
           </TagsProvider>
         </VaultUnlockGate>
       </UnlockedTagsProvider>

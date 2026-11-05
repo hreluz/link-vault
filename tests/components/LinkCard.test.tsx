@@ -49,6 +49,19 @@ describe('LinkCard last-opened marker', () => {
     expect(screen.queryByTestId('last-opened-pulse')).toBeNull()
   })
 
+  it('pulses on pulse alone, without being the last-opened link (restored after undo)', () => {
+    renderCard({ pulse: true })
+    expect(screen.getByTestId('last-opened-pulse')).toBeTruthy()
+    expect(screen.queryByText('Last opened')).toBeNull()
+  })
+
+  it('marks the card with data-link-id and scroll-mt-20, and the title link with data-card-title', () => {
+    const { container } = renderCard()
+    const card = container.querySelector('article[data-link-id="1"]')
+    expect(card?.className).toContain('scroll-mt-20')
+    expect(card?.querySelector('a[data-card-title]')?.textContent).toBe('Alpha Article')
+  })
+
 })
 
 describe('LinkCard edit shortcut', () => {

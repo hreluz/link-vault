@@ -1,4 +1,4 @@
-# SPEC 37 — Dashboard SVG icons and desktop polish
+# SPEC 38 — Dashboard SVG icons and desktop polish
 
 > **Status:** Draft
 > **Depends on:** SPEC 34
