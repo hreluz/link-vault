@@ -3,12 +3,14 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useScrollToTop } from '@/lib/hooks/shared/useScrollToTop'
+import { useDashboardHeaderSlot } from '@/lib/context/DashboardHeaderSlotContext'
 import LogoutButton from './LogoutButton'
 import ThemeToggleButton from './ThemeToggleButton'
 
 export default function DashboardHeader({ userEmail }: { userEmail: string }) {
   const pathname = usePathname()
   const scrollToTop = useScrollToTop()
+  const { setSlot } = useDashboardHeaderSlot()
   const logo = (
     <>
       <span className="text-xl" aria-hidden="true">🔖</span>
@@ -24,16 +26,18 @@ export default function DashboardHeader({ userEmail }: { userEmail: string }) {
           // going through Link/router navigation to the same URL -- that
           // still runs Next's own post-navigation scroll/focus handling,
           // which was fighting our scroll-to-top animation.
-          <button type="button" onClick={scrollToTop} className="flex items-center gap-2">
+          <button type="button" onClick={scrollToTop} aria-label="Link Vault, scroll to top" className="focus-ring flex min-h-11 items-center gap-2 rounded-lg">
             {logo}
           </button>
         ) : (
-          <Link href="/dashboard" className="flex items-center gap-2">
+          <Link href="/dashboard" className="focus-ring flex min-h-11 items-center gap-2 rounded-lg">
             {logo}
           </Link>
         )}
         <div className="flex items-center gap-2">
           <span className="hidden text-sm text-surface-500 dark:text-surface-400 sm:block">{userEmail}</span>
+          {/* Page-provided controls (the link list's Undo, SPEC 36) portal in here. */}
+          <div ref={setSlot} data-testid="dashboard-header-slot" className="contents" />
           <ThemeToggleButton />
           <LogoutButton />
         </div>

@@ -12,6 +12,8 @@ interface Props {
   link: LinkWithTags
   category?: Category | null
   onMenuOpen: () => void
+  /** True while this card's ··· BottomSheet is open (drives aria-expanded). */
+  isMenuOpen?: boolean
   onFavoriteToggle: () => void
   onEdit?: () => void
   onOpen?: () => void
@@ -24,8 +26,16 @@ interface Props {
   onImageError?: () => void
 }
 
+// Action buttons sit above the stretched title link (z-10) one by one, so the
+// gaps between them still open the link. 44px below lg, 40px at lg (SPEC 34).
+const ACTION_BASE =
+  'focus-ring relative z-10 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg transition lg:h-10 lg:w-10'
+const ACTION_ICON =
+  `${ACTION_BASE} text-surface-400 hover:bg-surface-100 hover:text-surface-700 active:bg-surface-200 dark:text-surface-500 dark:hover:bg-surface-800 dark:hover:text-surface-200`
+const ICON_SVG = 'h-5 w-5'
+
 export default function LinkCard({
-  link, category, onMenuOpen, onFavoriteToggle, onEdit, onOpen, onDelete, onSendToEnd,
+  link, category, onMenuOpen, isMenuOpen = false, onFavoriteToggle, onEdit, onOpen, onDelete, onSendToEnd,
   isLastOpened, pulse, imageState, onImageError,
 }: Props) {
   const status = STATUS_CONFIG[link.status]
@@ -33,15 +43,19 @@ export default function LinkCard({
   const tagNameById = useTagNameLookup()
 
   return (
-    <SwipeableCard onSwipeDelete={link.is_favorite ? undefined : onDelete}>
+    // Favorites can be swiped open too; their Delete shows the "Unfavorite to
+    // delete" toast from handleDelete instead of deleting (SPEC 35).
+    <SwipeableCard onSwipeDelete={onDelete}>
       <article
-        className={`relative flex h-full flex-col bg-surface-card transition dark:bg-surface-900 ${
+        data-link-id={link.id}
+        className={`relative flex h-full scroll-mt-20 flex-col bg-surface-card transition dark:bg-surface-900 ${
           isLastOpened ? 'ring-2 ring-primary-500/60 ring-inset rounded-2xl' : ''
         }`}
       >
         {/* Pulse a ring overlay, not the card: fading the card's opacity would
-            reveal SwipeableCard's delete backdrop underneath. */}
-        {isLastOpened && pulse && (
+            reveal SwipeableCard's delete backdrop underneath. Used for the
+            last-opened tab-return pulse and the restored-after-undo pulse (SPEC 36). */}
+        {pulse && (
           <span
             aria-hidden="true"
             data-testid="last-opened-pulse"
@@ -76,77 +90,14 @@ export default function LinkCard({
           </div>
         )}
 
-        <div className="relative flex flex-1 flex-col gap-3 p-5">
-          <div className="flex items-start justify-between gap-2">
+        <div className="relative flex flex-1 flex-col gap-3 p-5 pb-3">
+          <div className="flex min-w-0">
             <span className={`inline-flex min-w-0 items-center gap-1.5 rounded-full bg-surface-100 px-2.5 py-1 text-xs font-medium text-surface-700 dark:bg-surface-800 dark:text-surface-300`}>
               {category
                 ? <>{category.emoticon && <span aria-hidden="true" className="shrink-0">{category.emoticon}</span>}<span className="truncate">{category.name}</span></>
                 : <span className="truncate text-surface-400 dark:text-surface-500">Uncategorized</span>
               }
             </span>
-            <div className="relative z-10 flex shrink-0 items-center gap-1">
-              {onDelete && (
-                <button
-                  onClick={onDelete}
-                  disabled={link.is_favorite}
-                  aria-label="Delete link"
-                  title={link.is_favorite ? 'Unfavorite to delete' : 'Delete'}
-                  className={`flex h-8 w-8 items-center justify-center rounded-lg text-surface-400 transition disabled:cursor-not-allowed disabled:opacity-40 lg:h-10 lg:w-10 dark:text-surface-500 ${
-                    link.is_favorite
-                      ? ''
-                      : 'hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400'
-                  }`}
-                >
-                  <svg aria-hidden="true" className="h-4 w-4 lg:h-5 lg:w-5" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M3.5 5.5h13M8 5.5V4a1 1 0 011-1h2a1 1 0 011 1v1.5M5 5.5l.8 10.6a1 1 0 001 .9h6.4a1 1 0 001-.9L15 5.5M8.5 9v5M11.5 9v5" />
-                  </svg>
-                </button>
-              )}
-              <button
-                onClick={onFavoriteToggle}
-                aria-label={link.is_favorite ? 'Remove from favorites' : 'Add to favorites'}
-                title={link.is_favorite ? 'Favorite (delete-protected) — click to remove' : 'Favorite — also protects from deletion'}
-                className={`flex h-8 w-8 items-center justify-center rounded-lg text-lg transition ${
-                  link.is_favorite
-                    ? 'text-amber-400 hover:text-amber-500'
-                    : 'text-surface-300 hover:text-amber-400 hover:bg-surface-100 dark:text-surface-600 dark:hover:bg-surface-800'
-                }`}
-              >
-                {link.is_favorite ? '⭐' : '☆'}
-              </button>
-              {onEdit && (
-                <button
-                  onClick={onEdit}
-                  aria-label="Edit link"
-                  data-link-edit={link.id}
-                  title="Edit"
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-surface-400 transition hover:bg-surface-100 hover:text-surface-700 active:bg-surface-200 lg:h-10 lg:w-10 dark:text-surface-500 dark:hover:bg-surface-800 dark:hover:text-surface-200"
-                >
-                  <svg aria-hidden="true" className="h-4 w-4 lg:h-5 lg:w-5" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M13.5 3.5l3 3L7 16H4v-3l9.5-9.5z" />
-                  </svg>
-                </button>
-              )}
-              {onSendToEnd && (
-                <button
-                  onClick={onSendToEnd}
-                  aria-label="Send to end"
-                  title="Send to end"
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-surface-400 transition hover:bg-surface-100 hover:text-surface-700 active:bg-surface-200 lg:h-10 lg:w-10 dark:text-surface-500 dark:hover:bg-surface-800 dark:hover:text-surface-200"
-                >
-                  <svg aria-hidden="true" className="h-4 w-4 lg:h-5 lg:w-5" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M10 3.5v9M6 8.5l4 4 4-4M4 16.5h12" />
-                  </svg>
-                </button>
-              )}
-              <button
-                onClick={onMenuOpen}
-                aria-label="Link options"
-                className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-100 text-sm text-surface-500 transition hover:bg-surface-200 hover:text-surface-700 active:bg-surface-200 lg:h-10 lg:w-10 lg:text-xl dark:bg-surface-800 dark:text-surface-400 dark:hover:bg-surface-700 dark:hover:text-surface-200"
-              >
-                ···
-              </button>
-            </div>
           </div>
 
           <div>
@@ -156,6 +107,7 @@ export default function LinkCard({
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={onOpen}
+                data-card-title=""
                 aria-current={isLastOpened ? 'true' : undefined}
                 className="after:absolute after:inset-0 after:rounded-2xl after:content-[''] focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-primary-500"
               >
@@ -188,6 +140,75 @@ export default function LinkCard({
                 {tagNameById.get(tagId) ?? tagId}
               </span>
             ))}
+          </div>
+
+          <div
+            data-testid="card-actions"
+            className="flex items-center gap-2 border-t border-surface-200 pt-3 dark:border-surface-700"
+          >
+            {onDelete && (
+              <button
+                onClick={onDelete}
+                disabled={link.is_favorite}
+                aria-label="Delete link"
+                title={link.is_favorite ? 'Unfavorite to delete' : 'Delete'}
+                className={`${ACTION_BASE} text-surface-400 disabled:cursor-not-allowed disabled:opacity-40 dark:text-surface-500 ${
+                  link.is_favorite
+                    ? ''
+                    : 'hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400'
+                }`}
+              >
+                <svg aria-hidden="true" className={ICON_SVG} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3.5 5.5h13M8 5.5V4a1 1 0 011-1h2a1 1 0 011 1v1.5M5 5.5l.8 10.6a1 1 0 001 .9h6.4a1 1 0 001-.9L15 5.5M8.5 9v5M11.5 9v5" />
+                </svg>
+              </button>
+            )}
+            <button
+              onClick={onFavoriteToggle}
+              aria-label={link.is_favorite ? 'Remove from favorites' : 'Add to favorites'}
+              title={link.is_favorite ? 'Favorite (delete-protected) — click to remove' : 'Favorite — also protects from deletion'}
+              className={`${ACTION_BASE} text-lg ${
+                link.is_favorite
+                  ? 'text-amber-400 hover:text-amber-500'
+                  : 'text-surface-300 hover:text-amber-400 hover:bg-surface-100 dark:text-surface-600 dark:hover:bg-surface-800'
+              }`}
+            >
+              {link.is_favorite ? '⭐' : '☆'}
+            </button>
+            {onEdit && (
+              <button
+                onClick={onEdit}
+                aria-label="Edit link"
+                data-link-edit={link.id}
+                title="Edit"
+                className={ACTION_ICON}
+              >
+                <svg aria-hidden="true" className={ICON_SVG} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M13.5 3.5l3 3L7 16H4v-3l9.5-9.5z" />
+                </svg>
+              </button>
+            )}
+            {onSendToEnd && (
+              <button
+                onClick={onSendToEnd}
+                aria-label="Send to end"
+                title="Send to end"
+                className={ACTION_ICON}
+              >
+                <svg aria-hidden="true" className={ICON_SVG} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10 3.5v9M6 8.5l4 4 4-4M4 16.5h12" />
+                </svg>
+              </button>
+            )}
+            <button
+              onClick={onMenuOpen}
+              aria-label="Link options"
+              aria-haspopup="dialog"
+              aria-expanded={isMenuOpen}
+              className={`${ACTION_BASE} ml-auto bg-surface-100 text-xl text-surface-500 hover:bg-surface-200 hover:text-surface-700 active:bg-surface-200 dark:bg-surface-800 dark:text-surface-400 dark:hover:bg-surface-700 dark:hover:text-surface-200`}
+            >
+              ···
+            </button>
           </div>
         </div>
       </article>

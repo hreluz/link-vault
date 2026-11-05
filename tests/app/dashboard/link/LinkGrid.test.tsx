@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, cleanup, fireEvent } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, act } from '@testing-library/react'
 import LinkGrid from '@/app/dashboard/link/LinkGrid'
 import type { LinkWithTags } from '@/lib/services/links'
 
@@ -154,5 +154,90 @@ describe('LinkGrid card images', () => {
 
     fireEvent.error(images[0])
     expect(handleImageError).toHaveBeenCalledExactlyOnceWith('b')
+  })
+})
+
+describe('LinkGrid restored card after undo', () => {
+  const clearRestoredLink = vi.fn()
+  const scrollIntoView = vi.fn()
+  let reducedMotion = false
+
+  function rect(top: number, bottom: number) {
+    return { top, bottom, left: 0, right: 0, width: 0, height: bottom - top, x: 0, y: top, toJSON() {} } as DOMRect
+  }
+
+  beforeEach(() => {
+    reducedMotion = false
+    Element.prototype.scrollIntoView = scrollIntoView
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+      matches: query.includes('reduce') && reducedMotion,
+      media: query, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+    }))
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.restoreAllMocks()
+  })
+
+  // Places card `b` at the given viewport position; jsdom's innerHeight is 768 and there's no header.
+  function renderRestored(cardRect: DOMRect) {
+    const original = Element.prototype.getBoundingClientRect
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      if (this.getAttribute('data-link-id') === 'b') return cardRect
+      return original.call(this)
+    })
+    setContext({ links: [link('a'), link('b')], restoredLinkId: 'b', clearRestoredLink })
+    return render(<LinkGrid />)
+  }
+
+  it('scrolls an off-screen card into view and focuses its title', () => {
+    const { container } = renderRestored(rect(2000, 2300))
+
+    expect(scrollIntoView).toHaveBeenCalledExactlyOnceWith({ block: 'center', behavior: 'smooth' })
+    expect(document.activeElement).toBe(container.querySelector('[data-link-id="b"] a[data-card-title]'))
+  })
+
+  it('does not scroll when the card is already fully visible, but still focuses it', () => {
+    const { container } = renderRestored(rect(200, 500))
+    expect(scrollIntoView).not.toHaveBeenCalled()
+    expect(document.activeElement).toBe(container.querySelector('[data-link-id="b"] a[data-card-title]'))
+  })
+
+  it('scrolls instantly under prefers-reduced-motion', () => {
+    reducedMotion = true
+    renderRestored(rect(-500, -200))
+    expect(scrollIntoView).toHaveBeenCalledExactlyOnceWith({ block: 'center', behavior: 'auto' })
+  })
+
+  it('pulses the restored card while restoredLinkId is set and clears it at 1.5 s, not before', () => {
+    vi.useFakeTimers()
+    const { container, rerender } = renderRestored(rect(200, 500))
+
+    expect(container.querySelector('[data-link-id="b"] [data-testid="last-opened-pulse"]')).toBeTruthy()
+    expect(container.querySelector('[data-link-id="a"] [data-testid="last-opened-pulse"]')).toBeNull()
+
+    act(() => { vi.advanceTimersByTime(1499) })
+    expect(clearRestoredLink).not.toHaveBeenCalled()
+    act(() => { vi.advanceTimersByTime(1) })
+    expect(clearRestoredLink).toHaveBeenCalledOnce()
+
+    setContext({ links: [link('a'), link('b')], restoredLinkId: null, clearRestoredLink })
+    rerender(<LinkGrid />)
+    expect(screen.queryByTestId('last-opened-pulse')).toBeNull()
+  })
+
+  it('scrolls only once across re-renders while the same link is restored', () => {
+    const { rerender } = renderRestored(rect(2000, 2300))
+    rerender(<LinkGrid />)
+    expect(scrollIntoView).toHaveBeenCalledOnce()
+  })
+
+  it('only clears when the card is not in the list', () => {
+    setContext({ links: [link('a')], restoredLinkId: 'zzz', clearRestoredLink })
+    render(<LinkGrid />)
+    expect(scrollIntoView).not.toHaveBeenCalled()
+    expect(screen.queryByTestId('last-opened-pulse')).toBeNull()
+    expect(clearRestoredLink).toHaveBeenCalledOnce()
   })
 })

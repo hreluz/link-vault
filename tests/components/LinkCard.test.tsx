@@ -49,6 +49,19 @@ describe('LinkCard last-opened marker', () => {
     expect(screen.queryByTestId('last-opened-pulse')).toBeNull()
   })
 
+  it('pulses on pulse alone, without being the last-opened link (restored after undo)', () => {
+    renderCard({ pulse: true })
+    expect(screen.getByTestId('last-opened-pulse')).toBeTruthy()
+    expect(screen.queryByText('Last opened')).toBeNull()
+  })
+
+  it('marks the card with data-link-id and scroll-mt-20, and the title link with data-card-title', () => {
+    const { container } = renderCard()
+    const card = container.querySelector('article[data-link-id="1"]')
+    expect(card?.className).toContain('scroll-mt-20')
+    expect(card?.querySelector('a[data-card-title]')?.textContent).toBe('Alpha Article')
+  })
+
 })
 
 describe('LinkCard edit shortcut', () => {
@@ -188,6 +201,57 @@ describe('LinkCard long press', () => {
 
     expect(article.innerHTML).toBe(before)
     expect(screen.getByRole('link', { name: LINK.title! })).toBeTruthy()
+  })
+})
+
+describe('LinkCard action row (SPEC 34)', () => {
+  const ALL = { onDelete: vi.fn(), onEdit: vi.fn(), onSendToEnd: vi.fn() }
+
+  it('holds all five actions in a bottom row, after the title and tags', () => {
+    renderCard(ALL)
+
+    const row = screen.getByTestId('card-actions')
+    const names = Array.from(row.querySelectorAll('button')).map(b => b.getAttribute('aria-label'))
+    expect(names).toEqual(['Delete link', 'Add to favorites', 'Edit link', 'Send to end', 'Link options'])
+    // The row comes after the title in document order.
+    const title = screen.getByRole('link', { name: 'Alpha Article' })
+    expect(title.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('sizes every action 44px below lg and 40px at lg, with a focus ring', () => {
+    renderCard(ALL)
+
+    for (const button of screen.getByTestId('card-actions').querySelectorAll('button')) {
+      expect(button.className).toContain('h-11')
+      expect(button.className).toContain('w-11')
+      expect(button.className).toContain('lg:h-10')
+      expect(button.className).toContain('focus-ring')
+      // Each button sits above the stretched title link on its own.
+      expect(button.className).toContain('z-10')
+    }
+    expect(screen.getByTestId('card-actions').className).toContain('gap-2')
+  })
+
+  it('does not put the row itself above the stretched link, so gaps still open the link', () => {
+    renderCard(ALL)
+    expect(screen.getByTestId('card-actions').className).not.toContain('z-10')
+  })
+
+  it('reports the options menu state with aria-haspopup and aria-expanded', () => {
+    const { rerender } = renderCard()
+    const options = screen.getByRole('button', { name: 'Link options' })
+    expect(options.getAttribute('aria-haspopup')).toBe('dialog')
+    expect(options.getAttribute('aria-expanded')).toBe('false')
+
+    rerender(<LinkCard link={LINK} onMenuOpen={vi.fn()} onFavoriteToggle={vi.fn()} isMenuOpen />)
+    expect(screen.getByRole('button', { name: 'Link options' }).getAttribute('aria-expanded')).toBe('true')
+  })
+
+  it('leaves the category alone in the top row', () => {
+    renderCard({ ...ALL, category: { id: 'c', user_id: 'u', name: 'YouTube', description: null, color: null, emoticon: '📺', created_at: '', updated_at: '' } })
+
+    const pill = screen.getByText('YouTube')
+    expect(screen.getByTestId('card-actions').contains(pill)).toBe(false)
   })
 })
 

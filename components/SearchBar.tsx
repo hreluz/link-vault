@@ -1,5 +1,6 @@
 'use client'
 
+import { useId } from 'react'
 import { useSearchTagSuggestions } from '@/lib/hooks/tags/useSearchTagSuggestions'
 import TagSuggestionsDropdown from './TagSuggestionsDropdown'
 
@@ -9,20 +10,25 @@ interface Props {
   isHashTagSearch?: boolean
   filterCount?: number
   onFilterOpen?: () => void
+  /** Whether the sheet opened by Filters is showing (drives aria-expanded). */
+  filterOpen?: boolean
   availableTags?: string[]
 }
 
-export default function SearchBar({ value, onChange, isHashTagSearch = false, filterCount, onFilterOpen, availableTags = [] }: Props) {
+export default function SearchBar({ value, onChange, isHashTagSearch = false, filterCount, onFilterOpen, filterOpen = false, availableTags = [] }: Props) {
   const { suggestions, selectedIndex, onKeyPress, selectSuggestion, closeSuggestions } =
     useSearchTagSuggestions(value, onChange, availableTags)
+  const inputId = useId()
 
   return (
     <div className="mb-4 flex gap-2">
       <div className="relative flex-1">
+        <label htmlFor={inputId} className="sr-only">Search links</label>
         <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-surface-400" aria-hidden="true">
           🔍
         </span>
         <input
+          id={inputId}
           type="search"
           placeholder="Search by title, domain, tag… or #tag for tag-only"
           value={value}
@@ -42,7 +48,9 @@ export default function SearchBar({ value, onChange, isHashTagSearch = false, fi
       {onFilterOpen !== undefined && (
         <button
           onClick={onFilterOpen}
-          className={`flex shrink-0 items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium transition ${
+          aria-haspopup="dialog"
+          aria-expanded={filterOpen}
+          className={`focus-ring flex min-h-11 shrink-0 items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium transition ${
             (filterCount ?? 0) > 0
               ? 'bg-primary-50 text-primary-600 ring-1 ring-primary-200 dark:bg-primary-900/30 dark:text-primary-400 dark:ring-primary-800'
               : 'border border-surface-200 bg-surface-card text-surface-600 shadow-sm hover:bg-surface-50 hover:text-surface-900 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-400 dark:hover:bg-surface-700 dark:hover:text-surface-100'

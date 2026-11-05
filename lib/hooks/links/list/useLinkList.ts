@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useToast } from '@/components/ToastProvider'
 import { useTagsContext } from '@/lib/context/TagsContext'
 import { useLinkModals } from './useLinkModals'
@@ -34,6 +34,8 @@ export function useLinkList(autoFetchDefault = true, moveToEndDelaySeconds = DEF
   const { refetchTags } = useTagsContext()
   const [refreshKey, setRefreshKey] = useState(0)
   const [lastOpenedId, setLastOpenedId] = useState<string | null>(null)
+  // Set after a saved undo; LinkGrid scrolls to that card and pulses it until it clears this (SPEC 36).
+  const [restoredLinkId, setRestoredLinkId] = useState<string | null>(null)
   // `refreshing` only turns true once page 1 starts loading, so a ref guards
   // the private-tag re-read that runs first against a second click.
   const refreshInFlightRef = useRef(false)
@@ -82,12 +84,16 @@ export function useLinkList(autoFetchDefault = true, moveToEndDelaySeconds = DEF
   const lastMovedLink = lastMovedId === null ? null : loadedLinks.find(l => l.id === lastMovedId) ?? null
 
   // Undoing also drops a pending re-move, so the card doesn't jump away again.
-  function handleUndoMove() {
+  async function handleUndoMove() {
     if (!lastMove) return
-    pendingMoveIdsRef.current.delete(lastMove.id)
-    cancelMove(lastMove.id, 'undo')
-    undoMove()
+    const { id } = lastMove
+    pendingMoveIdsRef.current.delete(id)
+    cancelMove(id, 'undo')
+    if (await undoMove()) setRestoredLinkId(id)
   }
+
+  // Stable, so LinkGrid's scroll/pulse effect runs once per undo.
+  const clearRestoredLink = useCallback(() => setRestoredLinkId(null), [])
 
   function handleStatusChange(id: string, status: LinkStatus) {
     changeStatus(id, status)
@@ -166,6 +172,8 @@ export function useLinkList(autoFetchDefault = true, moveToEndDelaySeconds = DEF
     lastMovedLink,
     undoingMove,
     handleUndoMove,
+    restoredLinkId,
+    clearRestoredLink,
     handleEdit,
     handleDeleteById,
     handleFavoriteToggle,
