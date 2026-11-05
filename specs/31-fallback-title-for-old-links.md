@@ -1,6 +1,6 @@
 # SPEC 31 — Show a fallback title for links saved without one
 
-> **Status:** Draft
+> **Status:** Approved
 > **Depends on:** SPEC 13 (URL path fallback title)
 > **Date:** 2026-11-02
 > **Objective:** A link with no stored title shows its URL path, or hostname, wherever a title is displayed, so no card has a blank heading.

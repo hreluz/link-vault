@@ -18,3 +18,8 @@ export function titleFromUrl(url: string): string {
     return path
   }
 }
+
+/** The link's title for display: its stored title, or `titleFromUrl(url)` when the title is null or empty. Never written back. */
+export function displayTitle(link: { title: string | null; url: string }): string {
+  return link.title || titleFromUrl(link.url)
+}

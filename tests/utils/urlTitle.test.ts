@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { titleFromUrl } from '@/lib/utils/urlTitle'
+import { displayTitle, titleFromUrl } from '@/lib/utils/urlTitle'
 
 describe('titleFromUrl', () => {
   it('uses the path without slashes and drops the query string', () => {
@@ -45,5 +45,25 @@ describe('titleFromUrl', () => {
 
   it('ignores surrounding whitespace', () => {
     expect(titleFromUrl('  https://example.com/path  ')).toBe('path')
+  })
+})
+
+describe('displayTitle', () => {
+  const url = 'https://www.instagram.com/reel/abc/'
+
+  it('returns a real title unchanged', () => {
+    expect(displayTitle({ title: 'My Reel', url })).toBe('My Reel')
+  })
+
+  it('falls back to the URL path when the title is null', () => {
+    expect(displayTitle({ title: null, url })).toBe('reel/abc')
+  })
+
+  it('falls back to the URL path when the title is empty', () => {
+    expect(displayTitle({ title: '', url })).toBe('reel/abc')
+  })
+
+  it('falls back to the hostname when the URL has no path', () => {
+    expect(displayTitle({ title: null, url: 'https://example.com/' })).toBe('example.com')
   })
 })

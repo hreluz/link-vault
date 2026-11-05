@@ -5,6 +5,7 @@ import SwipeableCard from '@/components/SwipeableCard'
 import type { TrashedLink } from '@/lib/services/trash'
 import type { Category } from '@/lib/services/categories'
 import { useTagNameLookup } from '@/lib/hooks/tags/useTagNameLookup'
+import { displayTitle } from '@/lib/utils/urlTitle'
 
 interface Props {
   link: TrashedLink
@@ -107,7 +108,7 @@ export default function TrashCard({ link, category, onRestore, onDeletePermanent
                 rel="noopener noreferrer"
                 className="hover:text-primary-600 focus-visible:outline-none focus-visible:text-primary-600"
               >
-                {link.title ?? link.url}
+                {displayTitle(link)}
               </a>
             </h3>
             <p className="mt-0.5 text-xs text-surface-400 dark:text-surface-500">

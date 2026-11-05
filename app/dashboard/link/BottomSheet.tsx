@@ -3,6 +3,7 @@
 import type { LinkWithTags } from '@/lib/services/links'
 import type { LinkStatus } from '@/lib/types/database'
 import { useBackdropClose } from '@/lib/hooks/shared/useBackdropClose'
+import { displayTitle } from '@/lib/utils/urlTitle'
 import { STATUS_CONFIG } from '../config'
 
 const STATUS_ICONS: Record<LinkStatus, string> = {
@@ -36,7 +37,7 @@ export default function BottomSheet({ link, onStatusChange, onClose }: Props) {
         {/* header */}
         <div className="flex items-start gap-2 border-b border-surface-100 px-5 py-3 lg:py-4 dark:border-surface-800">
           <div className="min-w-0 flex-1">
-            <p className="line-clamp-1 text-sm font-semibold text-surface-900 dark:text-surface-50">{link.title}</p>
+            <p className="line-clamp-1 text-sm font-semibold text-surface-900 dark:text-surface-50">{displayTitle(link)}</p>
             <p className="mt-0.5 text-xs text-surface-400 dark:text-surface-500">{link.site_name}</p>
           </div>
           <button
