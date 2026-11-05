@@ -657,6 +657,18 @@ describe('syncTagsByName', () => {
 
     expect(ids).toEqual(['no-tag-id'])
   })
+
+  it('calls onCreate only for tags it inserts', async () => {
+    const existing = await encryptTagRowForSelect('tag-1', 'react', null)
+    mockTagsSelect.mockResolvedValue({ data: [existing], error: null })
+    mockInsertSingle.mockResolvedValue({ data: { id: 'new-1' }, error: null })
+    const onCreate = vi.fn()
+
+    await syncTagsByName(['react', 'fresh-tag'], dek, onCreate)
+
+    expect(onCreate).toHaveBeenCalledTimes(1)
+    expect(onCreate).toHaveBeenCalledWith('new-1')
+  })
 })
 
 // ── syncTagDefinitions ────────────────────────────────────────────────────────
@@ -684,6 +696,21 @@ describe('syncTagDefinitions', () => {
 
     expect(ids).toEqual(['new-1'])
     expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({ user_id: 'u1', is_private: true }))
+  })
+
+  it('calls onCreate only for tags it inserts', async () => {
+    const existing = await encryptTagRowForSelect('tag-1', 'react', null)
+    mockTagsSelect.mockResolvedValue({ data: [existing], error: null })
+    mockInsertSingle.mockResolvedValue({ data: { id: 'new-1' }, error: null })
+    const onCreate = vi.fn()
+
+    await syncTagDefinitions(
+      [{ name: 'react', color: null, is_private: false }, { name: 'secret', color: null, is_private: true }],
+      dek, onCreate,
+    )
+
+    expect(onCreate).toHaveBeenCalledTimes(1)
+    expect(onCreate).toHaveBeenCalledWith('new-1')
   })
 
   it('skips a definition whose kebab-cased name is empty', async () => {

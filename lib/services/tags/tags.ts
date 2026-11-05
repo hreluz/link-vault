@@ -229,7 +229,12 @@ export type TagDefinition = { name: string; color: string | null; is_private: bo
 /** Gets or creates tags from full definitions (name + color + privacy), returning their ids.
  *  Used by full-vault import so restored tags keep their color/privacy -- an existing name match
  *  is left as-is (never overwritten) so a destination account's own customization isn't clobbered. */
-export async function syncTagDefinitions(defs: TagDefinition[], dek: CryptoKey): Promise<string[]> {
+export async function syncTagDefinitions(
+  defs: TagDefinition[],
+  dek: CryptoKey,
+  /** Called with the id of each tag this call inserts (not for existing matches). */
+  onCreate: (id: string) => void = () => {},
+): Promise<string[]> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return []
@@ -257,13 +262,19 @@ export async function syncTagDefinitions(defs: TagDefinition[], dek: CryptoKey):
         created_at: new Date().toISOString(), link_count: 0,
       })
       ids.push(data.id)
+      onCreate(data.id)
     }
   }
   return ids
 }
 
 /** Gets or creates tags by name, returning their ids. Used when saving/editing a link's tags. */
-export async function syncTagsByName(names: string[], dek: CryptoKey): Promise<string[]> {
+export async function syncTagsByName(
+  names: string[],
+  dek: CryptoKey,
+  /** Called with the id of each tag this call inserts (not for existing matches). */
+  onCreate: (id: string) => void = () => {},
+): Promise<string[]> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return []
@@ -287,6 +298,7 @@ export async function syncTagsByName(names: string[], dek: CryptoKey): Promise<s
     if (data) {
       existing.push({ id: data.id, user_id: user.id, name, color: null, is_private: false, created_at: new Date().toISOString(), link_count: 0 })
       ids.push(data.id)
+      onCreate(data.id)
     }
   }
   return ids

@@ -869,7 +869,7 @@ describe('importLinks', () => {
       ], null, dek, { onProgress })
 
       expect(onProgress.mock.calls.map(call => call[2])).toEqual([
-        { url: 'https://example.com', status: 'imported', metaMissing: false },
+        { url: 'https://example.com', status: 'imported', metaMissing: false, id: '1', isFavorite: false },
         { url: 'not-a-url', status: 'failed', reason: 'invalid_url' },
         { url: 'https://dup.com', status: 'duplicate' },
         { url: 'https://github.com', status: 'failed', reason: 'save_error' },
@@ -883,7 +883,28 @@ describe('importLinks', () => {
 
       await importLinks([{ url: 'https://example.com' }], null, dek, { onProgress, fetchMeta })
 
-      expect(onProgress).toHaveBeenCalledWith(1, 1, { url: 'https://example.com', status: 'imported', metaMissing: true })
+      expect(onProgress).toHaveBeenCalledWith(1, 1, {
+        url: 'https://example.com', status: 'imported', metaMissing: true, id: '1', isFavorite: false,
+      })
+    })
+
+    it('reports each tag it creates through onCreate', async () => {
+      mockLinksSingle.mockResolvedValue({ data: await encryptLinkRow('1'), error: null })
+      mockTagsInsertSingle.mockResolvedValue({ data: { id: 'tag-new' }, error: null })
+      const onCreate = vi.fn()
+
+      await importLinks([{ url: 'https://example.com', tags: ['fresh'] }], null, dek, { onCreate })
+
+      expect(onCreate).toHaveBeenCalledWith('tag', 'tag-new')
+    })
+
+    it('reports the saved id and favorite flag on the imported outcome', async () => {
+      mockLinksSingle.mockResolvedValue({ data: await encryptLinkRow('fav-1', CONTENT, { is_favorite: true }), error: null })
+      const onProgress = vi.fn()
+
+      await importLinks([{ url: 'https://example.com', is_favorite: true }], null, dek, { onProgress })
+
+      expect(onProgress.mock.calls[0][2]).toEqual(expect.objectContaining({ status: 'imported', id: 'fav-1', isFavorite: true }))
     })
 
     it('lists only failed rows in failures, never duplicates or imported ones', async () => {
@@ -1261,7 +1282,7 @@ describe('importLinks', () => {
         expect(mockLinksInsert).toHaveBeenCalledTimes(1)
         expect(onProgress.mock.calls.map(call => call[2])).toEqual([
           { url: 'https://instagram.com/p/1', status: 'skipped_generic' },
-          { url: 'https://example.com/a', status: 'imported', metaMissing: false },
+          expect.objectContaining({ url: 'https://example.com/a', status: 'imported', metaMissing: false }),
         ])
         expect(result).toMatchObject({
           imported: 1, skipped: 0, metaMissing: 0, failures: [], genericSkipped: ['https://instagram.com/p/1'],

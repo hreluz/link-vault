@@ -64,6 +64,15 @@ vi.mock('@/lib/services/appSettings', async importOriginal => ({
   getImportFetchSettings: mockGetImportFetchSettings,
 }))
 
+const { mockDeleteImportedLinks, mockRemoveUnusedImportCreations } = vi.hoisted(() => ({
+  mockDeleteImportedLinks: vi.fn(),
+  mockRemoveUnusedImportCreations: vi.fn(),
+}))
+vi.mock('@/lib/services/importExport/undoImport', () => ({
+  deleteImportedLinks: mockDeleteImportedLinks,
+  removeUnusedImportCreations: mockRemoveUnusedImportCreations,
+}))
+
 vi.mock('@/lib/hooks/categories/useCategoryList', () => ({
   useCategoryList: mockUseCategoryList,
 }))
@@ -140,7 +149,7 @@ describe('useLinkImport', () => {
       })
       await act(async () => { await result.current.handleImport() })
 
-      expect(mockImportLinks).toHaveBeenCalledWith(expect.any(Array), 'cat-2', FAKE_DEK, { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal), titleFromUrl: true })
+      expect(mockImportLinks).toHaveBeenCalledWith(expect.any(Array), 'cat-2', FAKE_DEK, { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal), titleFromUrl: true, onCreate: expect.any(Function) })
     })
   })
 
@@ -204,7 +213,7 @@ describe('useLinkImport', () => {
         [{ url: 'https://example.com', tags: [] }, { url: 'https://github.com', tags: [] }],
         'cat-0',
         FAKE_DEK,
-        { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal), titleFromUrl: true },
+        { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal), titleFromUrl: true, onCreate: expect.any(Function) },
       )
     })
 
@@ -218,7 +227,7 @@ describe('useLinkImport', () => {
         [{ url: 'https://example.com', tags: [] }],
         expect.anything(),
         FAKE_DEK,
-        { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal), titleFromUrl: true },
+        { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal), titleFromUrl: true, onCreate: expect.any(Function) },
       )
     })
 
@@ -289,7 +298,7 @@ describe('useLinkImport', () => {
         [{ url: 'https://example.com', tags: ['react'] }],
         expect.anything(),
         FAKE_DEK,
-        { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal), titleFromUrl: true },
+        { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal), titleFromUrl: true, onCreate: expect.any(Function) },
       )
     })
 
@@ -321,7 +330,7 @@ describe('useLinkImport', () => {
         [{ url: 'https://example.com' }],
         expect.anything(),
         FAKE_DEK,
-        { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal), titleFromUrl: true },
+        { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal), titleFromUrl: true, onCreate: expect.any(Function) },
       )
     })
   })
@@ -352,7 +361,7 @@ describe('useLinkImport', () => {
         [{ url: 'https://example.com', tags: ['test'] }],
         expect.anything(),
         FAKE_DEK,
-        { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal), titleFromUrl: true },
+        { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal), titleFromUrl: true, onCreate: expect.any(Function) },
       )
     })
 
@@ -393,7 +402,7 @@ describe('useLinkImport', () => {
 
       await act(async () => { await result.current.handleImport() })
 
-      expect(mockGetOrCreateCategoryByName).toHaveBeenCalledWith('Article', FAKE_DEK)
+      expect(mockGetOrCreateCategoryByName).toHaveBeenCalledWith('Article', FAKE_DEK, undefined, expect.any(Function))
     })
 
     it('passes the resolved category_id to importLinks', async () => {
@@ -410,7 +419,7 @@ describe('useLinkImport', () => {
         ]),
         expect.anything(),
         FAKE_DEK,
-        { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal), titleFromUrl: true },
+        { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal), titleFromUrl: true, onCreate: expect.any(Function) },
       )
     })
 
@@ -432,7 +441,7 @@ describe('useLinkImport', () => {
         ]),
         expect.anything(),
         FAKE_DEK,
-        { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal), titleFromUrl: true },
+        { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal), titleFromUrl: true, onCreate: expect.any(Function) },
       )
       expect(mockGetOrCreateCategoryByName).not.toHaveBeenCalled()
     })
@@ -644,7 +653,7 @@ describe('useLinkImport', () => {
 
       expect(mockImportVaultExport).toHaveBeenCalledWith(
         VAULT_EXPORT,
-        { defaultCategoryId: 'cat-0', applyPreferences: true, onProgress: expect.any(Function), signal: expect.any(AbortSignal) },
+        { defaultCategoryId: 'cat-0', applyPreferences: true, onProgress: expect.any(Function), signal: expect.any(AbortSignal), onCreate: expect.any(Function) },
         FAKE_DEK,
       )
       expect(mockImportLinks).not.toHaveBeenCalled()
@@ -661,7 +670,7 @@ describe('useLinkImport', () => {
 
       expect(mockImportVaultExport).toHaveBeenCalledWith(
         VAULT_EXPORT,
-        { defaultCategoryId: 'cat-0', applyPreferences: true, onProgress: expect.any(Function), signal: expect.any(AbortSignal) },
+        { defaultCategoryId: 'cat-0', applyPreferences: true, onProgress: expect.any(Function), signal: expect.any(AbortSignal), onCreate: expect.any(Function) },
         FAKE_DEK,
       )
     })
@@ -686,7 +695,7 @@ describe('useLinkImport', () => {
 
       expect(mockImportVaultExport).toHaveBeenCalledWith(
         VAULT_EXPORT,
-        { defaultCategoryId: 'cat-0', applyPreferences: false, onProgress: expect.any(Function), signal: expect.any(AbortSignal) },
+        { defaultCategoryId: 'cat-0', applyPreferences: false, onProgress: expect.any(Function), signal: expect.any(AbortSignal), onCreate: expect.any(Function) },
         FAKE_DEK,
       )
     })
@@ -795,7 +804,7 @@ describe('useLinkImport', () => {
       await act(async () => { await result.current.handleImport() })
 
       expect(mockImportLinks).toHaveBeenCalledWith(
-        expect.any(Array), 'cat-0', FAKE_DEK, { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal), titleFromUrl: true },
+        expect.any(Array), 'cat-0', FAKE_DEK, { onProgress: expect.any(Function), fetchMeta: undefined, guardConfig: DEFAULT_GUARD, signal: expect.any(AbortSignal), titleFromUrl: true, onCreate: expect.any(Function) },
       )
     })
 
@@ -811,7 +820,7 @@ describe('useLinkImport', () => {
         expect.any(Array), 'cat-0', FAKE_DEK, {
           onProgress: expect.any(Function), fetchMeta: mockFetchLinkMeta, onHostBlocked: expect.any(Function),
           onThrottleWait: expect.any(Function), onFetching: expect.any(Function), guardConfig: DEFAULT_GUARD,
-          signal: expect.any(AbortSignal), titleFromUrl: true,
+          signal: expect.any(AbortSignal), titleFromUrl: true, onCreate: expect.any(Function),
         },
       )
     })
@@ -1691,5 +1700,124 @@ describe('useLinkImport', () => {
 
       await waitFor(() => expect(result.current.importEstimate!.ms).toBe(defaultMs + 8000))
     })
+  })
+})
+
+describe('undo this import (composed)', () => {
+  type ImportOptions = {
+    onProgress?: (done: number, total: number, outcome: unknown) => void
+    onCreate?: (kind: 'tag' | 'category', id: string) => void
+  }
+
+  beforeEach(() => {
+    mockDeleteImportedLinks.mockResolvedValue(1)
+    mockRemoveUnusedImportCreations.mockResolvedValue({ tags: 0, categories: 0 })
+  })
+
+  function importSaving(ids: string[], options: { createTag?: string; throwAfter?: boolean } = {}) {
+    mockImportLinks.mockImplementation(async (_i: unknown, _c: unknown, _d: unknown, opts: ImportOptions = {}) => {
+      if (options.createTag) opts.onCreate?.('tag', options.createTag)
+      ids.forEach((id, i) => opts.onProgress?.(i + 1, ids.length, {
+        url: `https://e.com/${id}`, status: 'imported', metaMissing: false, id, isFavorite: false,
+      }))
+      if (options.throwAfter) throw new Error('network down')
+      return { imported: ids.length, skipped: 0, duplicates: 0, failures: [], cancelled: false, notProcessed: [] }
+    })
+  }
+
+  it('collects the saved ids and created tags from importLinks and undoes them', async () => {
+    importSaving(['a', 'b'], { createTag: 't-new' })
+    const { result } = await renderWithDefaultCategory()
+    act(() => result.current.setUrlsText('https://a.com'))
+    await act(async () => { await result.current.handleImport() })
+
+    expect(result.current.undoLinkCount).toBe(2)
+    act(() => result.current.requestUndo())
+    await act(async () => result.current.confirmUndo())
+
+    expect(mockDeleteImportedLinks).toHaveBeenCalledWith(['a', 'b'])
+    expect(mockRemoveUnusedImportCreations).toHaveBeenCalledWith({ tagIds: ['t-new'], categoryIds: [] })
+    expect(result.current.undoState.phase).toBe('done')
+  })
+
+  it('records categories created while resolving CSV category names', async () => {
+    importSaving(['a'])
+    mockGetOrCreateCategoryByName.mockImplementation(
+      async (_n: string, _d: unknown, _s: unknown, onCreate?: (id: string) => void) => { onCreate?.('cat-csv'); return 'cat-csv' },
+    )
+    const { result } = await renderWithDefaultCategory()
+    const csv = 'url,title,description,category,tags,status,notes\nhttps://a.com,,,NewCat,,,'
+    act(() => result.current.switchTab('file'))
+    act(() => result.current.handleFileChange(fileChangeEvent(new File([csv], 'links.csv', { type: 'text/csv' }))))
+    await act(async () => { await result.current.handleImport() })
+
+    act(() => result.current.requestUndo())
+    await act(async () => result.current.confirmUndo())
+
+    expect(mockRemoveUnusedImportCreations).toHaveBeenCalledWith({ tagIds: [], categoryIds: ['cat-csv'] })
+  })
+
+  it('passes onCreate to a v2 restore', async () => {
+    const { result } = await renderWithDefaultCategory()
+    act(() => result.current.switchTab('json'))
+    act(() => result.current.setJsonText(JSON.stringify(VAULT_EXPORT)))
+    await waitFor(() => expect(result.current.detectedVaultExport).not.toBeNull())
+
+    await act(async () => { await result.current.handleImport() })
+
+    expect(mockImportVaultExport.mock.calls[0][1].onCreate).toEqual(expect.any(Function))
+  })
+
+  it('keeps the ids saved before an import error', async () => {
+    importSaving(['a'], { throwAfter: true })
+    const { result } = await renderWithDefaultCategory()
+    act(() => result.current.setUrlsText('https://a.com'))
+    await act(async () => { await result.current.handleImport() })
+
+    expect(result.current.importModalState).toBe('error')
+    expect(result.current.undoLinkCount).toBe(1)
+  })
+
+  it('starts each import with nothing to undo', async () => {
+    importSaving(['a'])
+    const { result } = await renderWithDefaultCategory()
+    act(() => result.current.setUrlsText('https://a.com'))
+    await act(async () => { await result.current.handleImport() })
+    act(() => result.current.closeImportModal())
+
+    importSaving([])
+    act(() => result.current.setUrlsText('https://b.com'))
+    await act(async () => { await result.current.handleImport() })
+
+    expect(result.current.undoLinkCount).toBe(0)
+  })
+
+  it('forgets the run when the modal closes', async () => {
+    importSaving(['a'])
+    const { result } = await renderWithDefaultCategory()
+    act(() => result.current.setUrlsText('https://a.com'))
+    await act(async () => { await result.current.handleImport() })
+
+    act(() => result.current.closeImportModal())
+
+    expect(result.current.undoLinkCount).toBe(0)
+  })
+
+  it('cannot close the modal while the undo is deleting', async () => {
+    importSaving(['a'])
+    let resolveDelete!: (n: number) => void
+    mockDeleteImportedLinks.mockReturnValue(new Promise(r => { resolveDelete = r }))
+    const { result } = await renderWithDefaultCategory()
+    act(() => result.current.setUrlsText('https://a.com'))
+    await act(async () => { await result.current.handleImport() })
+    act(() => result.current.requestUndo())
+    act(() => result.current.confirmUndo())
+
+    act(() => result.current.closeImportModal())
+    expect(result.current.importModalState).toBe('finished')
+
+    await act(async () => resolveDelete(1))
+    act(() => result.current.closeImportModal())
+    expect(result.current.importModalState).toBe('closed')
   })
 })

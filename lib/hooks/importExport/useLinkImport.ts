@@ -19,6 +19,7 @@ import { useCategoryList } from '@/lib/hooks/categories/useCategoryList'
 import { parseCSV, type ParsedRow } from '@/lib/utils/linksCsv'
 import { fetchLinkMeta } from '@/app/dashboard/link/actions'
 import { useImportEta } from '@/lib/hooks/importExport/useImportEta'
+import { useImportUndo } from '@/lib/hooks/importExport/useImportUndo'
 import { createClient } from '@/lib/supabase/client'
 import {
   getImportFetchSettings, DEFAULT_IMPORT_FETCH_SETTINGS, type ImportFetchSettings,
@@ -73,11 +74,15 @@ async function readFileText(file: File): Promise<string> {
   })
 }
 
-async function resolveCsvCategories(rows: ParsedRow[], dek: CryptoKey): Promise<ImportLinkInput[]> {
+async function resolveCsvCategories(
+  rows: ParsedRow[],
+  dek: CryptoKey,
+  onCreate: (id: string) => void,
+): Promise<ImportLinkInput[]> {
   const uniqueNames = [...new Set(rows.map(r => r.categoryName).filter((n): n is string => !!n))]
   const nameToId = new Map<string, string>()
   for (const name of uniqueNames) {
-    const id = await getOrCreateCategoryByName(name, dek)
+    const id = await getOrCreateCategoryByName(name, dek, undefined, onCreate)
     if (id) nameToId.set(name, id)
   }
   return rows.map(({ categoryName, ...row }) => ({
@@ -202,6 +207,7 @@ export function useLinkImport() {
   // Only file contents need reading asynchronously; the text tabs are derived during render.
   const [fileRows, setFileRows] = useState<EstimateRow[]>([])
   const eta = useImportEta(hostBlock !== null)
+  const undo = useImportUndo({ onTagsChanged: refetchTags })
   // Latest known admin settings, for the pre-import estimate; refreshed at each import start.
   const [fetchSettings, setFetchSettings] = useState<ImportFetchSettings>(DEFAULT_IMPORT_FETCH_SETTINGS)
   // The snapshot the running import uses from start to finish (null when no import has started).
@@ -265,7 +271,11 @@ export function useLinkImport() {
   }, [importing])
 
   function closeImportModal() {
-    setImportModalState(state => (state === 'running' ? state : 'closed'))
+    // Locked while running, and while an undo is deleting.
+    if (importModalState === 'running' || undo.undoState.phase === 'deleting') return
+    setImportModalState('closed')
+    // The run can only be undone while its summary is open.
+    undo.resetUndo()
   }
 
   function cancelImport() {
@@ -369,7 +379,10 @@ export function useLinkImport() {
     setProgress(p)
     if (p.phase === 'links') eta.recordProgress(p.done, p.outcome)
     const outcome = p.outcome
-    if (outcome) setImportStats(stats => applyOutcome(stats, outcome))
+    if (outcome) {
+      setImportStats(stats => applyOutcome(stats, outcome))
+      undo.recordUndoOutcome(outcome)
+    }
     if (outcome?.status === 'imported') setLastImportedAt(Date.now())
   }
 
@@ -391,6 +404,7 @@ export function useLinkImport() {
       setLastImportedAt(null)
       setImportError(null)
       setNotProcessed([])
+      undo.resetUndo()
       setImportModalState('running')
       return abortControllerRef.current.signal
     }
@@ -402,7 +416,7 @@ export function useLinkImport() {
         eta.start(detectedVaultExport.links, false)
         const result = await importVaultExport(
           detectedVaultExport,
-          { defaultCategoryId: catId, applyPreferences, onProgress: handleProgress, signal },
+          { defaultCategoryId: catId, applyPreferences, onProgress: handleProgress, signal, onCreate: undo.recordUndoCreate },
           dek,
         )
         setLastResult(result)
@@ -452,7 +466,7 @@ export function useLinkImport() {
 
       const signal = openModal({ isVault: false, withMetadata: autoFetchOnImport })
       // CSV category names are created here, so this runs after the modal opens ("Preparing…").
-      if (csvRows) inputs = await resolveCsvCategories(csvRows, dek)
+      if (csvRows) inputs = await resolveCsvCategories(csvRows, dek, id => undo.recordUndoCreate('category', id))
       inputs = await applyDomainCategories(inputs, dek)
       inputs = applyImportTags(inputs, importTags)
       // Snapshot: this run keeps these values even if the admin changes them mid-import.
@@ -474,6 +488,7 @@ export function useLinkImport() {
           guardConfig: { gapMs, emptyStreakLimit: settings.emptyStreakLimit },
           signal,
           titleFromUrl: true,
+          onCreate: undo.recordUndoCreate,
         },
       )
       setLastResult(result)
@@ -530,6 +545,9 @@ export function useLinkImport() {
     importEstimate, importEtaMs: eta.etaMs,
     importModalState, importStats, lastImportedAt, importError, importRun, closeImportModal,
     cancelling, notProcessed, cancelImport,
+    undoLinkCount: undo.undoLinkCount, undoFavoriteCount: undo.undoFavoriteCount, undoState: undo.undoState,
+    requestUndo: undo.requestUndo, cancelUndo: undo.cancelUndo, confirmUndo: undo.confirmUndo,
+    retryUndo: undo.retryUndo, retryUndoCleanup: undo.retryUndoCleanup,
     hostBlock, waitAndRetry, skipBlockedHost, leaveImport,
     throttleWait,
     fetching,
