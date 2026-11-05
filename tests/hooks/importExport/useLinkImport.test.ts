@@ -91,7 +91,7 @@ vi.mock('@/lib/context/TagsContext', () => ({
 beforeEach(() => {
   vi.clearAllMocks()
   mockUseCategoryList.mockReturnValue({ categories: MOCK_CATEGORIES, loading: false })
-  mockImportLinks.mockResolvedValue({ imported: 2, skipped: 0, duplicates: 0 })
+  mockImportLinks.mockResolvedValue({ imported: 2, retryable: [], skipped: 0, duplicates: 0 })
   mockGetOrCreateCategoryByName.mockResolvedValue('cat-resolved')
   mockGetCategoryIdByDomainMap.mockResolvedValue(new Map())
   mockGetImportFetchSettings.mockResolvedValue({ fetchGapSeconds: 2, retryWaitSeconds: 60, emptyStreakLimit: 3, slowHintSeconds: 10 })
@@ -242,7 +242,7 @@ describe('useLinkImport', () => {
     })
 
     it('finishes in the modal without a warning toast when nothing is imported', async () => {
-      mockImportLinks.mockResolvedValue({ imported: 0, skipped: 2, duplicates: 1, failures: [] })
+      mockImportLinks.mockResolvedValue({ imported: 0, retryable: [], skipped: 2, duplicates: 1, failures: [] })
       const { result } = await renderWithDefaultCategory()
       act(() => result.current.setUrlsText('https://example.com'))
 
@@ -258,7 +258,7 @@ describe('useLinkImport', () => {
 
       await act(async () => { await result.current.handleImport() })
 
-      expect(result.current.lastResult).toEqual({ imported: 2, skipped: 0, duplicates: 0 })
+      expect(result.current.lastResult).toEqual({ imported: 2, retryable: [], skipped: 0, duplicates: 0 })
     })
 
     it('clears the URLs text after a successful import', async () => {
@@ -855,7 +855,7 @@ describe('useLinkImport', () => {
     })
 
     it('carries metaMissing from importLinks into lastResult', async () => {
-      mockImportLinks.mockResolvedValue({ imported: 2, skipped: 0, duplicates: 0, metaMissing: 1 })
+      mockImportLinks.mockResolvedValue({ imported: 2, retryable: [], skipped: 0, duplicates: 0, metaMissing: 1 })
       const { result } = await renderWithDefaultCategory()
       act(() => result.current.setAutoFetchOnImport(true))
 
@@ -884,7 +884,7 @@ describe('useLinkImport', () => {
       await waitFor(() => expect(result.current.progress).toEqual({ phase: 'categories', done: 1, total: 3 }))
 
       await act(async () => {
-        resolveImport({ imported: 1, skipped: 0, duplicates: 0, categoriesCreated: 0, domainsCreated: 0, tagsCreated: 0 })
+        resolveImport({ imported: 1, retryable: [], skipped: 0, duplicates: 0, categoriesCreated: 0, domainsCreated: 0, tagsCreated: 0 })
         await importPromise
       })
 
@@ -923,7 +923,7 @@ describe('useLinkImport', () => {
       await waitFor(() => expect(result.current.progress).toEqual({ phase: 'links', done: 1, total: 1 }))
 
       await act(async () => {
-        resolveImport({ imported: 1, skipped: 0, duplicates: 0 })
+        resolveImport({ imported: 1, retryable: [], skipped: 0, duplicates: 0 })
         await importPromise
       })
     })
@@ -936,7 +936,7 @@ describe('useLinkImport', () => {
         { onProgress }: { onProgress?: (done: number, total: number, outcome: Outcome) => void } = {},
       ) => {
         outcomes.forEach((outcome, i) => onProgress?.(i + 1, outcomes.length, outcome))
-        return { imported: 0, skipped: 0, duplicates: 0, failures: [] }
+        return { imported: 0, retryable: [], skipped: 0, duplicates: 0, failures: [] }
       })
     }
 
@@ -989,7 +989,7 @@ describe('useLinkImport', () => {
       mockImportVaultExport.mockImplementation(async (_data: unknown, options: { onProgress?: (p: unknown) => void }) => {
         options.onProgress?.({ phase: 'categories', done: 1, total: 1 })
         options.onProgress?.({ phase: 'links', done: 1, total: 1, outcome: { url: 'x', status: 'failed', reason: 'invalid_url' } })
-        return { imported: 0, skipped: 1, duplicates: 0, categoriesCreated: 0, domainsCreated: 0, tagsCreated: 0 }
+        return { imported: 0, retryable: [], skipped: 1, duplicates: 0, categoriesCreated: 0, domainsCreated: 0, tagsCreated: 0 }
       })
       const { result } = await renderWithDefaultCategory()
       act(() => result.current.switchTab('json'))
@@ -1026,7 +1026,7 @@ describe('useLinkImport', () => {
       await waitFor(() => expect(result.current.importModalState).toBe('running'))
 
       await act(async () => {
-        resolveImport({ imported: 1, skipped: 0, duplicates: 0, failures: [] })
+        resolveImport({ imported: 1, retryable: [], skipped: 0, duplicates: 0, failures: [] })
         await importPromise
       })
 
@@ -1058,7 +1058,7 @@ describe('useLinkImport', () => {
       expect(result.current.importModalState).toBe('running')
 
       await act(async () => {
-        resolveImport({ imported: 1, skipped: 0, duplicates: 0, failures: [] })
+        resolveImport({ imported: 1, retryable: [], skipped: 0, duplicates: 0, failures: [] })
         await importPromise
       })
       act(() => result.current.closeImportModal())
@@ -1134,7 +1134,7 @@ describe('useLinkImport', () => {
       await waitFor(() => expect(addSpy).toHaveBeenCalledWith('beforeunload', expect.any(Function)))
 
       await act(async () => {
-        resolveImport({ imported: 1, skipped: 0, duplicates: 0, failures: [] })
+        resolveImport({ imported: 1, retryable: [], skipped: 0, duplicates: 0, failures: [] })
         await importPromise
       })
 
@@ -1176,7 +1176,7 @@ describe('useLinkImport', () => {
 
     const CANCELLED_RESULT = {
       imported: 1, skipped: 0, duplicates: 0, failures: [],
-      cancelled: true, notProcessed: ['https://b.com', 'https://c.com'],
+      cancelled: true, notProcessed: ['https://b.com', 'https://c.com'], retryable: [],
     }
 
     it('aborts the signal handed to importLinks', async () => {
@@ -1295,7 +1295,7 @@ describe('useLinkImport', () => {
         getSignal: () => signal,
         finish: async () => {
           await act(async () => {
-            resolveImport({ imported: 1, skipped: 0, duplicates: 0, failures: [], cancelled: false, notProcessed: [] })
+            resolveImport({ imported: 1, retryable: [], skipped: 0, duplicates: 0, failures: [], cancelled: false, notProcessed: [] })
             await importPromise
           })
         },
@@ -1462,7 +1462,7 @@ describe('useLinkImport', () => {
         report: (wait: typeof WAIT | null) => act(() => onThrottleWait?.(wait)),
         finish: async () => {
           await act(async () => {
-            resolveImport({ imported: 2, skipped: 0, duplicates: 0 })
+            resolveImport({ imported: 2, retryable: [], skipped: 0, duplicates: 0 })
             await importPromise
           })
         },
@@ -1532,7 +1532,7 @@ describe('useLinkImport', () => {
         emit: (outcome: Outcome) => act(() => onProgress?.(1, 2, outcome)),
         finish: async () => {
           await act(async () => {
-            resolveImport({ imported: 0, skipped: 0, duplicates: 0, failures: [] })
+            resolveImport({ imported: 0, retryable: [], skipped: 0, duplicates: 0, failures: [] })
             await importPromise
           })
         },
@@ -1616,7 +1616,7 @@ describe('useLinkImport', () => {
         report: (fetching: typeof FETCHING | null) => act(() => onFetching?.(fetching)),
         finish: async () => {
           await act(async () => {
-            resolveImport({ imported: 1, skipped: 0, duplicates: 0 })
+            resolveImport({ imported: 1, retryable: [], skipped: 0, duplicates: 0 })
             await importPromise
           })
         },
@@ -1721,7 +1721,7 @@ describe('undo this import (composed)', () => {
         url: `https://e.com/${id}`, status: 'imported', metaMissing: false, id, isFavorite: false,
       }))
       if (options.throwAfter) throw new Error('network down')
-      return { imported: ids.length, skipped: 0, duplicates: 0, failures: [], cancelled: false, notProcessed: [] }
+      return { imported: ids.length, retryable: [], skipped: 0, duplicates: 0, failures: [], cancelled: false, notProcessed: [] }
     })
   }
 
@@ -1819,5 +1819,195 @@ describe('undo this import (composed)', () => {
     await act(async () => resolveDelete(1))
     act(() => result.current.closeImportModal())
     expect(result.current.importModalState).toBe('closed')
+  })
+})
+
+describe('retry failed rows (SPEC 32)', () => {
+  type Outcome =
+    | { url: string; status: 'imported'; metaMissing: boolean; id: string; isFavorite: boolean }
+    | { url: string; status: 'failed'; reason: 'invalid_url' | 'save_error' }
+    | { url: string; status: 'skipped_generic' }
+  type ImportOptions = { onProgress?: (done: number, total: number, outcome: Outcome) => void }
+
+  const FAILED_ROW = { url: 'https://b.com', title: 'Kept title', notes: 'n', tags: ['x'], category_id: 'cat-1' }
+
+  /** One importLinks pass: reports `outcomes` and returns `retryable` (plus a cancel when asked). */
+  function pass(outcomes: Outcome[], retryable: unknown[], extra: { notProcessed?: string[] } = {}) {
+    mockImportLinks.mockImplementationOnce(async (_i: unknown, _c: unknown, _d: unknown, opts: ImportOptions = {}) => {
+      outcomes.forEach((o, i) => opts.onProgress?.(i + 1, outcomes.length, o))
+      const notProcessed = extra.notProcessed ?? []
+      return {
+        imported: outcomes.filter(o => o.status === 'imported').length, skipped: 0, duplicates: 0,
+        failures: [], cancelled: notProcessed.length > 0, notProcessed, retryable,
+      }
+    })
+  }
+
+  const imported = (id: string): Outcome => ({ url: `https://${id}.com`, status: 'imported', metaMissing: false, id, isFavorite: false })
+  const saveError = (url: string): Outcome => ({ url, status: 'failed', reason: 'save_error' })
+
+  async function firstRun(outcomes: Outcome[], retryable: unknown[], extra?: { notProcessed?: string[] }) {
+    pass(outcomes, retryable, extra)
+    const utils = await renderWithDefaultCategory()
+    act(() => utils.result.current.setDefaultCategoryId('cat-2'))
+    act(() => utils.result.current.setUrlsText('https://a.com\nhttps://b.com\nnot-a-url'))
+    await act(async () => { await utils.result.current.handleImport() })
+    return utils
+  }
+
+  beforeEach(() => {
+    mockDeleteImportedLinks.mockResolvedValue(1)
+    mockRemoveUnusedImportCreations.mockResolvedValue({ tags: 0, categories: 0 })
+  })
+
+  it('offers the failed rows and re-runs only them, with the run category and no fetcher', async () => {
+    const { result } = await firstRun([imported('a'), saveError('https://b.com')], [FAILED_ROW])
+    expect(result.current.retryableCount).toBe(1)
+    // The form was cleared by the successful pass and the selector changed: the retry ignores both.
+    expect(result.current.urlsText).toBe('')
+    act(() => result.current.setDefaultCategoryId('cat-0'))
+
+    pass([imported('b')], [])
+    await act(async () => { await result.current.retryFailed() })
+
+    const [rows, catId, , options] = mockImportLinks.mock.calls[1]
+    expect(rows).toEqual([FAILED_ROW])
+    expect(catId).toBe('cat-2')
+    expect(options).toMatchObject({ retry: true, titleFromUrl: true })
+    expect(options.fetchMeta).toBeUndefined()
+    expect(mockGetImportFetchSettings).toHaveBeenCalledTimes(2) // mount + first run only
+    expect(result.current.importModalState).toBe('finished')
+    expect(result.current.importStats.imported).toBe(1)
+    expect(result.current.retryableCount).toBe(0)
+  })
+
+  it('marks the pass as a retry while it runs', async () => {
+    const { result } = await firstRun([saveError('https://b.com')], [FAILED_ROW])
+    let resolveRetry!: (value: unknown) => void
+    mockImportLinks.mockImplementationOnce(() => new Promise(resolve => { resolveRetry = resolve }))
+
+    act(() => { void result.current.retryFailed() })
+    expect(result.current.importModalState).toBe('running')
+    expect(result.current.importRun).toMatchObject({ isVault: false, retryCount: 1 })
+
+    await act(async () => resolveRetry({ imported: 1, skipped: 0, duplicates: 0, failures: [], cancelled: false, notProcessed: [], retryable: [] }))
+    expect(result.current.importModalState).toBe('finished')
+  })
+
+  it('offers the button again while rows still fail', async () => {
+    const { result } = await firstRun([saveError('https://b.com')], [FAILED_ROW])
+    pass([saveError('https://b.com')], [FAILED_ROW])
+    await act(async () => { await result.current.retryFailed() })
+
+    expect(result.current.retryableCount).toBe(1)
+    expect(result.current.importStats.failures).toEqual([{ url: 'https://b.com', reason: 'save_error' }])
+  })
+
+  it('keeps one undo record across the run and its retries', async () => {
+    const { result } = await firstRun([imported('a'), saveError('https://b.com')], [FAILED_ROW])
+    pass([imported('b')], [])
+    await act(async () => { await result.current.retryFailed() })
+
+    expect(result.current.undoLinkCount).toBe(2)
+    act(() => result.current.requestUndo())
+    await act(async () => result.current.confirmUndo())
+    expect(mockDeleteImportedLinks).toHaveBeenCalledWith(['a', 'b'])
+  })
+
+  it('does nothing once an undo has started', async () => {
+    const { result } = await firstRun([imported('a'), saveError('https://b.com')], [FAILED_ROW])
+    act(() => result.current.requestUndo())
+
+    await act(async () => { await result.current.retryFailed() })
+
+    expect(mockImportLinks).toHaveBeenCalledTimes(1)
+  })
+
+  it('carries invalid URLs, generic skips and the original unprocessed URLs into the retry', async () => {
+    const { result } = await firstRun(
+      [{ url: 'not-a-url', status: 'failed', reason: 'invalid_url' }, saveError('https://b.com'), { url: 'https://g.com', status: 'skipped_generic' }],
+      [FAILED_ROW],
+      { notProcessed: ['https://z.com'] },
+    )
+    expect(result.current.importModalState).toBe('cancelled')
+
+    pass([imported('b')], [])
+    await act(async () => { await result.current.retryFailed() })
+
+    expect(result.current.carried).toEqual({
+      failures: [{ url: 'not-a-url', reason: 'invalid_url' }],
+      genericSkipped: ['https://g.com'],
+      notProcessed: ['https://z.com'],
+    })
+    // The retry's own stats only count the retry.
+    expect(result.current.importStats.failures).toEqual([])
+  })
+
+  it("doesn't carry a cancelled retry's unprocessed rows, which stay retryable", async () => {
+    const { result } = await firstRun([saveError('https://b.com'), saveError('https://c.com')], [FAILED_ROW, { url: 'https://c.com' }])
+    pass([imported('b')], [{ url: 'https://c.com' }], { notProcessed: ['https://c.com'] })
+    await act(async () => { await result.current.retryFailed() })
+    expect(result.current.importModalState).toBe('cancelled')
+    expect(result.current.retryableCount).toBe(1)
+
+    pass([imported('c')], [])
+    await act(async () => { await result.current.retryFailed() })
+
+    expect(result.current.carried.notProcessed).toEqual([])
+  })
+
+  it('forgets the retryable rows and carried lists when the modal closes', async () => {
+    const { result } = await firstRun(
+      [{ url: 'not-a-url', status: 'failed', reason: 'invalid_url' }, saveError('https://b.com')], [FAILED_ROW],
+    )
+    pass([saveError('https://b.com')], [FAILED_ROW])
+    await act(async () => { await result.current.retryFailed() })
+
+    act(() => result.current.closeImportModal())
+
+    expect(result.current.retryableCount).toBe(0)
+    expect(result.current.carried).toEqual({ failures: [], genericSkipped: [], notProcessed: [] })
+  })
+
+  it('starts a new import with an empty carried list', async () => {
+    const { result } = await firstRun(
+      [{ url: 'not-a-url', status: 'failed', reason: 'invalid_url' }, saveError('https://b.com')], [FAILED_ROW],
+    )
+    pass([saveError('https://b.com')], [FAILED_ROW])
+    await act(async () => { await result.current.retryFailed() })
+    act(() => result.current.closeImportModal())
+
+    pass([imported('d')], [])
+    act(() => result.current.setUrlsText('https://d.com'))
+    await act(async () => { await result.current.handleImport() })
+
+    expect(result.current.carried.failures).toEqual([])
+    expect(result.current.undoLinkCount).toBe(1)
+  })
+
+  it('offers no retry for a v2 restore', async () => {
+    mockImportVaultExport.mockResolvedValue({
+      imported: 0, skipped: 1, duplicates: 0, failures: [{ url: 'https://example.com', reason: 'save_error' }],
+      cancelled: false, notProcessed: [], retryable: [{ url: 'https://example.com' }],
+      categoriesCreated: 0, domainsCreated: 0, tagsCreated: 0,
+    })
+    const { result } = await renderWithDefaultCategory()
+    act(() => result.current.switchTab('json'))
+    act(() => result.current.setJsonText(JSON.stringify(VAULT_EXPORT)))
+    await waitFor(() => expect(result.current.detectedVaultExport).not.toBeNull())
+    await act(async () => { await result.current.handleImport() })
+
+    expect(result.current.retryableCount).toBe(0)
+  })
+
+  it('goes to the error view, with nothing to retry, when the retry throws', async () => {
+    const { result } = await firstRun([saveError('https://b.com')], [FAILED_ROW])
+    mockImportLinks.mockRejectedValueOnce(new Error('network down'))
+
+    await act(async () => { await result.current.retryFailed() })
+
+    expect(result.current.importModalState).toBe('error')
+    expect(result.current.importError).toBe('network down')
+    expect(result.current.retryableCount).toBe(0)
   })
 })

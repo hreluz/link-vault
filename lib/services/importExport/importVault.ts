@@ -57,7 +57,7 @@ export async function importVaultExport(
   // what the finished phases created stays, and every link counts as not processed.
   const cancelledBeforeLinks = (): VaultImportResult => ({
     imported: 0, skipped: 0, duplicates: 0, failures: [],
-    cancelled: true, notProcessed: data.links.map(l => l.url.trim()),
+    cancelled: true, notProcessed: data.links.map(l => l.url.trim()), retryable: [],
     categoriesCreated, domainsCreated, domainsFailed, tagsCreated, preferencesFailed: [],
   })
 

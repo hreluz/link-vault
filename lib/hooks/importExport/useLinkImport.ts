@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import {
   importLinks,
   type ImportLinkInput, type ImportFailure, type ImportRowOutcome, type HostBlockInfo, type HostBlockDecision,
-  type ThrottleWait, type ImportFetching,
+  type ThrottleWait, type ImportFetching, type ImportResult,
 } from '@/lib/services/links'
 import { getOrCreateCategoryByName, PROTECTED_CATEGORY_NAME } from '@/lib/services/categories'
 import { getCategoryIdByDomainMap, lookupCategoryIdByUrl } from '@/lib/services/category-domains'
@@ -37,12 +37,16 @@ export type ImportStats = {
   genericSkipped: string[]
 }
 export type ImportModalState = 'closed' | 'running' | 'finished' | 'cancelled' | 'error'
-/** Fixed at the start of an import, since the inputs it was derived from are cleared on success. */
-export type ImportRun = { isVault: boolean; withMetadata: boolean }
+/** Fixed at the start of an import, since the inputs it was derived from are cleared on success.
+ *  `retryCount` is set on a retry pass: how many failed rows it re-runs. */
+export type ImportRun = { isVault: boolean; withMetadata: boolean; retryCount?: number }
+/** Summary lists from earlier passes that a retry doesn't touch, shown next to the retry's own results. */
+export type ImportCarried = { failures: ImportFailure[]; genericSkipped: string[]; notProcessed: string[] }
 /** A host that looks blocked while the import is paused; `retryAt` is set during the countdown. */
 export type HostBlockState = HostBlockInfo & { retryAt: number | null }
 
 const EMPTY_STATS: ImportStats = { imported: 0, duplicates: 0, failed: 0, metaMissing: 0, failures: [], genericSkipped: [] }
+const EMPTY_CARRIED: ImportCarried = { failures: [], genericSkipped: [], notProcessed: [] }
 
 function applyOutcome(stats: ImportStats, outcome: ImportRowOutcome): ImportStats {
   switch (outcome.status) {
@@ -194,6 +198,11 @@ export function useLinkImport() {
   // True from the Cancel click until the import returns (the current row still finishes).
   const [cancelling, setCancelling] = useState(false)
   const [notProcessed, setNotProcessed] = useState<string[]>([])
+  // Rows the last non-v2 pass couldn't save, ready for "Retry N failed"; [] for v2 runs.
+  const [retryable, setRetryable] = useState<ImportLinkInput[]>([])
+  const [carried, setCarried] = useState<ImportCarried>(EMPTY_CARRIED)
+  // The original run's default category, reused by its retries (the form may have changed or been cleared).
+  const runCategoryRef = useRef<string | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
   // Set while a host looks blocked: the import is paused until one of the three choices resolves it.
   const [hostBlock, setHostBlock] = useState<HostBlockState | null>(null)
@@ -274,8 +283,11 @@ export function useLinkImport() {
     // Locked while running, and while an undo is deleting.
     if (importModalState === 'running' || undo.undoState.phase === 'deleting') return
     setImportModalState('closed')
-    // The run can only be undone while its summary is open.
+    // The run can only be undone, or retried, while its summary is open.
     undo.resetUndo()
+    setRetryable([])
+    setCarried(EMPTY_CARRIED)
+    runCategoryRef.current = null
   }
 
   function cancelImport() {
@@ -386,6 +398,66 @@ export function useLinkImport() {
     if (outcome?.status === 'imported') setLastImportedAt(Date.now())
   }
 
+  /** Puts the modal in its running state for a new pass. A retry keeps the undo record and
+   *  the carried lists, so one undo covers the run and all its retries. */
+  function openRunModal(run: ImportRun, { keepRun = false } = {}) {
+    abortControllerRef.current = new AbortController()
+    setImportRun(run)
+    setImportStats(EMPTY_STATS)
+    setLastImportedAt(null)
+    setImportError(null)
+    setNotProcessed([])
+    setRetryable([])
+    if (!keepRun) {
+      undo.resetUndo()
+      setCarried(EMPTY_CARRIED)
+    }
+    setImportModalState('running')
+    return abortControllerRef.current.signal
+  }
+
+  /** Ends a non-v2 pass: keeps its failed rows for a retry and moves the modal to its summary. */
+  function finishLinkPass(result: ImportResult, { clearInputs }: { clearInputs: boolean }) {
+    setLastResult(result)
+    setRetryable(result.retryable)
+    if (result.imported > 0) refetchTags()
+    if (result.cancelled) {
+      // Inputs are kept so re-running the same import continues where it stopped.
+      setNotProcessed(result.notProcessed)
+      setImportModalState('cancelled')
+      return
+    }
+    if (clearInputs && result.imported > 0) {
+      setUrlsText('')
+      setJsonText('')
+      setSelectedFile(null)
+    }
+    setImportModalState('finished')
+  }
+
+  function failPass(err: unknown, modalOpened: boolean) {
+    const message = err instanceof Error ? err.message : 'Import failed'
+    if (modalOpened) {
+      setImportError(message)
+      setImportModalState('error')
+    } else {
+      toast.error(message)
+    }
+  }
+
+  function endPass() {
+    abortControllerRef.current = null
+    clearRetryTimer()
+    hostBlockResolverRef.current = null
+    setHostBlock(null)
+    setThrottleWait(null)
+    setFetching(null)
+    eta.stop()
+    setImporting(false)
+    setCancelling(false)
+    setProgress(null)
+  }
+
   async function handleImport() {
     if (!dek) return
     if (vaultExportError) { toast.error(vaultExportError); return }
@@ -398,15 +470,8 @@ export function useLinkImport() {
     // Called only once pre-flight validation has passed, just before the first write.
     function openModal(run: ImportRun) {
       modalOpened = true
-      abortControllerRef.current = new AbortController()
-      setImportRun(run)
-      setImportStats(EMPTY_STATS)
-      setLastImportedAt(null)
-      setImportError(null)
-      setNotProcessed([])
-      undo.resetUndo()
-      setImportModalState('running')
-      return abortControllerRef.current.signal
+      runCategoryRef.current = catId
+      return openRunModal(run)
     }
 
     try {
@@ -491,39 +556,54 @@ export function useLinkImport() {
           onCreate: undo.recordUndoCreate,
         },
       )
-      setLastResult(result)
-      if (result.imported > 0) refetchTags()
-      if (result.cancelled) {
-        // Inputs are kept so re-running the same import continues where it stopped.
-        setNotProcessed(result.notProcessed)
-        setImportModalState('cancelled')
-        return
-      }
-      if (result.imported > 0) {
-        setUrlsText('')
-        setJsonText('')
-        setSelectedFile(null)
-      }
-      setImportModalState('finished')
+      finishLinkPass(result, { clearInputs: true })
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Import failed'
-      if (modalOpened) {
-        setImportError(message)
-        setImportModalState('error')
-      } else {
-        toast.error(message)
-      }
+      failPass(err, modalOpened)
     } finally {
-      abortControllerRef.current = null
-      clearRetryTimer()
-      hostBlockResolverRef.current = null
-      setHostBlock(null)
-      setThrottleWait(null)
-      setFetching(null)
-      eta.stop()
-      setImporting(false)
-      setCancelling(false)
-      setProgress(null)
+      endPass()
+    }
+  }
+
+  const retryableCount = importRun?.isVault ? 0 : retryable.length
+
+  /** "Retry N failed": re-runs only the rows the last pass couldn't save, with their own data,
+   *  the run's default category and the metadata already fetched. Never reads the form or fetches. */
+  async function retryFailed() {
+    if (!dek || importing || retryableCount === 0) return
+    if (importModalState !== 'finished' && importModalState !== 'cancelled') return
+    // Retrying after an undo would bring the deleted links back.
+    if (undo.undoState.phase !== 'idle') return
+    const rows = retryable
+    const catId = runCategoryRef.current
+    const withMetadata = importRun?.withMetadata ?? false
+    // A retry re-runs the save_error rows; everything else this pass listed is carried forward.
+    // A retry's own unprocessed rows are retried, so only the original run's are carried.
+    setCarried(c => ({
+      failures: [...c.failures, ...importStats.failures.filter(f => f.reason === 'invalid_url')],
+      genericSkipped: [...c.genericSkipped, ...importStats.genericSkipped],
+      notProcessed: importRun?.retryCount ? c.notProcessed : [...c.notProcessed, ...notProcessed],
+    }))
+    setImporting(true)
+    setLastResult(null)
+    setProgress(null)
+    try {
+      const signal = openRunModal({ isVault: false, withMetadata, retryCount: rows.length }, { keepRun: true })
+      eta.start(rows, false)
+      const result = await importLinks(
+        rows, catId, dek,
+        {
+          onProgress: (done, total, outcome) => handleProgress({ phase: 'links', done, total, outcome }),
+          signal,
+          titleFromUrl: true,
+          onCreate: undo.recordUndoCreate,
+          retry: true,
+        },
+      )
+      finishLinkPass(result, { clearInputs: false })
+    } catch (err) {
+      failPass(err, true)
+    } finally {
+      endPass()
     }
   }
 
@@ -545,6 +625,7 @@ export function useLinkImport() {
     importEstimate, importEtaMs: eta.etaMs,
     importModalState, importStats, lastImportedAt, importError, importRun, closeImportModal,
     cancelling, notProcessed, cancelImport,
+    retryableCount, retryFailed, carried,
     undoLinkCount: undo.undoLinkCount, undoFavoriteCount: undo.undoFavoriteCount, undoState: undo.undoState,
     requestUndo: undo.requestUndo, cancelUndo: undo.cancelUndo, confirmUndo: undo.confirmUndo,
     retryUndo: undo.retryUndo, retryUndoCleanup: undo.retryUndoCleanup,

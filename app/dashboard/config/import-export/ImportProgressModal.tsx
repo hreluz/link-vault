@@ -9,7 +9,7 @@ import type { VaultImportPhase, VaultImportProgress } from '@/lib/services/impor
 import { formatEta } from '@/lib/services/importExport/importEstimate'
 import { SLOW_FETCH_HINT_MS } from '@/lib/services/importExport/fetchGuard'
 import type {
-  HostBlockState, ImportLastResult, ImportModalState, ImportRun, ImportStats,
+  HostBlockState, ImportCarried, ImportLastResult, ImportModalState, ImportRun, ImportStats,
 } from '@/lib/hooks/importExport/useLinkImport'
 import type { ImportUndoState } from '@/lib/hooks/importExport/useImportUndo'
 import { DEFAULT_IMPORT_FETCH_SETTINGS } from '@/lib/services/appSettings'
@@ -309,7 +309,14 @@ interface Props {
   slowHintMs?: number
   /** "Undo this import" for the finished, cancelled and error views; omitted means no undo. */
   undo?: ImportUndoProps
+  /** Lists from earlier passes a retry didn't touch; listed and copied with this pass's own. */
+  carried?: ImportCarried
+  /** Rows the last pass couldn't save (0 hides the button), and the "Retry N failed" action. */
+  retryCount?: number
+  onRetry?: () => void
 }
+
+const NO_CARRIED: ImportCarried = { failures: [], genericSkipped: [], notProcessed: [] }
 
 export default function ImportProgressModal({
   state, stats, run, progress, result, error, cancelling, notProcessed, etaMs = null, onCancel, onClose,
@@ -318,6 +325,7 @@ export default function ImportProgressModal({
   emptyStreakLimit = DEFAULT_IMPORT_FETCH_SETTINGS.emptyStreakLimit,
   slowHintMs = SLOW_FETCH_HINT_MS,
   undo,
+  carried = NO_CARRIED, retryCount = 0, onRetry,
 }: Props) {
   const isOpen = state !== 'closed'
   const running = state === 'running'
@@ -365,7 +373,9 @@ export default function ImportProgressModal({
     : 'Import stopped'
 
   let statusLine: string
-  if (running) {
+  if (running && run?.retryCount) {
+    statusLine = `Retrying ${plural(run.retryCount, 'failed link')}…`
+  } else if (running) {
     statusLine = total > 0 && (inLinksPhase || processed < total)
       ? `Processing ${processed} of ${total} — ${remaining} remaining`
       : 'Preparing…'
@@ -416,16 +426,23 @@ export default function ImportProgressModal({
       toast.error(errorMessage)
     }
   }
-  const copyFailedUrls = () =>
-    copyUrls(stats.failures.map(f => f.url), "Couldn't copy. Select the URLs in the list instead.")
-  const copyUnprocessedUrls = () => copyUrls(notProcessed, "Couldn't copy the unprocessed URLs.")
-  const copySkippedUrls = () =>
-    copyUrls(stats.genericSkipped, "Couldn't copy. Select the URLs in the list instead.")
+  // Earlier passes' lists come first, in the order the rows were met.
+  const failures = [...carried.failures, ...stats.failures]
+  const genericSkipped = [...carried.genericSkipped, ...stats.genericSkipped]
+  const unprocessed = [...carried.notProcessed, ...(cancelled ? notProcessed : [])]
 
-  const showCopyFailed = stats.failures.length > 0
-  const showCopySkipped = stats.genericSkipped.length > 0
-  const showCopyUnprocessed = cancelled && notProcessed.length > 0
+  const copyFailedUrls = () =>
+    copyUrls(failures.map(f => f.url), "Couldn't copy. Select the URLs in the list instead.")
+  const copyUnprocessedUrls = () => copyUrls(unprocessed, "Couldn't copy the unprocessed URLs.")
+  const copySkippedUrls = () =>
+    copyUrls(genericSkipped, "Couldn't copy. Select the URLs in the list instead.")
+
+  const showCopyFailed = failures.length > 0
+  const showCopySkipped = genericSkipped.length > 0
+  const showCopyUnprocessed = unprocessed.length > 0
   const copyButtonCount = [showCopyFailed, showCopySkipped, showCopyUnprocessed].filter(Boolean).length
+  // Hidden once an undo starts: retrying after it would bring the deleted links back.
+  const showRetry = ended && !run?.isVault && retryCount > 0 && !!onRetry && (!undo || undo.state.phase === 'idle')
   // With more than one copy button (or after a cancel), they sit on their own wrapping row
   // above a full-width Done, so up to three buttons still fit a 375px bottom sheet.
   const stackCopyButtons = cancelled || copyButtonCount > 1
@@ -537,13 +554,13 @@ export default function ImportProgressModal({
             </div>
           )}
 
-          {!running && stats.failures.length > 0 && (
+          {!running && failures.length > 0 && (
             <section aria-labelledby="import-failed-heading">
               <h3 id="import-failed-heading" className="text-sm font-medium text-surface-700 dark:text-surface-200">
                 Failed links
               </h3>
               <ul className="mt-2 max-h-48 divide-y divide-surface-100 overflow-y-auto rounded-xl ring-1 ring-surface-200 dark:divide-surface-800 dark:ring-surface-700">
-                {stats.failures.map((f, i) => (
+                {failures.map((f, i) => (
                   <li key={`${i}-${f.url}`} className="flex items-baseline justify-between gap-3 px-3 py-2">
                     <span className="min-w-0 break-all text-sm text-surface-800 dark:text-surface-100">{f.url || '(empty)'}</span>
                     <span className="shrink-0 text-xs font-medium text-red-600 dark:text-red-400">{REASON_LABELS[f.reason]}</span>
@@ -553,19 +570,25 @@ export default function ImportProgressModal({
             </section>
           )}
 
-          {!running && stats.genericSkipped.length > 0 && (
+          {!running && genericSkipped.length > 0 && (
             <section aria-labelledby="import-skipped-heading">
               <h3 id="import-skipped-heading" className="text-sm font-medium text-surface-700 dark:text-surface-200">
                 Skipped: the site returned a generic page with no metadata
               </h3>
               <ul className="mt-2 max-h-48 divide-y divide-surface-100 overflow-y-auto rounded-xl ring-1 ring-surface-200 dark:divide-surface-800 dark:ring-surface-700">
-                {stats.genericSkipped.map((url, i) => (
+                {genericSkipped.map((url, i) => (
                   <li key={`${i}-${url}`} className="px-3 py-2">
                     <span className="break-all text-sm text-surface-800 dark:text-surface-100">{url}</span>
                   </li>
                 ))}
               </ul>
             </section>
+          )}
+
+          {showRetry && (
+            <button type="button" onClick={onRetry} className={`w-full ${PRIMARY_BUTTON}`}>
+              Retry {retryCount} failed
+            </button>
           )}
 
           {!running && undo && undo.linkCount > 0 && <ImportUndoSection {...undo} />}
@@ -596,7 +619,7 @@ export default function ImportProgressModal({
                 type="button"
                 onClick={onClose}
                 disabled={undoDeleting}
-                className={`flex-1 ${PRIMARY_BUTTON}`}
+                className={`flex-1 ${showRetry ? SECONDARY_BUTTON : PRIMARY_BUTTON}`}
               >
                 Done
               </button>
