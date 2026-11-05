@@ -251,6 +251,13 @@ Mobile-first. All UI must follow these Tailwind conventions — no exceptions.
 - Cards and containers: `rounded-2xl`
 - Inputs and buttons: `rounded-xl`
 
+### Touch targets & keyboard focus
+- Every interactive control on `/dashboard` is at least 44px tall on phones. Pills and chips use `min-h-11 sm:min-h-9`. Small inline text toggles (e.g. "More options", Auto-fetch) get a `min-h-11` hit area, with a negative vertical margin (`-my-3`) so the surrounding layout doesn't shift.
+- Use the shared `focus-ring` utility (`app/globals.css`) on buttons and links. It's a 2px `:focus-visible` outline in `primary-600` (`primary-400` in dark mode), offset 2px. It's an outline rather than `ring-*` so it doesn't collide with card `ring-1` borders or the "Last opened" ring. Inputs keep their own `focus:ring-2` style.
+- Overflow containers clip outlines, so give them about 4px of padding (e.g. `py-1`, or `-mx-1 px-1`) so the ring stays visible.
+- Toggles and menus expose their state: `aria-pressed` on pill toggles, `aria-current="page"` on nav items, `aria-haspopup`/`aria-expanded` on buttons that open sheets or sections, and `role="switch"` with `aria-checked` on switches.
+- `LinkCard`'s actions live in a bottom action row under a divider (`data-testid="card-actions"`). The order is Delete, Favorite, Edit, Send to end, then `···` pushed right with `ml-auto`. Buttons are `h-11 w-11 lg:h-10 lg:w-10` with `gap-2`. Each button is `relative z-10` on its own, but the row isn't, so tapping a gap still opens the link through the stretched title link. The category pill has the whole top row.
+
 ### Inputs
 ```
 w-full rounded-xl border border-surface-200 bg-surface-card px-4 py-3 text-sm text-surface-900

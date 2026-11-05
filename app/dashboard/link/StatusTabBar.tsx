@@ -13,10 +13,11 @@ export function StatusTabBar({ value, onChange }: Props) {
   const statuses = Object.keys(STATUS_CONFIG) as LinkStatus[]
 
   return (
-    <div className="mb-4 -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 scrollbar-none">
+    <div className="mb-3 -mx-4 -mt-1 flex gap-2 overflow-x-auto px-4 py-1 scrollbar-none">
       <button
         onClick={() => onChange(null)}
-        className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition ${
+        aria-pressed={value === null}
+        className={`focus-ring inline-flex min-h-11 shrink-0 items-center rounded-full px-4 py-1.5 text-sm font-medium transition sm:min-h-9 ${
           value === null
             ? 'bg-primary-600 text-white'
             : 'bg-surface-100 text-surface-600 hover:bg-surface-200 dark:bg-surface-800 dark:text-surface-400 dark:hover:bg-surface-700'
@@ -28,7 +29,8 @@ export function StatusTabBar({ value, onChange }: Props) {
         <button
           key={s}
           onClick={() => onChange(value === s ? null : s)}
-          className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition ${
+          aria-pressed={value === s}
+          className={`focus-ring inline-flex min-h-11 shrink-0 items-center rounded-full px-4 py-1.5 text-sm font-medium transition sm:min-h-9 ${
             value === s
               ? STATUS_CONFIG[s].badge
               : 'bg-surface-100 text-surface-600 hover:bg-surface-200 dark:bg-surface-800 dark:text-surface-400 dark:hover:bg-surface-700'

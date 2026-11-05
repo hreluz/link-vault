@@ -57,19 +57,20 @@ function AccordionSection({
     <div className="border-b border-surface-100 last:border-0 dark:border-surface-800">
       <button
         onClick={onToggle}
-        className="flex w-full items-center justify-between py-4 text-left"
+        aria-expanded={open}
+        className="focus-ring flex w-full items-center justify-between rounded-lg py-4 text-left"
       >
         <span className="text-sm font-semibold text-surface-700 dark:text-surface-300">{label}</span>
         <div className="flex items-center gap-2">
           {badge}
-          <span className={`text-surface-400 transition-transform duration-200 dark:text-surface-500 ${open ? 'rotate-180' : ''}`}>
+          <span aria-hidden="true" className={`text-surface-400 transition-transform duration-200 dark:text-surface-500 ${open ? 'rotate-180' : ''}`}>
             ▾
           </span>
         </div>
       </button>
       <div className={`grid transition-all duration-200 ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
-        <div className="overflow-hidden">
-          <div className="pb-4">
+        <div className="-mx-1 overflow-hidden px-1">
+          <div className="pb-4 pt-1">
             {children}
           </div>
         </div>
@@ -126,7 +127,7 @@ export default function FilterSheet({
           {hasFilters && (
             <button
               onClick={onReset}
-              className="text-sm font-medium text-primary-600 hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300"
+              className="focus-ring -my-3 inline-flex min-h-11 items-center rounded-lg text-sm font-medium text-primary-600 hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300"
             >
               Reset all
             </button>
@@ -147,7 +148,7 @@ export default function FilterSheet({
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => onCategoryChange('all')}
-                className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                className={`focus-ring inline-flex min-h-11 items-center rounded-full px-3 py-1.5 text-sm font-medium transition sm:min-h-9 ${
                   category === 'all'
                     ? 'bg-primary-600 text-white shadow-sm'
                     : 'bg-surface-100 text-surface-600 hover:bg-surface-200 dark:bg-surface-800 dark:text-surface-400 dark:hover:bg-surface-700'
@@ -159,7 +160,7 @@ export default function FilterSheet({
                 <button
                   key={cat.id}
                   onClick={() => onCategoryChange(cat.id)}
-                  className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                  className={`focus-ring inline-flex min-h-11 items-center rounded-full px-3 py-1.5 text-sm font-medium transition sm:min-h-9 ${
                     category === cat.id
                       ? 'bg-primary-600 text-white shadow-sm'
                       : 'bg-surface-100 text-surface-600 hover:bg-surface-200 dark:bg-surface-800 dark:text-surface-400 dark:hover:bg-surface-700'
@@ -185,7 +186,8 @@ export default function FilterSheet({
                         <button
                           key={mode}
                           onClick={e => { e.stopPropagation(); onTagModeChange(mode) }}
-                          className={`rounded px-2 py-0.5 text-xs font-medium capitalize transition ${
+                          aria-pressed={tagMode === mode}
+                          className={`focus-ring inline-flex min-h-11 min-w-11 items-center justify-center rounded px-2 py-0.5 text-xs font-medium capitalize transition sm:min-h-7 sm:min-w-0 ${
                             tagMode === mode
                               ? 'bg-primary-600 text-white'
                               : 'text-surface-500 hover:text-surface-700 dark:text-surface-400 dark:hover:text-surface-200'
@@ -205,7 +207,7 @@ export default function FilterSheet({
                 <button
                   key={tag.id}
                   onClick={() => toggleTag(tag.id)}
-                  className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                  className={`focus-ring inline-flex min-h-11 items-center rounded-full px-3 py-1.5 text-sm font-medium transition sm:min-h-9 ${
                     selectedTagIds.includes(tag.id)
                       ? 'bg-primary-600 text-white shadow-sm'
                       : 'bg-surface-100 text-surface-600 hover:bg-surface-200 dark:bg-surface-800 dark:text-surface-400 dark:hover:bg-surface-700'
@@ -232,7 +234,7 @@ export default function FilterSheet({
                 <button
                   key={opt.value}
                   onClick={() => onSortChange(opt.value)}
-                  className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                  className={`focus-ring inline-flex min-h-11 items-center rounded-full px-3 py-1.5 text-sm font-medium transition sm:min-h-9 ${
                     sortBy === opt.value
                       ? 'bg-primary-600 text-white shadow-sm'
                       : 'bg-surface-100 text-surface-600 hover:bg-surface-200 dark:bg-surface-800 dark:text-surface-400 dark:hover:bg-surface-700'
@@ -248,7 +250,7 @@ export default function FilterSheet({
         <div className="border-t border-surface-100 px-5 py-4 dark:border-surface-800">
           <button
             onClick={onClose}
-            className="w-full rounded-xl bg-primary-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500"
+            className="focus-ring w-full rounded-xl bg-primary-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500"
           >
             Show {resultCount} link{resultCount !== 1 ? 's' : ''}
           </button>

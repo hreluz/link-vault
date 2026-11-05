@@ -21,7 +21,7 @@ export default function UrlField() {
             href={url}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs font-medium text-primary-600 hover:text-primary-500"
+            className="focus-ring -my-3.5 inline-flex min-h-11 items-center rounded-lg text-xs font-medium text-primary-600 hover:text-primary-500"
           >
             Open ↗
           </a>
@@ -30,13 +30,15 @@ export default function UrlField() {
           <button
             type="button"
             onClick={toggleAutoFetch}
-            className="flex items-center gap-1.5 text-xs text-surface-500 transition hover:text-surface-700 dark:text-surface-400 dark:hover:text-surface-200"
-            aria-label={autoFetch ? 'Disable auto-fetch' : 'Enable auto-fetch'}
+            role="switch"
+            aria-checked={autoFetch}
+            className="focus-ring -my-3.5 flex min-h-11 items-center gap-1.5 rounded-lg text-xs text-surface-500 transition hover:text-surface-700 dark:text-surface-400 dark:hover:text-surface-200"
           >
             <span className={autoFetch ? 'text-surface-600 dark:text-surface-300' : 'text-surface-400 dark:text-surface-500'}>
               Auto-fetch
             </span>
             <span
+              aria-hidden="true"
               className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors ${
                 autoFetch ? 'bg-primary-600' : 'bg-surface-300 dark:bg-surface-600'
               }`}

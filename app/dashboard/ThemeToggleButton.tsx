@@ -25,7 +25,7 @@ export default function ThemeToggleButton() {
       onClick={handleToggle}
       aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
       title={isDark ? 'Light mode' : 'Dark mode'}
-      className="flex h-9 w-9 items-center justify-center rounded-xl border border-surface-200 bg-surface-card text-base shadow-sm transition hover:bg-surface-50 dark:border-surface-700 dark:bg-surface-900 dark:hover:bg-surface-800"
+      className="focus-ring flex h-11 w-11 items-center justify-center rounded-xl border border-surface-200 bg-surface-card text-base shadow-sm transition hover:bg-surface-50 sm:h-9 sm:w-9 dark:border-surface-700 dark:bg-surface-900 dark:hover:bg-surface-800"
     >
       {isDark ? '☀️' : '🌙'}
     </button>

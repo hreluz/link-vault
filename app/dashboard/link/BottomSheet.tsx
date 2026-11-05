@@ -43,7 +43,7 @@ export default function BottomSheet({ link, onStatusChange, onClose }: Props) {
           <button
             onClick={onClose}
             aria-label="Close"
-            className="hidden h-7 w-7 shrink-0 items-center justify-center rounded-lg text-surface-400 transition hover:bg-surface-100 hover:text-surface-600 lg:flex dark:text-surface-500 dark:hover:bg-surface-800 dark:hover:text-surface-300"
+            className="focus-ring hidden h-7 w-7 shrink-0 items-center justify-center rounded-lg text-surface-400 transition hover:bg-surface-100 hover:text-surface-600 lg:flex dark:text-surface-500 dark:hover:bg-surface-800 dark:hover:text-surface-300"
           >
             ✕
           </button>
@@ -61,7 +61,7 @@ export default function BottomSheet({ link, onStatusChange, onClose }: Props) {
                   role="radio"
                   aria-checked={active}
                   onClick={() => { if (!active) onStatusChange(link.id, s); onClose() }}
-                  className={`flex min-h-9 items-center justify-center gap-1 rounded-lg px-1 text-xs font-medium transition ${
+                  className={`focus-ring flex min-h-11 items-center justify-center gap-1 rounded-lg px-1 text-xs font-medium transition ${
                     active
                       ? 'bg-surface-card text-primary-600 shadow-sm dark:bg-surface-900 dark:text-primary-400'
                       : 'text-surface-500 hover:text-surface-800 dark:text-surface-400 dark:hover:text-surface-200'

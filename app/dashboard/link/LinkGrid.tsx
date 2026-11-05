@@ -10,7 +10,7 @@ export default function LinkGrid() {
   const {
     loading, links: results, hasActiveFilters, favoritesOnly,
     hasMore, loadingMore, loadMore, loadError, retryLoad, refreshKey,
-    setActiveLink, setEditingLink, handleFavoriteToggle, handleLinkOpen, handleSendToEnd, lastOpenedId, handleDeleteById, resetFilters,
+    activeLink, setActiveLink, setEditingLink, handleFavoriteToggle, handleLinkOpen, handleSendToEnd, lastOpenedId, handleDeleteById, resetFilters,
     imageStateById, handleImageError,
   } = useLinkListContext()
   const { categories } = useCategoryList(refreshKey)
@@ -28,7 +28,7 @@ export default function LinkGrid() {
         <button
           type="button"
           onClick={retryLoad}
-          className="mt-4 rounded-xl border border-surface-200 bg-surface-card px-4 py-2 text-sm font-medium text-surface-600 shadow-sm transition hover:bg-surface-50 hover:text-surface-900 disabled:cursor-not-allowed disabled:opacity-60"
+          className="mt-4 focus-ring rounded-xl border border-surface-200 bg-surface-card px-4 py-3 text-sm font-medium text-surface-600 shadow-sm transition hover:bg-surface-50 hover:text-surface-900 disabled:cursor-not-allowed disabled:opacity-60"
         >
           Try again
         </button>
@@ -59,7 +59,7 @@ export default function LinkGrid() {
           {hasActiveFilters && (
             <button
               onClick={resetFilters}
-              className="mt-3 text-sm font-medium text-primary-600 hover:text-primary-500"
+              className="focus-ring mt-1 inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-primary-600 hover:text-primary-500"
             >
               Clear filters
             </button>
@@ -75,7 +75,7 @@ export default function LinkGrid() {
         {hasActiveFilters && (
           <button
             onClick={resetFilters}
-            className="mt-3 text-sm font-medium text-primary-600 hover:text-primary-500"
+            className="focus-ring mt-1 inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-primary-600 hover:text-primary-500"
           >
             Clear filters
           </button>
@@ -93,6 +93,7 @@ export default function LinkGrid() {
             link={link}
             category={categories.find(c => c.id === link.category_id) ?? null}
             onMenuOpen={() => setActiveLink(link)}
+            isMenuOpen={activeLink?.id === link.id}
             onFavoriteToggle={() => handleFavoriteToggle(link.id)}
             onEdit={() => setEditingLink(link)}
             onOpen={() => handleLinkOpen(link.id, link.status)}
@@ -116,7 +117,7 @@ export default function LinkGrid() {
           <button
             type="button"
             onClick={retryLoad}
-            className="rounded-xl border border-surface-200 bg-surface-card px-4 py-2 text-sm font-medium text-surface-600 shadow-sm transition hover:bg-surface-50 hover:text-surface-900 disabled:cursor-not-allowed disabled:opacity-60"
+            className="focus-ring rounded-xl border border-surface-200 bg-surface-card px-4 py-3 text-sm font-medium text-surface-600 shadow-sm transition hover:bg-surface-50 hover:text-surface-900 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Try again
           </button>

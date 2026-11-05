@@ -10,9 +10,12 @@ export default function ExpandToggle({ expanded, onToggle }: Props) {
     <button
       type="button"
       onClick={onToggle}
-      className="flex items-center gap-1 text-sm font-medium text-primary-600 hover:text-primary-500 transition"
+      aria-expanded={expanded}
+      // 44px hit area; the negative margin keeps the form spacing unchanged.
+      className="focus-ring -my-3 flex min-h-11 items-center gap-1 self-start rounded-lg text-sm font-medium text-primary-600 hover:text-primary-500 transition"
     >
       <svg
+        aria-hidden="true"
         className={`h-4 w-4 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
         fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
       >

@@ -28,7 +28,7 @@ export default function LinkListHeader() {
             disabled={undoingMove}
             aria-label="Undo last move"
             title={`Move ${displayTitle(lastMovedLink)} back`}
-            className="flex items-center gap-1.5 rounded-xl border border-surface-200 bg-surface-card px-3 py-2 text-sm font-medium text-surface-600 shadow-sm transition hover:bg-surface-50 hover:text-surface-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-surface-700 dark:bg-surface-900 dark:text-surface-300 dark:hover:bg-surface-800"
+            className="focus-ring flex min-h-11 items-center gap-1.5 rounded-xl border border-surface-200 bg-surface-card px-3 py-2 text-sm font-medium text-surface-600 shadow-sm transition hover:bg-surface-50 hover:text-surface-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-surface-700 dark:bg-surface-900 dark:text-surface-300 dark:hover:bg-surface-800 sm:min-h-0"
           >
             <svg className="h-5 w-5" viewBox="0 0 20 20" fill="none" aria-hidden="true">
               <path d="M7.5 5 4 8.5 7.5 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -43,7 +43,7 @@ export default function LinkListHeader() {
           aria-busy={refreshing}
           aria-label="Refresh links"
           title="Refresh links"
-          className="rounded-xl border border-surface-200 bg-surface-card px-2.5 py-2 text-sm font-medium text-surface-600 shadow-sm transition hover:bg-surface-50 hover:text-surface-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-surface-700 dark:bg-surface-900 dark:text-surface-300 dark:hover:bg-surface-800"
+          className="focus-ring flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-surface-200 bg-surface-card px-2.5 py-2 text-sm font-medium text-surface-600 shadow-sm transition hover:bg-surface-50 hover:text-surface-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-surface-700 dark:bg-surface-900 dark:text-surface-300 dark:hover:bg-surface-800 sm:min-h-0 sm:min-w-0"
         >
           <svg
             className={`h-5 w-5${refreshing ? ' animate-spin' : ''}`}
@@ -59,7 +59,7 @@ export default function LinkListHeader() {
           onClick={() => setModalOpen(true)}
           aria-label="Add link"
           title="Add link"
-          className="min-w-10 rounded-xl border border-transparent bg-primary-600 px-3 py-2 text-base font-semibold leading-5 text-white shadow-sm transition hover:bg-primary-500"
+          className="focus-ring min-h-11 min-w-11 rounded-xl border border-transparent bg-primary-600 px-3 py-2 text-base font-semibold leading-5 text-white shadow-sm transition hover:bg-primary-500 sm:min-h-0 sm:min-w-10"
         >
           +
         </button>

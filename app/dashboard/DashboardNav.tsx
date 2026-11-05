@@ -21,7 +21,7 @@ export default function DashboardNav() {
         <div className="flex">
           {NAV_ITEMS.map(({ label, icon, href }) => {
             const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
-            const className = `flex flex-1 flex-col items-center gap-1 py-3 text-xs font-medium transition ${
+            const className = `focus-ring flex flex-1 flex-col items-center gap-1 py-3 text-xs font-medium transition ${
               active
                 ? 'text-primary-600 dark:text-primary-400'
                 : 'text-surface-400 hover:text-surface-600 dark:text-surface-500 dark:hover:text-surface-300'
@@ -38,13 +38,13 @@ export default function DashboardNav() {
             // which was fighting our scroll-to-top animation.
             if (href === '/dashboard' && pathname === '/dashboard') {
               return (
-                <button key={href} type="button" onClick={scrollToTop} className={className}>
+                <button key={href} type="button" onClick={scrollToTop} aria-current={active ? 'page' : undefined} className={className}>
                   {content}
                 </button>
               )
             }
             return (
-              <Link key={href} href={href} className={className}>
+              <Link key={href} href={href} aria-current={active ? 'page' : undefined} className={className}>
                 {content}
               </Link>
             )
@@ -57,7 +57,7 @@ export default function DashboardNav() {
         <div className="mx-auto flex max-w-5xl gap-1 px-4">
           {NAV_ITEMS.map(({ label, icon, href }) => {
             const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
-            const className = `flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition ${
+            const className = `focus-ring flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition ${
               active
                 ? 'border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400'
                 : 'border-transparent text-surface-500 hover:text-surface-700 dark:text-surface-400 dark:hover:text-surface-200'
@@ -70,13 +70,13 @@ export default function DashboardNav() {
             )
             if (href === '/dashboard' && pathname === '/dashboard') {
               return (
-                <button key={href} type="button" onClick={scrollToTop} className={className}>
+                <button key={href} type="button" onClick={scrollToTop} aria-current={active ? 'page' : undefined} className={className}>
                   {content}
                 </button>
               )
             }
             return (
-              <Link key={href} href={href} className={className}>
+              <Link key={href} href={href} aria-current={active ? 'page' : undefined} className={className}>
                 {content}
               </Link>
             )

@@ -24,11 +24,11 @@ export default function DashboardHeader({ userEmail }: { userEmail: string }) {
           // going through Link/router navigation to the same URL -- that
           // still runs Next's own post-navigation scroll/focus handling,
           // which was fighting our scroll-to-top animation.
-          <button type="button" onClick={scrollToTop} className="flex items-center gap-2">
+          <button type="button" onClick={scrollToTop} aria-label="Link Vault, scroll to top" className="focus-ring flex min-h-11 items-center gap-2 rounded-lg">
             {logo}
           </button>
         ) : (
-          <Link href="/dashboard" className="flex items-center gap-2">
+          <Link href="/dashboard" className="focus-ring flex min-h-11 items-center gap-2 rounded-lg">
             {logo}
           </Link>
         )}

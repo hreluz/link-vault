@@ -5,7 +5,7 @@ import { useAvailableTags } from '@/lib/hooks/tags/useAvailableTags'
 import { useLinkListContext } from './LinkListContext'
 
 export default function LinkSearchBar() {
-  const { searchQuery, isHashTagSearch, activeFilterCount, setSearchQuery, setFilterOpen } = useLinkListContext()
+  const { searchQuery, isHashTagSearch, activeFilterCount, setSearchQuery, filterOpen, setFilterOpen } = useLinkListContext()
   const availableTags = useAvailableTags()
   return (
     <SearchBar
@@ -14,6 +14,7 @@ export default function LinkSearchBar() {
       isHashTagSearch={isHashTagSearch}
       filterCount={activeFilterCount}
       onFilterOpen={() => setFilterOpen(true)}
+      filterOpen={filterOpen}
       availableTags={availableTags}
     />
   )

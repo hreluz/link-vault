@@ -212,6 +212,21 @@ html.theme-switching *::after {
   animation: sheet-up 0.22s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
+/*
+ * Shared keyboard focus ring for dashboard controls (SPEC 34). Outline, not
+ * ring-*, so it doesn't collide with card ring-1 borders or the "Last opened"
+ * accent ring. :focus-visible only, so mouse clicks don't show it.
+ */
+@utility focus-ring {
+  &:focus-visible {
+    outline: 2px solid var(--color-primary-600);
+    outline-offset: 2px;
+  }
+  &:where(.dark, .dark *):focus-visible {
+    outline-color: var(--color-primary-400);
+  }
+}
+
 /* Indeterminate sweep for the import modal's "Preparing…" bar. */
 @keyframes import-sweep {
   from { transform: translateX(-100%); }
