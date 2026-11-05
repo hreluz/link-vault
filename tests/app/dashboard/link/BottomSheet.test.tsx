@@ -39,4 +39,10 @@ describe('BottomSheet', () => {
     expect(screen.queryByRole('button', { name: /delete link/i })).toBeNull()
     expect(screen.queryByText(/unfavorite to delete/i)).toBeNull()
   })
+
+  it('shows the URL path as the title when the title is null', () => {
+    renderSheet({ ...LINK, title: null, url: 'https://www.instagram.com/reel/abc/' })
+
+    expect(screen.getByText('reel/abc')).toBeTruthy()
+  })
 })

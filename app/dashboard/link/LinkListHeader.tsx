@@ -1,5 +1,6 @@
 'use client'
 
+import { displayTitle } from '@/lib/utils/urlTitle'
 import { useLinkListContext } from './LinkListContext'
 
 export default function LinkListHeader() {
@@ -26,7 +27,7 @@ export default function LinkListHeader() {
             onClick={handleUndoMove}
             disabled={undoingMove}
             aria-label="Undo last move"
-            title={`Move ${lastMovedLink.title || lastMovedLink.url} back`}
+            title={`Move ${displayTitle(lastMovedLink)} back`}
             className="flex items-center gap-1.5 rounded-xl border border-surface-200 bg-surface-card px-3 py-2 text-sm font-medium text-surface-600 shadow-sm transition hover:bg-surface-50 hover:text-surface-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-surface-700 dark:bg-surface-900 dark:text-surface-300 dark:hover:bg-surface-800"
           >
             <svg className="h-5 w-5" viewBox="0 0 20 20" fill="none" aria-hidden="true">

@@ -190,3 +190,27 @@ describe('LinkCard long press', () => {
     expect(screen.getByRole('link', { name: LINK.title! })).toBeTruthy()
   })
 })
+
+describe('LinkCard fallback title', () => {
+  it('shows the URL path as a clickable title when the title is null', () => {
+    const onOpen = vi.fn()
+    renderCard({ link: { ...LINK, title: null, url: 'https://www.instagram.com/reel/abc/' }, onOpen })
+
+    const link = screen.getByRole('link', { name: 'reel/abc' })
+    expect(link.getAttribute('href')).toBe('https://www.instagram.com/reel/abc/')
+    fireEvent.click(link)
+    expect(onOpen).toHaveBeenCalledOnce()
+  })
+
+  it('shows the hostname when the title is null and the URL has no path', () => {
+    renderCard({ link: { ...LINK, title: null, url: 'https://example.com/' } })
+
+    expect(screen.getByRole('link', { name: 'example.com' })).toBeTruthy()
+  })
+
+  it('shows a real title unchanged', () => {
+    renderCard()
+
+    expect(screen.getByRole('link', { name: 'Alpha Article' })).toBeTruthy()
+  })
+})

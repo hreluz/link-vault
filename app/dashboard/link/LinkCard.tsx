@@ -5,6 +5,7 @@ import type { LinkWithTags } from '@/lib/services/links'
 import type { Category } from '@/lib/services/categories'
 import type { CardImageState } from '@/lib/hooks/links/list/useCardImageRefresh'
 import { useTagNameLookup } from '@/lib/hooks/tags/useTagNameLookup'
+import { displayTitle } from '@/lib/utils/urlTitle'
 import { STATUS_CONFIG } from '../config'
 
 interface Props {
@@ -158,7 +159,7 @@ export default function LinkCard({
                 aria-current={isLastOpened ? 'true' : undefined}
                 className="after:absolute after:inset-0 after:rounded-2xl after:content-[''] focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-primary-500"
               >
-                {link.title}
+                {displayTitle(link)}
               </a>
             </h3>
             <p className="mt-0.5 text-xs text-surface-400 dark:text-surface-500">

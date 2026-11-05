@@ -114,10 +114,10 @@ describe('LinkListHeader undo button', () => {
     expect(buttons.indexOf('Undo last move')).toBe(buttons.indexOf('Refresh links') - 1)
   })
 
-  it('falls back to the URL in the title when the link has no title', () => {
+  it('falls back to the URL path or hostname in the title when the link has no title', () => {
     setContext({ lastMovedLink: { ...moved, title: null } })
     render(<LinkListHeader />)
-    expect(screen.getByRole('button', { name: 'Undo last move' }).getAttribute('title')).toBe('Move https://alpha.com back')
+    expect(screen.getByRole('button', { name: 'Undo last move' }).getAttribute('title')).toBe('Move alpha.com back')
   })
 
   it('calls handleUndoMove on click', () => {
