@@ -426,7 +426,7 @@ export type ImportFailure = { url: string; reason: ImportFailureReason }
 
 /** What happened to a single import row, reported through `importLinks`'s `onProgress`. */
 export type ImportRowOutcome =
-  | { url: string; status: 'imported'; metaMissing: boolean }
+  | { url: string; status: 'imported'; metaMissing: boolean; id: string; isFavorite: boolean }
   | { url: string; status: 'duplicate' }
   | { url: string; status: 'failed'; reason: ImportFailureReason }
   | { url: string; status: 'skipped_generic' }
@@ -471,6 +471,8 @@ export type ImportLinksOptions = {
   onFetching?: (fetching: ImportFetching | null) => void
   /** Save the URL's path (or hostname) as the title when a row ends up with none. Off for v2 restores. */
   titleFromUrl?: boolean
+  /** Called once for each tag or category this run creates (not for existing matches). */
+  onCreate?: (kind: 'tag' | 'category', id: string) => void
 }
 
 const isEmpty = (value: string | null | undefined) => value == null || value === ''
@@ -558,7 +560,8 @@ export async function importLinks(
   dek: CryptoKey,
   options: ImportLinksOptions = {},
 ): Promise<ImportResult> {
-  const { onProgress, fetchMeta, signal, guardConfig, titleFromUrl: fillTitleFromUrl } = options
+  const { onProgress, fetchMeta, signal, guardConfig, titleFromUrl: fillTitleFromUrl, onCreate } = options
+  const onTagCreate = onCreate && ((id: string) => onCreate('tag', id))
   const guard = fetchMeta ? createFetchGuard({ config: guardConfig }) : null
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -666,10 +669,13 @@ export async function importLinks(
         continue
       }
 
-      const tagIds = await syncTagsByName(input.tags?.filter(Boolean) ?? [], dek)
+      const tagIds = await syncTagsByName(input.tags?.filter(Boolean) ?? [], dek, onTagCreate)
       await insertLinkTags(link.id, tagIds)
       imported++
-      outcome = { url: trimmedUrl, status: 'imported', metaMissing: rowMetaMissing }
+      outcome = {
+        url: trimmedUrl, status: 'imported', metaMissing: rowMetaMissing,
+        id: link.id, isFavorite: link.is_favorite,
+      }
     } finally {
       if (outcome?.status === 'failed') failures.push({ url: outcome.url, reason: outcome.reason })
       processed++

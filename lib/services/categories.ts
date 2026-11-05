@@ -175,6 +175,8 @@ export async function getOrCreateCategoryByName(
   name: string,
   dek: CryptoKey,
   style?: CategoryStyle,
+  /** Called with the new id when this call inserts the category (not for an existing match). */
+  onCreate: (id: string) => void = () => {},
 ): Promise<string | null> {
   const trimmedName = name.trim()
   if (!trimmedName) return null
@@ -204,6 +206,7 @@ export async function getOrCreateCategoryByName(
     .single()
 
   if (error || !created) return null
+  onCreate(created.id)
   return created.id
 }
 

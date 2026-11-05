@@ -73,7 +73,7 @@ describe('useImportEta', () => {
 })
 
 describe('useImportEta with leading duplicates', () => {
-  const imported = (url: string) => ({ url, status: 'imported' as const, metaMissing: false })
+  const imported = (url: string) => ({ url, status: 'imported' as const, metaMissing: false, id: url, isFavorite: false })
   const duplicate = (url: string) => ({ url, status: 'duplicate' as const })
   // 40 rows already in the vault, then 60 new ones on varied hosts.
   const rows = Array.from({ length: 100 }, (_, i) => ({ url: `https://h${i % 7}.com/${i}` }))

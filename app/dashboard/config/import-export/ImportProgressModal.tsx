@@ -11,6 +11,7 @@ import { SLOW_FETCH_HINT_MS } from '@/lib/services/importExport/fetchGuard'
 import type {
   HostBlockState, ImportLastResult, ImportModalState, ImportRun, ImportStats,
 } from '@/lib/hooks/importExport/useLinkImport'
+import type { ImportUndoState } from '@/lib/hooks/importExport/useImportUndo'
 import { DEFAULT_IMPORT_FETCH_SETTINGS } from '@/lib/services/appSettings'
 
 const REASON_LABELS: Record<ImportFailureReason, string> = {
@@ -179,6 +180,103 @@ function HostBlockNotice({ block, lastImportedAt, retryWaitMs, emptyStreakLimit,
   )
 }
 
+const DANGER_BUTTON =
+  'rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 disabled:cursor-not-allowed disabled:opacity-60'
+
+export interface ImportUndoProps {
+  /** Links this run saved; the section is hidden when 0. */
+  linkCount: number
+  favoriteCount: number
+  state: ImportUndoState
+  onRequest: () => void
+  onCancel: () => void
+  onConfirm: () => void
+  /** After `delete_error`: runs the delete and the cleanup again. */
+  onRetry: () => void
+  /** After `cleanup_error`: runs the cleanup only. */
+  onRetryCleanup: () => void
+}
+
+function removedText(tags: number, categories: number) {
+  const parts: string[] = []
+  if (tags > 0) parts.push(plural(tags, 'unused tag'))
+  if (categories > 0) parts.push(plural(categories, 'unused category', 'unused categories'))
+  return parts.length > 0 ? `Removed ${parts.join(' and ')}.` : null
+}
+
+/** "Undo this import": a two-step, permanent delete of what the run saved, shown in the summary. */
+function ImportUndoSection({ linkCount, favoriteCount, state, onRequest, onCancel, onConfirm, onRetry, onRetryCleanup }: ImportUndoProps) {
+  const keepRef = useRef<HTMLButtonElement>(null)
+  // Keep takes focus, so a stray Enter on the confirm step never deletes.
+  useEffect(() => {
+    if (state.phase === 'confirming') keepRef.current?.focus()
+  }, [state.phase])
+
+  switch (state.phase) {
+    case 'idle':
+      return (
+        <button type="button" onClick={onRequest} className={`w-full ${SECONDARY_BUTTON}`}>
+          Undo this import
+        </button>
+      )
+    case 'confirming':
+      return (
+        <section aria-labelledby="import-undo-heading" className="flex flex-col gap-3">
+          <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
+            <p id="import-undo-heading" className="font-medium">
+              Permanently delete {plural(linkCount, 'imported link')}? This can&apos;t be undone.
+            </p>
+            {favoriteCount > 0 && <p className="mt-1">Includes {plural(favoriteCount, 'favorite')}.</p>}
+          </div>
+          <div className="flex gap-3">
+            <button type="button" onClick={onConfirm} className={`flex-1 ${DANGER_BUTTON}`}>
+              Delete permanently
+            </button>
+            <button ref={keepRef} type="button" onClick={onCancel} className={`flex-1 ${SECONDARY_BUTTON}`}>
+              Keep
+            </button>
+          </div>
+        </section>
+      )
+    case 'deleting':
+      return (
+        <button type="button" disabled aria-busy className={`w-full ${SECONDARY_BUTTON}`}>
+          Deleting…
+        </button>
+      )
+    case 'done': {
+      const removed = removedText(state.tags, state.categories)
+      return (
+        <p role="status" className="text-sm text-surface-600 dark:text-surface-300">
+          {plural(state.deleted, 'link')} deleted.{removed && <> {removed}</>}
+        </p>
+      )
+    }
+    case 'delete_error':
+      return (
+        <div role="alert" className="flex flex-col gap-3">
+          <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
+            Couldn&apos;t delete the imported links.
+          </p>
+          <button type="button" onClick={onRetry} className={`w-full ${SECONDARY_BUTTON}`}>
+            Retry
+          </button>
+        </div>
+      )
+    case 'cleanup_error':
+      return (
+        <div role="alert" className="flex flex-col gap-3">
+          <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
+            {plural(state.deleted, 'link')} deleted. Couldn&apos;t remove unused tags and categories.
+          </p>
+          <button type="button" onClick={onRetryCleanup} className={`w-full ${SECONDARY_BUTTON}`}>
+            Retry cleanup
+          </button>
+        </div>
+      )
+  }
+}
+
 interface Props {
   state: ImportModalState
   stats: ImportStats
@@ -209,6 +307,8 @@ interface Props {
   retryWaitMs?: number
   emptyStreakLimit?: number
   slowHintMs?: number
+  /** "Undo this import" for the finished, cancelled and error views; omitted means no undo. */
+  undo?: ImportUndoProps
 }
 
 export default function ImportProgressModal({
@@ -217,13 +317,15 @@ export default function ImportProgressModal({
   retryWaitMs = DEFAULT_IMPORT_FETCH_SETTINGS.retryWaitSeconds * 1000,
   emptyStreakLimit = DEFAULT_IMPORT_FETCH_SETTINGS.emptyStreakLimit,
   slowHintMs = SLOW_FETCH_HINT_MS,
+  undo,
 }: Props) {
   const isOpen = state !== 'closed'
   const running = state === 'running'
   const cancelled = state === 'cancelled'
   const ended = state === 'finished' || cancelled
-  // Escape and the backdrop are ignored mid-import, like the hidden close controls.
-  const close = running ? () => {} : onClose
+  const undoDeleting = undo?.state.phase === 'deleting'
+  // Escape and the backdrop are ignored mid-import and mid-undo, like the hidden close controls.
+  const close = running || undoDeleting ? () => {} : onClose
   const dialog = useDialog({ isOpen, onClose: close })
   const backdrop = useBackdropClose(close)
   const doneRef = useRef<HTMLButtonElement>(null)
@@ -466,6 +568,8 @@ export default function ImportProgressModal({
             </section>
           )}
 
+          {!running && undo && undo.linkCount > 0 && <ImportUndoSection {...undo} />}
+
           {!running && (
             <div className={stackCopyButtons ? 'flex flex-col gap-3' : 'flex gap-3'}>
               {copyButtonCount > 0 && (
@@ -491,6 +595,7 @@ export default function ImportProgressModal({
                 ref={doneRef}
                 type="button"
                 onClick={onClose}
+                disabled={undoDeleting}
                 className={`flex-1 ${PRIMARY_BUTTON}`}
               >
                 Done

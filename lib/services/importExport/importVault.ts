@@ -31,6 +31,8 @@ export type VaultImportOptions = {
   onProgress?: (progress: VaultImportProgress) => void
   /** Checked before each phase, and passed through to `importLinks` (checked before each link row). */
   signal?: AbortSignal
+  /** Called once for each tag or category this restore creates (not for existing matches). */
+  onCreate?: (kind: 'tag' | 'category', id: string) => void
 }
 
 /** Imports a full v2 vault export: categories (styled) -> domain rules -> tags (colored/private) -> links -> preferences.
@@ -46,7 +48,7 @@ export async function importVaultExport(
   const validationError = getVaultExportValidationError(data)
   if (validationError) throw new Error(validationError)
 
-  const { signal } = options
+  const { signal, onCreate } = options
   let categoriesCreated = 0
   let domainsCreated = 0
   let domainsFailed = 0
@@ -79,7 +81,9 @@ export async function importVaultExport(
   const categoryEntries = [...categoryNames]
   let categoriesDone = 0
   await Promise.all(categoryEntries.map(async name => {
-    const id = await getOrCreateCategoryByName(name, dek, categoryStyleByName.get(name))
+    const id = await getOrCreateCategoryByName(
+      name, dek, categoryStyleByName.get(name), onCreate && (created => onCreate('category', created)),
+    )
     if (id) {
       categoryIdByName.set(name, id)
       if (!existingCategoryNames.has(name.toLowerCase())) categoriesCreated++
@@ -118,7 +122,7 @@ export async function importVaultExport(
     options.onProgress?.({ phase: 'tags', done: 0, total: data.tags.length })
     const existingTags = await getTags(dek)
     const existingTagNames = new Set(existingTags.map(t => t.name.toLowerCase()))
-    await syncTagDefinitions(data.tags, dek)
+    await syncTagDefinitions(data.tags, dek, onCreate && (created => onCreate('tag', created)))
     for (const def of data.tags) {
       const kebab = toKebabCase(def.name)
       if (kebab && !existingTagNames.has(kebab)) tagsCreated++
@@ -150,6 +154,7 @@ export async function importVaultExport(
     {
       onProgress: (done, total, outcome) => options.onProgress?.({ phase: 'links', done, total, outcome }),
       signal,
+      onCreate,
     },
   )
 

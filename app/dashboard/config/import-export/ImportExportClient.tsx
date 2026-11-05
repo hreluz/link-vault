@@ -51,6 +51,7 @@ export default function ImportExportClient() {
     importEstimate, importEtaMs,
     importModalState, importStats, lastImportedAt, importError, importRun, closeImportModal,
     cancelling, notProcessed, cancelImport,
+    undoLinkCount, undoFavoriteCount, undoState, requestUndo, cancelUndo, confirmUndo, retryUndo, retryUndoCleanup,
     hostBlock, waitAndRetry, skipBlockedHost, leaveImport, retryWaitMs, emptyStreakLimit, slowHintMs, throttleWait, fetching,
     fileInputRef,
     hasImportContent,
@@ -398,6 +399,16 @@ export default function ImportExportClient() {
         retryWaitMs={retryWaitMs}
         emptyStreakLimit={emptyStreakLimit}
         slowHintMs={slowHintMs}
+        undo={{
+          linkCount: undoLinkCount,
+          favoriteCount: undoFavoriteCount,
+          state: undoState,
+          onRequest: requestUndo,
+          onCancel: cancelUndo,
+          onConfirm: confirmUndo,
+          onRetry: retryUndo,
+          onRetryCleanup: retryUndoCleanup,
+        }}
       />
     </main>
   )

@@ -97,6 +97,30 @@ describe('getOrCreateCategoryByName', () => {
     expect(id).toBe('new-cat')
   })
 
+  describe('onCreate', () => {
+    it('is called with the new id when the category is inserted', async () => {
+      const row = await encryptCategoryRow('new-cat', 'NewCat')
+      mockInsertSingle.mockResolvedValue({ data: row, error: null })
+      const onCreate = vi.fn()
+
+      await getOrCreateCategoryByName('NewCat', dek, undefined, onCreate)
+
+      expect(onCreate).toHaveBeenCalledWith('new-cat')
+    })
+
+    it('is not called for an existing match or a failed insert', async () => {
+      const onCreate = vi.fn()
+      mockCategoriesSelect.mockResolvedValue({ data: [await encryptCategoryRow('cat-99', 'Article')], error: null })
+      await getOrCreateCategoryByName('Article', dek, undefined, onCreate)
+
+      mockCategoriesSelect.mockResolvedValue({ data: [], error: null })
+      mockInsertSingle.mockResolvedValue({ data: null, error: { message: 'DB error' } })
+      await getOrCreateCategoryByName('Other', dek, undefined, onCreate)
+
+      expect(onCreate).not.toHaveBeenCalled()
+    })
+  })
+
   describe('style', () => {
     it('encrypts the given style into the insert payload when creating', async () => {
       const row = await encryptCategoryRow('new-cat', 'Article')

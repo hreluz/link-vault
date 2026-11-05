@@ -95,6 +95,30 @@ describe('importVaultExport', () => {
     expect(mockImportLinks.mock.calls[0][3]).not.toHaveProperty('titleFromUrl')
   })
 
+  it('reports created categories and tags through onCreate and forwards it to importLinks', async () => {
+    mockGetOrCreateCategoryByName.mockImplementation(
+      async (name: string, _dek: CryptoKey, _style: unknown, onCreate?: (id: string) => void) => {
+        onCreate?.(`id-${name}`)
+        return `id-${name}`
+      },
+    )
+    mockSyncTagDefinitions.mockImplementation(async (_defs: unknown, _dek: CryptoKey, onCreate?: (id: string) => void) => {
+      onCreate?.('tag-new')
+      return ['tag-new']
+    })
+    const onCreate = vi.fn()
+    const data = makeExport({
+      categories: [{ name: 'Article', description: null, color: null, emoticon: null }],
+      tags: [{ name: 'secret', color: null, is_private: true }],
+    })
+
+    await importVaultExport(data, { defaultCategoryId: null, applyPreferences: false, onCreate }, FAKE_DEK)
+
+    expect(onCreate).toHaveBeenCalledWith('category', 'id-Article')
+    expect(onCreate).toHaveBeenCalledWith('tag', 'tag-new')
+    expect(mockImportLinks.mock.calls[0][3].onCreate).toBe(onCreate)
+  })
+
   it('throws a descriptive error and never touches the DB when the export is malformed', async () => {
     // Cast through unknown: the whole point is testing a runtime shape TS wouldn't allow.
     const malformed = makeExport({ categories: 'oops' as unknown as never })
@@ -126,7 +150,7 @@ describe('importVaultExport', () => {
       )
 
       expect(mockGetOrCreateCategoryByName).toHaveBeenCalledWith(
-        'Article', FAKE_DEK, { description: 'Blog posts', color: '#3B82F6', emoticon: '📄' },
+        'Article', FAKE_DEK, { description: 'Blog posts', color: '#3B82F6', emoticon: '📄' }, undefined,
       )
     })
 
@@ -138,7 +162,7 @@ describe('importVaultExport', () => {
 
       await importVaultExport(data, { defaultCategoryId: null, applyPreferences: false }, FAKE_DEK)
 
-      expect(mockGetOrCreateCategoryByName).toHaveBeenCalledWith('Video', FAKE_DEK, undefined)
+      expect(mockGetOrCreateCategoryByName).toHaveBeenCalledWith('Video', FAKE_DEK, undefined, undefined)
     })
 
     it('counts a category as created only when its name did not already exist', async () => {
@@ -237,7 +261,7 @@ describe('importVaultExport', () => {
 
       await importVaultExport(data, { defaultCategoryId: null, applyPreferences: false }, FAKE_DEK)
 
-      expect(mockSyncTagDefinitions).toHaveBeenCalledWith(data.tags, FAKE_DEK)
+      expect(mockSyncTagDefinitions).toHaveBeenCalledWith(data.tags, FAKE_DEK, undefined)
     })
 
     it('counts a tag as created only when its kebab name did not already exist', async () => {

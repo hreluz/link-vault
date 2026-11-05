@@ -709,3 +709,103 @@ describe('formatTimeAgo', () => {
     expect(formatTimeAgo(AT, AT + elapsed)).toBe(expected)
   })
 })
+
+describe('ImportProgressModal undo', () => {
+  type UndoProps = NonNullable<Props['undo']>
+
+  function makeUndo(overrides: Partial<UndoProps> = {}): UndoProps {
+    return {
+      linkCount: 3, favoriteCount: 0, state: { phase: 'idle' },
+      onRequest: vi.fn(), onCancel: vi.fn(), onConfirm: vi.fn(), onRetry: vi.fn(), onRetryCleanup: vi.fn(),
+      ...overrides,
+    }
+  }
+
+  it.each(['finished', 'cancelled', 'error'] as const)('offers "Undo this import" in the %s view', state => {
+    const undo = makeUndo()
+    renderModal({ state, undo })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo this import' }))
+
+    expect(undo.onRequest).toHaveBeenCalled()
+  })
+
+  it('shows no undo while running', () => {
+    renderModal({ state: 'running', undo: makeUndo() })
+    expect(screen.queryByRole('button', { name: 'Undo this import' })).toBeNull()
+  })
+
+  it('shows no undo while paused on a blocked host', () => {
+    renderModal({
+      state: 'running', undo: makeUndo(),
+      hostBlock: { host: 'x.com', reason: 'rate_limited', attempt: 1, retryAt: null },
+    })
+    expect(screen.queryByRole('button', { name: 'Undo this import' })).toBeNull()
+  })
+
+  it('shows no undo when the run saved nothing', () => {
+    renderModal({ state: 'finished', undo: makeUndo({ linkCount: 0 }) })
+    expect(screen.queryByRole('button', { name: 'Undo this import' })).toBeNull()
+  })
+
+  it('asks for confirmation with the link and favorite counts, focusing Keep', () => {
+    const undo = makeUndo({ favoriteCount: 1 })
+    const { rerender, props } = renderModal({ state: 'finished', undo })
+    rerender(<ImportProgressModal {...props} undo={{ ...undo, state: { phase: 'confirming' } }} />)
+
+    expect(screen.getByText("Permanently delete 3 imported links? This can't be undone.")).toBeTruthy()
+    expect(screen.getByText('Includes 1 favorite.')).toBeTruthy()
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Keep' }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Keep' }))
+    expect(undo.onCancel).toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Delete permanently' }))
+    expect(undo.onConfirm).toHaveBeenCalled()
+  })
+
+  it('omits the favorites line when there are none', () => {
+    renderModal({ state: 'finished', undo: makeUndo({ state: { phase: 'confirming' } }) })
+    expect(screen.queryByText(/Includes/)).toBeNull()
+  })
+
+  it('locks the modal while deleting', () => {
+    const { props } = renderModal({ state: 'finished', undo: makeUndo({ state: { phase: 'deleting' } }) })
+
+    expect((screen.getByRole('button', { name: 'Deleting…' }) as HTMLButtonElement).disabled).toBe(true)
+    const done = screen.getByRole('button', { name: 'Done' }) as HTMLButtonElement
+    expect(done.disabled).toBe(true)
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
+    expect(props.onClose).not.toHaveBeenCalled()
+  })
+
+  it('shows the result and hides the button once done', () => {
+    renderModal({ state: 'finished', undo: makeUndo({ state: { phase: 'done', deleted: 3, tags: 2, categories: 1 } }) })
+
+    expect(screen.getByText('3 links deleted. Removed 2 unused tags and 1 unused category.')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Undo this import' })).toBeNull()
+  })
+
+  it('leaves out the removed line when nothing was removed', () => {
+    renderModal({ state: 'finished', undo: makeUndo({ state: { phase: 'done', deleted: 1, tags: 0, categories: 0 } }) })
+    expect(screen.getByRole('status').textContent).toBe('1 link deleted.')
+  })
+
+  it('offers Retry when the link delete failed', () => {
+    const undo = makeUndo({ state: { phase: 'delete_error' } })
+    renderModal({ state: 'finished', undo })
+
+    expect(screen.getByText("Couldn't delete the imported links.")).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    expect(undo.onRetry).toHaveBeenCalled()
+  })
+
+  it('offers Retry cleanup when only the cleanup failed', () => {
+    const undo = makeUndo({ state: { phase: 'cleanup_error', deleted: 3 } })
+    renderModal({ state: 'finished', undo })
+
+    expect(screen.getByText("3 links deleted. Couldn't remove unused tags and categories.")).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Retry cleanup' }))
+    expect(undo.onRetryCleanup).toHaveBeenCalled()
+    expect(undo.onRetry).not.toHaveBeenCalled()
+  })
+})
