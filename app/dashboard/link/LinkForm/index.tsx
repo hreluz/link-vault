@@ -45,7 +45,7 @@ export default function LinkForm({ scrollable = false, collapsible = false }: Pr
   }
 
   const fieldsCls = scrollable
-    ? 'max-h-[70vh] overflow-y-auto px-6 py-5 space-y-4'
+    ? 'max-h-[70dvh] overflow-y-auto px-6 py-5 space-y-4'
     : 'space-y-4'
 
   const footerCls = scrollable

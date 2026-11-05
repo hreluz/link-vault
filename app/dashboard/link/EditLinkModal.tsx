@@ -50,7 +50,7 @@ export default function EditLinkModal({ link, onSave, onClose }: Props) {
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
       {...backdrop}
     >
-      <div {...dialog.dialogProps} className="w-full max-w-md rounded-2xl bg-surface-card shadow-xl ring-1 ring-surface-200 outline-none dark:bg-surface-900 dark:ring-surface-700">
+      <div {...dialog.dialogProps} className="flex w-full max-w-md flex-col rounded-2xl bg-surface-card shadow-xl ring-1 ring-surface-200 outline-none dark:bg-surface-900 dark:ring-surface-700" style={{ maxHeight: '90dvh' }}>
         <div className="border-b border-surface-100 px-6 py-4 dark:border-surface-800">
           <h2 id={dialog.titleId} className="text-base font-semibold text-surface-900 dark:text-surface-50">Edit link</h2>
         </div>

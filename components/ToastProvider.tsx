@@ -44,20 +44,34 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={{ addToast, dismissToast }}>
       {children}
-      <div className="pointer-events-none fixed bottom-24 left-0 right-0 z-[60] flex flex-col items-center gap-2 px-4 sm:bottom-auto sm:left-auto sm:right-4 sm:top-4 sm:items-end">
-        {toasts.map(toast => (
-          <div
-            key={toast.id}
-            onClick={toast.onClick}
-            className={`pointer-events-auto rounded-xl px-4 py-3 text-sm font-medium shadow-lg ${
-              toast.variant === 'destructive'
-                ? 'bg-red-600 text-white'
-                : 'bg-surface-900 text-white'
-            } ${toast.onClick ? 'cursor-pointer active:opacity-80' : ''}`}
-          >
-            {toast.message}
-          </div>
-        ))}
+      <div
+        role="status"
+        aria-live="polite"
+        className="pointer-events-none fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] left-0 right-0 z-[60] flex flex-col items-center gap-2 px-4 sm:bottom-auto sm:left-auto sm:right-4 sm:top-4 sm:items-end"
+      >
+        {toasts.map(toast => {
+          const className = `pointer-events-auto rounded-xl px-4 py-3 text-sm font-medium shadow-lg ${
+            toast.variant === 'destructive'
+              ? 'bg-red-600 text-white'
+              : 'bg-surface-900 text-white'
+          }`
+          // A clickable toast (e.g. "tap to undo") is a real button so keyboard
+          // users can reach and activate it.
+          return toast.onClick ? (
+            <button
+              key={toast.id}
+              type="button"
+              onClick={toast.onClick}
+              className={`${className} focus-ring cursor-pointer text-left active:opacity-80`}
+            >
+              {toast.message}
+            </button>
+          ) : (
+            <div key={toast.id} className={className}>
+              {toast.message}
+            </div>
+          )
+        })}
       </div>
     </ToastContext.Provider>
   )

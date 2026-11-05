@@ -17,7 +17,7 @@ export default function DashboardNav() {
   return (
     <>
       {/* Mobile: fixed bottom tab bar */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-surface-200 bg-surface-card dark:border-surface-700 dark:bg-surface-900 sm:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-surface-200 bg-surface-card pb-[env(safe-area-inset-bottom)] dark:border-surface-700 dark:bg-surface-900 sm:hidden">
         <div className="flex">
           {NAV_ITEMS.map(({ label, icon, href }) => {
             const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href))

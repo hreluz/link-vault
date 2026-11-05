@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/ThemeProvider";
@@ -18,6 +18,14 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Link Vault",
   description: "Your personal link bookmarking app",
+};
+
+// viewportFit 'cover' lets env(safe-area-inset-*) report the iPhone home-indicator
+// and notch insets, which the bottom nav, sheets and toasts pad by (SPEC 35).
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -42,7 +50,12 @@ export default function RootLayout({
         <ThemeProvider>
           <VaultProvider>
             {children}
-            <Toaster position="bottom-right" richColors />
+            {/* On phones, lift toasts above the dashboard's fixed bottom nav (5rem + home indicator). */}
+            <Toaster
+              position="bottom-right"
+              richColors
+              mobileOffset={{ bottom: "calc(5rem + env(safe-area-inset-bottom))" }}
+            />
           </VaultProvider>
         </ThemeProvider>
       </body>

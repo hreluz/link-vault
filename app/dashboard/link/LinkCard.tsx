@@ -43,7 +43,9 @@ export default function LinkCard({
   const tagNameById = useTagNameLookup()
 
   return (
-    <SwipeableCard onSwipeDelete={link.is_favorite ? undefined : onDelete}>
+    // Favorites can be swiped open too; their Delete shows the "Unfavorite to
+    // delete" toast from handleDelete instead of deleting (SPEC 35).
+    <SwipeableCard onSwipeDelete={onDelete}>
       <article
         className={`relative flex h-full flex-col bg-surface-card transition dark:bg-surface-900 ${
           isLastOpened ? 'ring-2 ring-primary-500/60 ring-inset rounded-2xl' : ''

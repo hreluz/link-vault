@@ -1,6 +1,6 @@
 # SPEC 35 — Dashboard mobile shell: safe areas, toasts, sheets and swipe
 
-> **Status:** Draft
+> **Status:** Approved
 > **Depends on:** SPEC 34
 > **Date:** 2026-11-05
 > **Objective:** On phones, the bottom nav, sheets and toasts clear the iPhone home indicator and each other, every sheet behaves as a real dialog, and swipe-left reveals a Delete button instead of deleting.

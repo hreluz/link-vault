@@ -28,7 +28,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
             <div className="min-h-screen bg-surface-50 dark:bg-surface-950">
               <DashboardHeader userEmail={user.email ?? ''} />
               <DashboardNav />
-              <div className="pb-20 sm:pb-0">
+              <div className="pb-[calc(5rem+env(safe-area-inset-bottom))] sm:pb-0">
                 {children}
               </div>
             </div>

@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useId } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { verifyPrivateTagPassword, getPrivateTagSettings } from '@/lib/services/tags/privateTagSecurity'
 import { createClient } from '@/lib/supabase/client'
 import { useBackdropClose } from '@/lib/hooks/shared/useBackdropClose'
+import { useDialog } from '@/lib/hooks/shared/useDialog'
 
 interface Props {
   onUnlock: () => void
@@ -14,7 +15,10 @@ interface Props {
 
 export default function UnlockTagModal({ onUnlock, onClose }: Props) {
   const backdrop = useBackdropClose(onClose)
+  // Mounted only while open; Escape acts like Cancel.
+  const dialog = useDialog({ isOpen: true, onClose })
   const router = useRouter()
+  const passwordId = useId()
   const [password, setPassword] = useState('')
   const [hint, setHint] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -58,30 +62,37 @@ export default function UnlockTagModal({ onUnlock, onClose }: Props) {
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:px-4"
       {...backdrop}
     >
-      <div className="w-full max-w-sm rounded-t-2xl bg-surface-card shadow-xl ring-1 ring-surface-200 sm:rounded-2xl dark:bg-surface-900 dark:ring-surface-700">
+      <div
+        {...dialog.dialogProps}
+        className="w-full max-w-sm rounded-t-2xl bg-surface-card pb-[max(1rem,env(safe-area-inset-bottom))] shadow-xl ring-1 ring-surface-200 outline-none sm:rounded-2xl sm:pb-0 dark:bg-surface-900 dark:ring-surface-700"
+      >
         <div className="flex justify-center pb-1 pt-3 sm:hidden">
           <div className="h-1 w-10 rounded-full bg-surface-200 dark:bg-surface-700" />
         </div>
         <form onSubmit={handleSubmit} className="p-5">
           <div className="mb-4 flex items-center gap-2">
-            <span className="text-surface-400 dark:text-surface-500">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="h-4 w-4">
+            <span aria-hidden="true" className="text-surface-400 dark:text-surface-500">
+              <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="h-4 w-4">
                 <path fillRule="evenodd" d="M8 1a3.5 3.5 0 0 0-3.5 3.5V6H4a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-.5V4.5A3.5 3.5 0 0 0 8 1Zm2 5V4.5a2 2 0 1 0-4 0V6h4Z" clipRule="evenodd" />
               </svg>
             </span>
-            <h2 className="text-base font-semibold text-surface-900 dark:text-surface-50">
+            <h2 id={dialog.titleId} className="text-base font-semibold text-surface-900 dark:text-surface-50">
               Unlock private tags
             </h2>
           </div>
           <p className="mb-4 text-sm text-surface-500 dark:text-surface-400">
             Enter the password to reveal all private tag links for this session.
           </p>
+          <label htmlFor={passwordId} className="sr-only">Password</label>
           <input
+            id={passwordId}
             type="password"
             value={password}
             onChange={e => { setPassword(e.target.value); setError(null) }}
             placeholder="Password"
-            autoFocus
+            // Focused on open with a keyboard; on touch screens useDialog focuses the
+            // panel instead so the on-screen keyboard doesn't pop up.
+            data-autofocus
             className="w-full rounded-xl border border-surface-200 bg-surface-card px-4 py-3 text-sm text-surface-900 placeholder-surface-400 outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-100 dark:placeholder-surface-500"
           />
           {hint && (

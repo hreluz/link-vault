@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import type { Category } from '@/lib/services/categories'
 import { useBackdropClose } from '@/lib/hooks/shared/useBackdropClose'
+import { useDialog } from '@/lib/hooks/shared/useDialog'
 
 type Filter = string | 'all'
 type TagMode = 'any' | 'all'
@@ -84,6 +85,7 @@ export default function FilterSheet({
   onSortChange, onCategoryChange, onTagsChange, onTagModeChange, onReset, onClose,
 }: Props) {
   const backdrop = useBackdropClose(onClose)
+  const dialog = useDialog({ isOpen, onClose })
   const [openSections, setOpenSections] = useState<Set<SectionKey>>(
     () => initOpen({ sortBy, category, selectedTagIds })
   )
@@ -117,13 +119,16 @@ export default function FilterSheet({
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:px-4"
       {...backdrop}
     >
-      <div className="w-full max-w-md rounded-t-2xl bg-surface-card shadow-xl ring-1 ring-surface-200 sm:rounded-2xl dark:bg-surface-900 dark:ring-surface-700">
+      <div
+        {...dialog.dialogProps}
+        className="w-full max-w-md rounded-t-2xl bg-surface-card pb-[max(1rem,env(safe-area-inset-bottom))] shadow-xl ring-1 ring-surface-200 outline-none sm:rounded-2xl sm:pb-0 dark:bg-surface-900 dark:ring-surface-700"
+      >
         <div className="flex justify-center pb-1 pt-3 sm:hidden">
           <div className="h-1 w-10 rounded-full bg-surface-200 dark:bg-surface-700" />
         </div>
 
         <div className="flex items-center justify-between border-b border-surface-100 px-5 py-4 dark:border-surface-800">
-          <h2 className="text-base font-semibold text-surface-900 dark:text-surface-50">Filters & Sort</h2>
+          <h2 id={dialog.titleId} className="text-base font-semibold text-surface-900 dark:text-surface-50">Filters & Sort</h2>
           {hasFilters && (
             <button
               onClick={onReset}
@@ -134,7 +139,7 @@ export default function FilterSheet({
           )}
         </div>
 
-        <div className="max-h-[60vh] overflow-y-auto px-5">
+        <div className="max-h-[60dvh] overflow-y-auto px-5">
           <AccordionSection
             label="Category"
             open={openSections.has('category')}
@@ -255,8 +260,6 @@ export default function FilterSheet({
             Show {resultCount} link{resultCount !== 1 ? 's' : ''}
           </button>
         </div>
-
-        <div className="h-2 sm:hidden" />
       </div>
     </div>
   )

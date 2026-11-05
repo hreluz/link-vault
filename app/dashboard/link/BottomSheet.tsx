@@ -3,6 +3,7 @@
 import type { LinkWithTags } from '@/lib/services/links'
 import type { LinkStatus } from '@/lib/types/database'
 import { useBackdropClose } from '@/lib/hooks/shared/useBackdropClose'
+import { useDialog } from '@/lib/hooks/shared/useDialog'
 import { displayTitle } from '@/lib/utils/urlTitle'
 import { STATUS_CONFIG } from '../config'
 
@@ -21,6 +22,7 @@ interface Props {
 
 export default function BottomSheet({ link, onStatusChange, onClose }: Props) {
   const backdrop = useBackdropClose(onClose)
+  const dialog = useDialog({ isOpen: link !== null, onClose })
 
   if (!link) return null
 
@@ -28,24 +30,27 @@ export default function BottomSheet({ link, onStatusChange, onClose }: Props) {
     <div className="fixed inset-0 z-50 flex items-end lg:items-center lg:justify-center" {...backdrop}>
       <div className="pointer-events-none absolute inset-0 bg-black/40 lg:backdrop-blur-sm" />
 
-      <div className="relative w-full rounded-t-2xl bg-surface-card lg:max-w-sm lg:rounded-2xl lg:shadow-2xl lg:max-h-[90vh] lg:overflow-y-auto dark:bg-surface-900">
-        {/* drag handle - mobile only */}
-        <div className="flex justify-center pb-1 pt-3 lg:hidden">
+      <div
+        {...dialog.dialogProps}
+        className="relative w-full rounded-t-2xl bg-surface-card pb-[max(1rem,env(safe-area-inset-bottom))] outline-none lg:max-w-sm lg:rounded-2xl lg:pb-0 lg:shadow-2xl lg:max-h-[90vh] lg:overflow-y-auto dark:bg-surface-900"
+      >
+        {/* drag handle - mobile only, decorative (no drag-to-dismiss) */}
+        <div aria-hidden="true" className="flex justify-center pb-1 pt-3 lg:hidden">
           <div className="h-1 w-10 rounded-full bg-surface-200 dark:bg-surface-700" />
         </div>
 
         {/* header */}
         <div className="flex items-start gap-2 border-b border-surface-100 px-5 py-3 lg:py-4 dark:border-surface-800">
           <div className="min-w-0 flex-1">
-            <p className="line-clamp-1 text-sm font-semibold text-surface-900 dark:text-surface-50">{displayTitle(link)}</p>
+            <h2 id={dialog.titleId} className="line-clamp-1 text-sm font-semibold text-surface-900 dark:text-surface-50">{displayTitle(link)}</h2>
             <p className="mt-0.5 text-xs text-surface-400 dark:text-surface-500">{link.site_name}</p>
           </div>
           <button
             onClick={onClose}
             aria-label="Close"
-            className="focus-ring hidden h-7 w-7 shrink-0 items-center justify-center rounded-lg text-surface-400 transition hover:bg-surface-100 hover:text-surface-600 lg:flex dark:text-surface-500 dark:hover:bg-surface-800 dark:hover:text-surface-300"
+            className="focus-ring -my-2 -mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-surface-400 transition hover:bg-surface-100 hover:text-surface-600 lg:m-0 lg:h-7 lg:w-7 dark:text-surface-500 dark:hover:bg-surface-800 dark:hover:text-surface-300"
           >
-            ✕
+            <span aria-hidden="true">✕</span>
           </button>
         </div>
 
@@ -74,8 +79,6 @@ export default function BottomSheet({ link, onStatusChange, onClose }: Props) {
             })}
           </div>
         </div>
-
-        <div className="h-6 lg:hidden" />
       </div>
     </div>
   )
