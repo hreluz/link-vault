@@ -16,7 +16,7 @@ export default function ExpandToggle({ expanded, onToggle }: Props) {
     >
       <svg
         aria-hidden="true"
-        className={`h-4 w-4 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
+        className={`h-4 w-4 transition-transform duration-200 motion-reduce:transition-none ${expanded ? 'rotate-180' : ''}`}
         fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
       >
         <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />

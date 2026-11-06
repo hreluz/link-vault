@@ -64,12 +64,12 @@ function AccordionSection({
         <span className="text-sm font-semibold text-surface-700 dark:text-surface-300">{label}</span>
         <div className="flex items-center gap-2">
           {badge}
-          <span aria-hidden="true" className={`text-surface-400 transition-transform duration-200 dark:text-surface-500 ${open ? 'rotate-180' : ''}`}>
+          <span aria-hidden="true" className={`text-surface-400 transition-transform duration-200 motion-reduce:transition-none dark:text-surface-500 ${open ? 'rotate-180' : ''}`}>
             ▾
           </span>
         </div>
       </button>
-      <div className={`grid transition-all duration-200 ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
+      <div className={`grid transition-all duration-200 motion-reduce:transition-none ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
         <div className="-mx-1 overflow-hidden px-1">
           <div className="pb-4 pt-1">
             {children}

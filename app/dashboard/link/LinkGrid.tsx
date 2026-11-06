@@ -55,13 +55,13 @@ export default function LinkGrid() {
   if (loadError === 'load') {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
-        <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
+        <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-950/40 dark:text-red-300">
           Couldn&apos;t load your links.
         </p>
         <button
           type="button"
           onClick={retryLoad}
-          className="mt-4 focus-ring rounded-xl border border-surface-200 bg-surface-card px-4 py-3 text-sm font-medium text-surface-600 shadow-sm transition hover:bg-surface-50 hover:text-surface-900 disabled:cursor-not-allowed disabled:opacity-60"
+          className="mt-4 focus-ring rounded-xl border border-surface-200 bg-surface-card px-4 py-3 text-sm font-medium text-surface-600 shadow-sm transition hover:bg-surface-50 hover:text-surface-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-300 dark:hover:bg-surface-700 dark:hover:text-surface-100"
         >
           Try again
         </button>
@@ -71,9 +71,10 @@ export default function LinkGrid() {
 
   if (loading) {
     return (
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div aria-busy="true" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <p role="status" className="sr-only">Loading links…</p>
         {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="h-48 animate-pulse rounded-2xl bg-surface-100" />
+          <div key={i} aria-hidden="true" className="h-48 animate-pulse rounded-2xl bg-surface-100 motion-reduce:animate-none dark:bg-surface-800" />
         ))}
       </div>
     )
@@ -86,13 +87,13 @@ export default function LinkGrid() {
       return (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <div className="mb-4 text-4xl" aria-hidden="true">⭐</div>
-          <p className="text-surface-500">
+          <p className="text-surface-500 dark:text-surface-400">
             {hasActiveFilters ? 'No favorites match your search.' : 'No favorites yet. Star a link to see it here — favorited links are also protected from deletion.'}
           </p>
           {hasActiveFilters && (
             <button
               onClick={resetFilters}
-              className="focus-ring mt-1 inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-primary-600 hover:text-primary-500"
+              className="focus-ring mt-1 inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-primary-600 hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300"
             >
               Clear filters
             </button>
@@ -104,11 +105,11 @@ export default function LinkGrid() {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
         <div className="mb-4 text-4xl" aria-hidden="true">📭</div>
-        <p className="text-surface-500">No links match the current filters.</p>
+        <p className="text-surface-500 dark:text-surface-400">No links match the current filters.</p>
         {hasActiveFilters && (
           <button
             onClick={resetFilters}
-            className="focus-ring mt-1 inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-primary-600 hover:text-primary-500"
+            className="focus-ring mt-1 inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-primary-600 hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300"
           >
             Clear filters
           </button>
@@ -139,18 +140,18 @@ export default function LinkGrid() {
           />
         ))}
         {loadingMore && Array.from({ length: 3 }).map((_, i) => (
-          <div key={`loading-more-${i}`} className="h-48 animate-pulse rounded-2xl bg-surface-100" />
+          <div key={`loading-more-${i}`} className="h-48 animate-pulse rounded-2xl bg-surface-100 motion-reduce:animate-none dark:bg-surface-800" />
         ))}
       </div>
       {loadError === 'loadMore' ? (
         <div className="mt-6 flex flex-col items-center gap-3 text-center sm:flex-row sm:justify-center">
-          <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
+          <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-950/40 dark:text-red-300">
             Couldn&apos;t load more links.
           </p>
           <button
             type="button"
             onClick={retryLoad}
-            className="focus-ring rounded-xl border border-surface-200 bg-surface-card px-4 py-3 text-sm font-medium text-surface-600 shadow-sm transition hover:bg-surface-50 hover:text-surface-900 disabled:cursor-not-allowed disabled:opacity-60"
+            className="focus-ring rounded-xl border border-surface-200 bg-surface-card px-4 py-3 text-sm font-medium text-surface-600 shadow-sm transition hover:bg-surface-50 hover:text-surface-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-300 dark:hover:bg-surface-700 dark:hover:text-surface-100"
           >
             Try again
           </button>

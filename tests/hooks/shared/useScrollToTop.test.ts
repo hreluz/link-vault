@@ -8,6 +8,19 @@ function setScrollY(value: number) {
   vi.spyOn(window, 'scrollY', 'get').mockReturnValue(value)
 }
 
+function mockReducedMotion(matches: boolean) {
+  window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+    matches: query === '(prefers-reduced-motion: reduce)' ? matches : false,
+    media: query,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  }))
+}
+
 function fireWheel(): Event {
   const event = new Event('wheel', { cancelable: true })
   window.dispatchEvent(event)
@@ -28,6 +41,8 @@ afterEach(() => {
   act(() => vi.advanceTimersByTime(5000))
   vi.useRealTimers()
   vi.restoreAllMocks()
+  // jsdom has no matchMedia; drop any mock so other tests take the animated path.
+  delete (window as { matchMedia?: unknown }).matchMedia
 })
 
 describe('useScrollToTop', () => {
@@ -111,5 +126,46 @@ describe('useScrollToTop', () => {
     act(() => { event = fireWheel() })
 
     expect(event.defaultPrevented).toBe(false)
+  })
+
+  describe('with prefers-reduced-motion: reduce', () => {
+    it('jumps to the top at once, with no animation frames', () => {
+      mockReducedMotion(true)
+      setScrollY(1000)
+      const { result } = renderHook(() => useScrollToTop())
+
+      act(() => result.current())
+
+      expect(window.scrollTo).toHaveBeenCalledTimes(1)
+      expect(window.scrollTo).toHaveBeenCalledWith(0, 0)
+
+      act(() => vi.advanceTimersByTime(1000))
+      expect(window.scrollTo).toHaveBeenCalledTimes(1)
+    })
+
+    it('does not absorb wheel input after the jump', () => {
+      mockReducedMotion(true)
+      setScrollY(500)
+      const { result } = renderHook(() => useScrollToTop())
+
+      act(() => result.current())
+
+      let event!: Event
+      act(() => { event = fireWheel() })
+      expect(event.defaultPrevented).toBe(false)
+    })
+
+    it('still animates when the query does not match', () => {
+      mockReducedMotion(false)
+      setScrollY(1000)
+      const { result } = renderHook(() => useScrollToTop())
+
+      act(() => result.current())
+      expect(window.scrollTo).not.toHaveBeenCalled()
+
+      act(() => vi.advanceTimersByTime(220))
+      expect(vi.mocked(window.scrollTo).mock.calls.length).toBeGreaterThan(1)
+      expect(vi.mocked(window.scrollTo).mock.calls.at(-1)).toEqual([0, 0])
+    })
   })
 })
