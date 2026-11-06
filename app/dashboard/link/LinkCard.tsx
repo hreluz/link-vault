@@ -31,7 +31,7 @@ interface Props {
 const ACTION_BASE =
   'focus-ring relative z-10 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg transition lg:h-10 lg:w-10'
 const ACTION_ICON =
-  `${ACTION_BASE} text-surface-400 hover:bg-surface-100 hover:text-surface-700 active:bg-surface-200 dark:text-surface-500 dark:hover:bg-surface-800 dark:hover:text-surface-200`
+  `${ACTION_BASE} text-surface-500 hover:bg-surface-100 hover:text-surface-700 active:bg-surface-200 dark:text-surface-400 dark:hover:bg-surface-800 dark:hover:text-surface-200`
 const ICON_SVG = 'h-5 w-5'
 
 export default function LinkCard({
@@ -68,7 +68,7 @@ export default function LinkCard({
               {imageState === 'refreshing' ? (
                 <div
                   data-testid="card-image-refreshing"
-                  className="w-full animate-pulse bg-surface-100 dark:bg-surface-800"
+                  className="w-full animate-pulse bg-surface-100 motion-reduce:animate-none dark:bg-surface-800"
                   style={{ aspectRatio: '16/9' }}
                 />
               ) : (
@@ -95,7 +95,7 @@ export default function LinkCard({
             <span className={`inline-flex min-w-0 items-center gap-1.5 rounded-full bg-surface-100 px-2.5 py-1 text-xs font-medium text-surface-700 dark:bg-surface-800 dark:text-surface-300`}>
               {category
                 ? <>{category.emoticon && <span aria-hidden="true" className="shrink-0">{category.emoticon}</span>}<span className="truncate">{category.name}</span></>
-                : <span className="truncate text-surface-400 dark:text-surface-500">Uncategorized</span>
+                : <span className="truncate text-surface-500 dark:text-surface-400">Uncategorized</span>
               }
             </span>
           </div>
@@ -114,7 +114,7 @@ export default function LinkCard({
                 {displayTitle(link)}
               </a>
             </h3>
-            <p className="mt-0.5 text-xs text-surface-400 dark:text-surface-500">
+            <p className="mt-0.5 text-xs text-surface-500 dark:text-surface-400">
               {link.site_name} ↗
               {!showImage && link.duration && (
                 <span className="ml-2 rounded-full bg-surface-100 px-1.5 py-0.5 font-medium text-surface-500 dark:bg-surface-800 dark:text-surface-400">
@@ -152,7 +152,7 @@ export default function LinkCard({
                 disabled={link.is_favorite}
                 aria-label="Delete link"
                 title={link.is_favorite ? 'Unfavorite to delete' : 'Delete'}
-                className={`${ACTION_BASE} text-surface-400 disabled:cursor-not-allowed disabled:opacity-40 dark:text-surface-500 ${
+                className={`${ACTION_BASE} text-surface-500 disabled:cursor-not-allowed disabled:opacity-40 dark:text-surface-400 ${
                   link.is_favorite
                     ? ''
                     : 'hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400'
@@ -170,7 +170,7 @@ export default function LinkCard({
               className={`${ACTION_BASE} text-lg ${
                 link.is_favorite
                   ? 'text-amber-400 hover:text-amber-500'
-                  : 'text-surface-300 hover:text-amber-400 hover:bg-surface-100 dark:text-surface-600 dark:hover:bg-surface-800'
+                  : 'text-surface-500 hover:text-amber-400 hover:bg-surface-100 dark:text-surface-400 dark:hover:bg-surface-800'
               }`}
             >
               {link.is_favorite ? '⭐' : '☆'}

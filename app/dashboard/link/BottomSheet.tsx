@@ -43,7 +43,7 @@ export default function BottomSheet({ link, onStatusChange, onClose }: Props) {
         <div className="flex items-start gap-2 border-b border-surface-100 px-5 py-3 lg:py-4 dark:border-surface-800">
           <div className="min-w-0 flex-1">
             <h2 id={dialog.titleId} className="line-clamp-1 text-sm font-semibold text-surface-900 dark:text-surface-50">{displayTitle(link)}</h2>
-            <p className="mt-0.5 text-xs text-surface-400 dark:text-surface-500">{link.site_name}</p>
+            <p className="mt-0.5 text-xs text-surface-500 dark:text-surface-400">{link.site_name}</p>
           </div>
           <button
             onClick={onClose}
@@ -56,7 +56,7 @@ export default function BottomSheet({ link, onStatusChange, onClose }: Props) {
 
         {/* status */}
         <div className="px-4 py-4">
-          <p id="sheet-status-label" className="mb-2 text-xs font-semibold uppercase tracking-wide text-surface-400 dark:text-surface-500">Status</p>
+          <p id="sheet-status-label" className="mb-2 text-xs font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400">Status</p>
           <div role="radiogroup" aria-labelledby="sheet-status-label" className="grid grid-cols-4 gap-1 rounded-xl bg-surface-100 p-1 dark:bg-surface-800">
             {(Object.keys(STATUS_CONFIG) as LinkStatus[]).map(s => {
               const active = link.status === s

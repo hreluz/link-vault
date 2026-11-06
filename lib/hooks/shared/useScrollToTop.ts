@@ -10,10 +10,21 @@ const SCROLL_DURATION_MS = 200
 const QUIET_MS = 300
 const MAX_HOLD_MS = 4000
 
+function prefersReducedMotion() {
+  return typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
+
 export function useScrollToTop() {
   return useCallback(() => {
     const start = window.scrollY
     if (start === 0) return
+
+    // Reduced motion: jump straight to the top. With no animation there's
+    // nothing for leftover wheel input to fight, so nothing is absorbed (SPEC 37).
+    if (prefersReducedMotion()) {
+      window.scrollTo(0, 0)
+      return
+    }
 
     let lastInputAt = performance.now()
     const absorbInput = (e: Event) => {

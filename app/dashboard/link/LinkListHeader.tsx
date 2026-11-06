@@ -30,7 +30,7 @@ export default function LinkListHeader() {
           className="focus-ring flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-surface-200 bg-surface-card px-2.5 py-2 text-sm font-medium text-surface-600 shadow-sm transition hover:bg-surface-50 hover:text-surface-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-surface-700 dark:bg-surface-900 dark:text-surface-300 dark:hover:bg-surface-800 sm:min-h-0 sm:min-w-0"
         >
           <svg
-            className={`h-5 w-5${refreshing ? ' animate-spin' : ''}`}
+            className={`h-5 w-5${refreshing ? ' animate-spin motion-reduce:animate-none' : ''}`}
             viewBox="0 0 20 20"
             fill="none"
             aria-hidden="true"
