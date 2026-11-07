@@ -19,7 +19,7 @@ export default function LinkList({
 }) {
   return (
     <LinkListProvider autoFetchDefault={autoFetchDefault} moveToEndDelaySeconds={moveToEndDelaySeconds}>
-      <main className="mx-auto max-w-5xl px-4 py-8">
+      <main className="mx-auto max-w-5xl px-4 py-8 xl:max-w-6xl 2xl:max-w-7xl">
         <LinkListHeader />
         <HeaderUndoButton />
         <FavoritesToggle />

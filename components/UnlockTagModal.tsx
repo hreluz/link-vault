@@ -7,6 +7,7 @@ import { verifyPrivateTagPassword, getPrivateTagSettings } from '@/lib/services/
 import { createClient } from '@/lib/supabase/client'
 import { useBackdropClose } from '@/lib/hooks/shared/useBackdropClose'
 import { useDialog } from '@/lib/hooks/shared/useDialog'
+import { LockClosedIcon } from '@/components/icons'
 
 interface Props {
   onUnlock: () => void
@@ -72,9 +73,7 @@ export default function UnlockTagModal({ onUnlock, onClose }: Props) {
         <form onSubmit={handleSubmit} className="p-5">
           <div className="mb-4 flex items-center gap-2">
             <span aria-hidden="true" className="text-surface-400 dark:text-surface-500">
-              <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="h-4 w-4">
-                <path fillRule="evenodd" d="M8 1a3.5 3.5 0 0 0-3.5 3.5V6H4a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-.5V4.5A3.5 3.5 0 0 0 8 1Zm2 5V4.5a2 2 0 1 0-4 0V6h4Z" clipRule="evenodd" />
-              </svg>
+              <LockClosedIcon className="h-4 w-4" />
             </span>
             <h2 id={dialog.titleId} className="text-base font-semibold text-surface-900 dark:text-surface-50">
               Unlock private tags

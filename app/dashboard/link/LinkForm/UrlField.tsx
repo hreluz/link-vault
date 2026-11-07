@@ -3,6 +3,7 @@
 import { useId } from 'react'
 import { useLinkFormContext } from '../LinkFormContext'
 import { INPUT, LABEL } from './styles'
+import { SpinnerIcon } from '@/components/icons'
 
 const READ_ONLY = 'cursor-default bg-surface-50! text-surface-500! focus:border-surface-200! focus:ring-0! dark:bg-surface-900! dark:text-surface-400! dark:focus:border-surface-700!'
 
@@ -65,16 +66,7 @@ export default function UrlField() {
           onChange={e => setUrl(e.target.value)}
         />
         {fetchingMeta && (
-          <svg
-            className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-primary-500"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-          >
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-          </svg>
+          <SpinnerIcon className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-primary-500" />
         )}
       </div>
 

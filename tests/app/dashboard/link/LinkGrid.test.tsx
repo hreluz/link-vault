@@ -64,9 +64,34 @@ afterEach(() => {
 })
 
 describe('LinkGrid empty state', () => {
-  it('shows the empty state when there are no links and nothing left to load', () => {
+  it('shows the no-links-yet state when there are no links, no filters and nothing left to load', () => {
+    render(<LinkGrid />)
+    expect(screen.getByText('No links yet.')).toBeTruthy()
+    expect(screen.queryByText('No links match the current filters.')).toBeNull()
+  })
+
+  it('offers Add link in the no-links-yet state, opening the Add Link modal like the header +', () => {
+    const setModalOpen = vi.fn()
+    setContext({ setModalOpen })
+    render(<LinkGrid />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add link' }))
+
+    expect(setModalOpen).toHaveBeenCalledWith(true)
+  })
+
+  it('shows the filtered-empty state, with Clear filters and no Add link, when filters are active', () => {
+    setContext({ hasActiveFilters: true })
     render(<LinkGrid />)
     expect(screen.getByText('No links match the current filters.')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Clear filters' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Add link' })).toBeNull()
+  })
+
+  it('does not offer Add link in the favorites empty state', () => {
+    setContext({ favoritesOnly: true })
+    render(<LinkGrid />)
+    expect(screen.queryByRole('button', { name: 'Add link' })).toBeNull()
   })
 
   it('shows the favorites empty state when there are no favorites and nothing left to load', () => {
@@ -79,7 +104,7 @@ describe('LinkGrid empty state', () => {
     setContext({ hasMore: true })
     render(<LinkGrid />)
 
-    expect(screen.queryByText('No links match the current filters.')).toBeNull()
+    expect(screen.queryByText('No links yet.')).toBeNull()
     expect(observers).toHaveLength(1)
     observers[0]([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver)
     expect(mockLoadMore).toHaveBeenCalledTimes(1)
@@ -137,7 +162,7 @@ describe('LinkGrid load errors', () => {
     render(<LinkGrid />)
     expect(screen.queryByRole('alert')).toBeNull()
     expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
-    expect(screen.getByText('No links match the current filters.')).toBeTruthy()
+    expect(screen.getByText('No links yet.')).toBeTruthy()
   })
 })
 

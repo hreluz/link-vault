@@ -6,12 +6,13 @@ import { useBackdropClose } from '@/lib/hooks/shared/useBackdropClose'
 import { useDialog } from '@/lib/hooks/shared/useDialog'
 import { displayTitle } from '@/lib/utils/urlTitle'
 import { STATUS_CONFIG } from '../config'
+import { ArchiveIcon, CheckCircleIcon, EyeIcon, InboxIcon, type IconProps } from '@/components/icons'
 
-const STATUS_ICONS: Record<LinkStatus, string> = {
-  unread:   '📥',
-  watching: '👀',
-  read:     '✅',
-  archived: '🗄️',
+const STATUS_ICONS: Record<LinkStatus, (props: IconProps) => React.ReactElement> = {
+  unread:   InboxIcon,
+  watching: EyeIcon,
+  read:     CheckCircleIcon,
+  archived: ArchiveIcon,
 }
 
 interface Props {
@@ -60,6 +61,7 @@ export default function BottomSheet({ link, onStatusChange, onClose }: Props) {
           <div role="radiogroup" aria-labelledby="sheet-status-label" className="grid grid-cols-4 gap-1 rounded-xl bg-surface-100 p-1 dark:bg-surface-800">
             {(Object.keys(STATUS_CONFIG) as LinkStatus[]).map(s => {
               const active = link.status === s
+              const StatusIcon = STATUS_ICONS[s]
               return (
                 <button
                   key={s}
@@ -72,7 +74,7 @@ export default function BottomSheet({ link, onStatusChange, onClose }: Props) {
                       : 'text-surface-500 hover:text-surface-800 dark:text-surface-400 dark:hover:text-surface-200'
                   }`}
                 >
-                  <span aria-hidden="true">{STATUS_ICONS[s]}</span>
+                  <StatusIcon className="h-4 w-4 shrink-0" />
                   <span className="truncate">{STATUS_CONFIG[s].label}</span>
                 </button>
               )

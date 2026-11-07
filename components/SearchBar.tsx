@@ -2,7 +2,9 @@
 
 import { useId } from 'react'
 import { useSearchTagSuggestions } from '@/lib/hooks/tags/useSearchTagSuggestions'
+import { useMediaQuery } from '@/lib/hooks/shared/useMediaQuery'
 import TagSuggestionsDropdown from './TagSuggestionsDropdown'
+import { FilterIcon, SearchIcon } from '@/components/icons'
 
 interface Props {
   value: string
@@ -19,18 +21,18 @@ export default function SearchBar({ value, onChange, isHashTagSearch = false, fi
   const { suggestions, selectedIndex, onKeyPress, selectSuggestion, closeSuggestions } =
     useSearchTagSuggestions(value, onChange, availableTags)
   const inputId = useId()
+  // The full placeholder is cut off on phones, so they get a short one (SPEC 38).
+  const isSmUp = useMediaQuery('(min-width: 640px)')
 
   return (
     <div className="mb-4 flex gap-2">
       <div className="relative flex-1">
         <label htmlFor={inputId} className="sr-only">Search links</label>
-        <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-surface-400" aria-hidden="true">
-          🔍
-        </span>
+        <SearchIcon className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-surface-400 dark:text-surface-500" />
         <input
           id={inputId}
           type="search"
-          placeholder="Search by title, domain, tag… or #tag for tag-only"
+          placeholder={isSmUp ? 'Search by title, domain, tag… or #tag for tag-only' : 'Search or #tag'}
           value={value}
           onChange={e => onChange(e.target.value)}
           onKeyDown={e => {
@@ -56,7 +58,7 @@ export default function SearchBar({ value, onChange, isHashTagSearch = false, fi
               : 'border border-surface-200 bg-surface-card text-surface-600 shadow-sm hover:bg-surface-50 hover:text-surface-900 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-400 dark:hover:bg-surface-700 dark:hover:text-surface-100'
           }`}
         >
-          <span aria-hidden="true">⚡</span>
+          <FilterIcon className="h-5 w-5" />
           Filters{(filterCount ?? 0) > 0 ? ` · ${filterCount}` : ''}
         </button>
       )}

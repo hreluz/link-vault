@@ -9,6 +9,7 @@ import UnlockTagModal from '@/components/UnlockTagModal'
 import ListSearchInput from '@/components/ListSearchInput'
 import { useUnlockedTags } from '@/lib/context/UnlockedTagsContext'
 import { getPrivateTagIds, isTagVisible } from '@/lib/services/tags/tags'
+import { LockClosedIcon, LockOpenIcon } from '@/components/icons'
 
 function TagListContent() {
   const { tags, search, setSearch, adding, openAdd } = useTagContext()
@@ -39,9 +40,7 @@ function TagListContent() {
               title="Unlock all private tags"
               className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-50 text-primary-600 transition hover:bg-primary-100 dark:bg-primary-900/30 dark:text-primary-400 dark:hover:bg-primary-900/50"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="h-4 w-4">
-                <path fillRule="evenodd" d="M8 1a3.5 3.5 0 0 0-3.5 3.5V6H4a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-.5V4.5A3.5 3.5 0 0 0 8 1Zm2 5V4.5a2 2 0 1 0-4 0V6h4Z" clipRule="evenodd" />
-              </svg>
+              <LockClosedIcon className="h-4 w-4" />
             </button>
           )}
           {hasUnlocked && (
@@ -50,9 +49,7 @@ function TagListContent() {
               title="Lock all private tags"
               className="flex h-9 w-9 items-center justify-center rounded-xl bg-green-50 text-green-600 transition hover:bg-green-100 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="h-4 w-4">
-                <path d="M11 1a3.5 3.5 0 0 0-3.5 3.5V6H4a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1H9V4.5a2 2 0 1 1 4 0 .75.75 0 0 0 1.5 0A3.5 3.5 0 0 0 11 1Z" />
-              </svg>
+              <LockOpenIcon className="h-4 w-4" />
             </button>
           )}
           {!adding && (
