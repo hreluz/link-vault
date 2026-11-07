@@ -7,6 +7,7 @@ import type { CardImageState } from '@/lib/hooks/links/list/useCardImageRefresh'
 import { useTagNameLookup } from '@/lib/hooks/tags/useTagNameLookup'
 import { displayTitle } from '@/lib/utils/urlTitle'
 import { STATUS_CONFIG } from '../config'
+import { PencilIcon, SendToEndIcon, StarIcon, TrashIcon } from '@/components/icons'
 
 interface Props {
   link: LinkWithTags
@@ -48,7 +49,7 @@ export default function LinkCard({
     <SwipeableCard onSwipeDelete={onDelete}>
       <article
         data-link-id={link.id}
-        className={`relative flex h-full scroll-mt-20 flex-col bg-surface-card transition dark:bg-surface-900 ${
+        className={`relative flex h-full scroll-mt-20 sm:scroll-mt-32 flex-col bg-surface-card transition dark:bg-surface-900 ${
           isLastOpened ? 'ring-2 ring-primary-500/60 ring-inset rounded-2xl' : ''
         }`}
       >
@@ -147,33 +148,34 @@ export default function LinkCard({
             className="flex items-center gap-2 border-t border-surface-200 pt-3 dark:border-surface-700"
           >
             {onDelete && (
+              // aria-disabled, not disabled, on a favorite: the tap still reaches
+              // onDelete, whose handleDelete shows the "Unfavorite to delete" toast
+              // (the same message as the swipe path) and deletes nothing (SPEC 38).
               <button
                 onClick={onDelete}
-                disabled={link.is_favorite}
+                aria-disabled={link.is_favorite || undefined}
                 aria-label="Delete link"
                 title={link.is_favorite ? 'Unfavorite to delete' : 'Delete'}
-                className={`${ACTION_BASE} text-surface-500 disabled:cursor-not-allowed disabled:opacity-40 dark:text-surface-400 ${
+                className={`${ACTION_BASE} text-surface-500 dark:text-surface-400 ${
                   link.is_favorite
-                    ? ''
+                    ? 'cursor-not-allowed opacity-40'
                     : 'hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400'
                 }`}
               >
-                <svg aria-hidden="true" className={ICON_SVG} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M3.5 5.5h13M8 5.5V4a1 1 0 011-1h2a1 1 0 011 1v1.5M5 5.5l.8 10.6a1 1 0 001 .9h6.4a1 1 0 001-.9L15 5.5M8.5 9v5M11.5 9v5" />
-                </svg>
+                <TrashIcon className={ICON_SVG} />
               </button>
             )}
             <button
               onClick={onFavoriteToggle}
               aria-label={link.is_favorite ? 'Remove from favorites' : 'Add to favorites'}
               title={link.is_favorite ? 'Favorite (delete-protected) — click to remove' : 'Favorite — also protects from deletion'}
-              className={`${ACTION_BASE} text-lg ${
+              className={`${ACTION_BASE} ${
                 link.is_favorite
                   ? 'text-amber-400 hover:text-amber-500'
                   : 'text-surface-500 hover:text-amber-400 hover:bg-surface-100 dark:text-surface-400 dark:hover:bg-surface-800'
               }`}
             >
-              {link.is_favorite ? '⭐' : '☆'}
+              <StarIcon filled={link.is_favorite} className={ICON_SVG} />
             </button>
             {onEdit && (
               <button
@@ -183,9 +185,7 @@ export default function LinkCard({
                 title="Edit"
                 className={ACTION_ICON}
               >
-                <svg aria-hidden="true" className={ICON_SVG} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M13.5 3.5l3 3L7 16H4v-3l9.5-9.5z" />
-                </svg>
+                <PencilIcon className={ICON_SVG} />
               </button>
             )}
             {onSendToEnd && (
@@ -195,9 +195,7 @@ export default function LinkCard({
                 title="Send to end"
                 className={ACTION_ICON}
               >
-                <svg aria-hidden="true" className={ICON_SVG} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M10 3.5v9M6 8.5l4 4 4-4M4 16.5h12" />
-                </svg>
+                <SendToEndIcon className={ICON_SVG} />
               </button>
             )}
             <button

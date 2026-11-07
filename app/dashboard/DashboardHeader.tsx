@@ -19,8 +19,8 @@ export default function DashboardHeader({ userEmail }: { userEmail: string }) {
   )
 
   return (
-    <header className="sticky top-0 z-40 border-b border-surface-200 bg-surface-card dark:border-surface-700 dark:bg-surface-900">
-      <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
+    <header data-sticky-chrome="" className="sticky top-0 z-40 border-b border-surface-200 bg-surface-card dark:border-surface-700 dark:bg-surface-900">
+      <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 xl:max-w-6xl 2xl:max-w-7xl">
         {pathname === '/dashboard' ? (
           // Already on the links page: just scroll to top directly, without
           // going through Link/router navigation to the same URL -- that

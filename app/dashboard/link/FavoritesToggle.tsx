@@ -1,6 +1,7 @@
 'use client'
 
 import { useLinkListContext } from './LinkListContext'
+import { StarIcon } from '@/components/icons'
 
 export default function FavoritesToggle() {
   const { favoritesOnly, setFavoritesOnly } = useLinkListContext()
@@ -27,7 +28,7 @@ export default function FavoritesToggle() {
             : 'bg-surface-100 text-surface-600 hover:bg-surface-200 dark:bg-surface-800 dark:text-surface-400 dark:hover:bg-surface-700'
         }`}
       >
-        <span aria-hidden="true">⭐</span>&nbsp;Favorites
+        <StarIcon filled className={`mr-1.5 h-4 w-4 ${favoritesOnly ? '' : 'text-amber-400'}`} />Favorites
       </button>
     </div>
   )

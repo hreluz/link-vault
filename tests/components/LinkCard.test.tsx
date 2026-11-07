@@ -103,16 +103,24 @@ describe('LinkCard delete button', () => {
     expect(onDelete).toHaveBeenCalledOnce()
   })
 
-  it('is disabled on a favorite link and does not call onDelete', () => {
+  it('is aria-disabled, not disabled, on a favorite link so the tap still reaches onDelete', () => {
+    // onDelete is handleDelete, which shows "Unfavorite to delete" for a favorite
+    // and deletes nothing (covered in the useLinkMutations tests).
     const onDelete = vi.fn()
     renderCard({ link: { ...LINK, is_favorite: true }, onDelete })
 
     const button = screen.getByRole('button', { name: 'Delete link' })
-    expect(button).toHaveProperty('disabled', true)
+    expect(button).toHaveProperty('disabled', false)
+    expect(button.getAttribute('aria-disabled')).toBe('true')
     expect(button.getAttribute('title')).toBe('Unfavorite to delete')
     fireEvent.click(button)
 
-    expect(onDelete).not.toHaveBeenCalled()
+    expect(onDelete).toHaveBeenCalledOnce()
+  })
+
+  it('has no aria-disabled on a non-favorite link', () => {
+    renderCard({ onDelete: vi.fn() })
+    expect(screen.getByRole('button', { name: 'Delete link' }).hasAttribute('aria-disabled')).toBe(false)
   })
 
   it('is not rendered without onDelete', () => {
@@ -276,5 +284,23 @@ describe('LinkCard fallback title', () => {
     renderCard()
 
     expect(screen.getByRole('link', { name: 'Alpha Article' })).toBeTruthy()
+  })
+})
+
+describe('LinkCard favorite star', () => {
+  it('renders an outline StarIcon, not an emoji, on a non-favorite', () => {
+    renderCard()
+    const button = screen.getByRole('button', { name: 'Add to favorites' })
+    expect(button.textContent).toBe('')
+    expect(button.querySelector('svg')?.getAttribute('fill')).toBe('none')
+    expect(button.className).toContain('text-surface-500')
+  })
+
+  it('renders a filled amber StarIcon on a favorite', () => {
+    renderCard({ link: { ...LINK, is_favorite: true } })
+    const button = screen.getByRole('button', { name: 'Remove from favorites' })
+    expect(button.textContent).toBe('')
+    expect(button.querySelector('svg')?.getAttribute('fill')).toBe('currentColor')
+    expect(button.className).toContain('text-amber-400')
   })
 })

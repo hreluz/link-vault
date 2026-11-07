@@ -9,9 +9,12 @@ import LinkCard from './LinkCard'
 
 const RESTORED_PULSE_MS = 1500
 
-// Fully visible between the bottom of the sticky DashboardHeader and the bottom of the viewport.
+// Fully visible between the bottom of the sticky chrome (the DashboardHeader, plus
+// the desktop section tabs from sm up -- SPEC 38) and the bottom of the viewport.
+// The hidden mobile-width tabs report a bottom of 0, so max() skips them.
 function isCardFullyVisible(card: Element) {
-  const headerBottom = document.querySelector('header')?.getBoundingClientRect().bottom ?? 0
+  const headerBottom = Math.max(0, ...Array.from(document.querySelectorAll('[data-sticky-chrome]'))
+    .map(el => el.getBoundingClientRect().bottom))
   const rect = card.getBoundingClientRect()
   return rect.top >= headerBottom && rect.bottom <= window.innerHeight
 }
@@ -25,7 +28,7 @@ export default function LinkGrid() {
     loading, links: results, hasActiveFilters, favoritesOnly,
     hasMore, loadingMore, loadMore, loadError, retryLoad, refreshKey,
     activeLink, setActiveLink, setEditingLink, handleFavoriteToggle, handleLinkOpen, handleSendToEnd, lastOpenedId, handleDeleteById, resetFilters,
-    imageStateById, handleImageError, restoredLinkId, clearRestoredLink,
+    imageStateById, handleImageError, restoredLinkId, clearRestoredLink, setModalOpen,
   } = useLinkListContext()
   const { categories } = useCategoryList(refreshKey)
   // After a failed page the sentinel is replaced by Try again, so it stops firing until a retry.
@@ -71,7 +74,7 @@ export default function LinkGrid() {
 
   if (loading) {
     return (
-      <div aria-busy="true" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div aria-busy="true" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <p role="status" className="sr-only">Loading links…</p>
         {Array.from({ length: 6 }).map((_, i) => (
           <div key={i} aria-hidden="true" className="h-48 animate-pulse rounded-2xl bg-surface-100 motion-reduce:animate-none dark:bg-surface-800" />
@@ -102,25 +105,41 @@ export default function LinkGrid() {
       )
     }
 
+    // Nothing filtered and still empty: the vault has no links at all, so offer
+    // the same Add link as the header's + (SPEC 38).
+    if (!hasActiveFilters) {
+      return (
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <div className="mb-4 text-4xl" aria-hidden="true">📭</div>
+          <p className="text-surface-500 dark:text-surface-400">No links yet.</p>
+          <button
+            type="button"
+            onClick={() => setModalOpen(true)}
+            className="focus-ring mt-4 min-h-11 rounded-xl bg-primary-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500"
+          >
+            Add link
+          </button>
+        </div>
+      )
+    }
+
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
         <div className="mb-4 text-4xl" aria-hidden="true">📭</div>
         <p className="text-surface-500 dark:text-surface-400">No links match the current filters.</p>
-        {hasActiveFilters && (
-          <button
-            onClick={resetFilters}
-            className="focus-ring mt-1 inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-primary-600 hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300"
-          >
-            Clear filters
-          </button>
-        )}
+        <button
+          onClick={resetFilters}
+          className="focus-ring mt-1 inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-primary-600 hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300"
+        >
+          Clear filters
+        </button>
       </div>
     )
   }
 
   return (
     <>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {results.map(link => (
           <LinkCard
             key={link.id}

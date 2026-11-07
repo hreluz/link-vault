@@ -5,6 +5,7 @@ import { TagForm } from './TagForm'
 import { TagMergeForm } from './TagMergeForm'
 import { colorFor } from '@/components/ColorPicker'
 import type { TagWithCount } from '@/lib/services/tags/tags'
+import { LockOpenAltIcon } from '@/components/icons'
 
 export function TagRow({ tag }: { tag: TagWithCount }) {
   const { editingId, deletingId, mergingTag, deleteError, startEdit, confirmDelete, deleteTag, setDeletingId, setDeleteError, startMerge } = useTagContext()
@@ -24,9 +25,7 @@ export function TagRow({ tag }: { tag: TagWithCount }) {
       </span>
       {tag.is_private && (
         <span title="Private tag" className="text-green-500 dark:text-green-400">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="h-3.5 w-3.5">
-            <path d="M11.5 1A3.5 3.5 0 0 0 8 4.5V6H4a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1H9.5V4.5a2 2 0 1 1 4 0v1a.75.75 0 0 0 1.5 0v-1A3.5 3.5 0 0 0 11.5 1Z" />
-          </svg>
+          <LockOpenAltIcon className="h-3.5 w-3.5" />
         </span>
       )}
       <span className="text-xs text-surface-400 dark:text-surface-500">{count} link{count !== 1 ? 's' : ''}</span>

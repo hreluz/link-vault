@@ -3,6 +3,7 @@
 import { useTheme } from '@/components/ThemeProvider'
 import { useToast } from '@/components/ToastProvider'
 import { setThemeModeAction } from '@/app/dashboard/config/appearance/actions'
+import { MoonIcon, SunIcon } from '@/components/icons'
 
 export default function ThemeToggleButton() {
   const { theme, themeMode, setThemeMode } = useTheme()
@@ -25,9 +26,9 @@ export default function ThemeToggleButton() {
       onClick={handleToggle}
       aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
       title={isDark ? 'Light mode' : 'Dark mode'}
-      className="focus-ring flex h-11 w-11 items-center justify-center rounded-xl border border-surface-200 bg-surface-card text-base shadow-sm transition hover:bg-surface-50 sm:h-9 sm:w-9 dark:border-surface-700 dark:bg-surface-900 dark:hover:bg-surface-800"
+      className="focus-ring flex h-11 w-11 items-center justify-center rounded-xl border border-surface-200 bg-surface-card text-surface-600 shadow-sm transition hover:bg-surface-50 hover:text-surface-900 sm:h-9 sm:w-9 dark:border-surface-700 dark:bg-surface-900 dark:text-surface-300 dark:hover:bg-surface-800 dark:hover:text-surface-100"
     >
-      {isDark ? '☀️' : '🌙'}
+      {isDark ? <SunIcon className="h-5 w-5" /> : <MoonIcon className="h-5 w-5" />}
     </button>
   )
 }

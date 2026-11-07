@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useEffect, useState } from 'react'
+import { TrashIcon } from '@/components/icons'
 
 interface Props {
   onSwipeDelete?: () => void
@@ -158,10 +159,10 @@ export default function SwipeableCard({ onSwipeDelete, children }: Props) {
           aria-hidden={!open}
           tabIndex={open ? 0 : -1}
           onClick={handleDelete}
-          className="focus-ring pointer-events-auto flex h-full items-center justify-center bg-red-600 text-2xl text-white"
+          className="focus-ring pointer-events-auto flex h-full items-center justify-center bg-red-600 text-white"
           style={{ width: REVEAL_PX }}
         >
-          <span aria-hidden="true">🗑️</span>
+          <TrashIcon className="h-6 w-6" />
         </button>
       </div>
       <div ref={innerRef} className="relative h-full">
