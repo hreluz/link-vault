@@ -637,96 +637,102 @@ describe('useTagInput', () => {
     })
   })
 
-  describe('options.onTagAdded', () => {
+  describe('options.onEnter', () => {
     function renderWithCallback(availableTags: string[] = ['react']) {
-      const onTagAdded = vi.fn()
-      const hook = renderHook(() => useTagInput('', vi.fn(), availableTags, { onTagAdded }))
-      return { ...hook, onTagAdded }
+      const onEnter = vi.fn()
+      const hook = renderHook(() => useTagInput('', vi.fn(), availableTags, { onEnter }))
+      return { ...hook, onEnter }
     }
 
-    it('is called once when Space completes to a suggestion', () => {
-      const { result, onTagAdded } = renderWithCallback()
+    it('is called once when Enter saves the typed text', () => {
+      const { result, onEnter } = renderWithCallback()
       act(() => result.current.onInputChange('rea'))
-      act(() => result.current.onKeyPress(' '))
-      expect(result.current.confirmedTags).toEqual(['react'])
-      expect(onTagAdded).toHaveBeenCalledTimes(1)
+      act(() => result.current.onKeyPress('Enter'))
+      expect(result.current.confirmedTags).toEqual(['rea'])
+      expect(onEnter).toHaveBeenCalledTimes(1)
     })
 
-    it('is called once when Tab completes to a suggestion', () => {
-      const { result, onTagAdded } = renderWithCallback()
+    it('is called once when Enter picks the highlighted suggestion', () => {
+      const { result, onEnter } = renderWithCallback()
       act(() => result.current.onInputChange('rea'))
-      act(() => result.current.onKeyPress('Tab'))
+      act(() => result.current.onKeyPress('ArrowDown'))
+      act(() => result.current.onKeyPress('Enter'))
       expect(result.current.confirmedTags).toEqual(['react'])
-      expect(onTagAdded).toHaveBeenCalledTimes(1)
+      expect(onEnter).toHaveBeenCalledTimes(1)
+    })
+
+    it('is called once for Enter on an empty input, adding nothing', () => {
+      const { result, onEnter } = renderWithCallback()
+      let handled: boolean | undefined
+      act(() => { handled = result.current.onKeyPress('Enter') })
+      expect(handled).toBe(true)
+      expect(result.current.confirmedTags).toEqual([])
+      expect(onEnter).toHaveBeenCalledTimes(1)
     })
 
     it.each([
-      ['rea', 'Enter'],
-      ['rea', ','],
-      ['zzz', ' '],
-    ])('is called once for %s + "%s"', (text, key) => {
-      const { result, onTagAdded } = renderWithCallback()
+      ['rea', ' ', 'react'],
+      ['rea', 'Tab', 'react'],
+      ['rea', ',', 'rea'],
+      ['zzz', ' ', 'zzz'],
+    ])('is not called for %s + "%s"', (text, key, added) => {
+      const { result, onEnter } = renderWithCallback()
       act(() => result.current.onInputChange(text))
       act(() => result.current.onKeyPress(key))
-      expect(result.current.confirmedTags).toEqual([text])
-      expect(onTagAdded).toHaveBeenCalledTimes(1)
+      expect(result.current.confirmedTags).toEqual([added])
+      expect(onEnter).not.toHaveBeenCalled()
     })
 
-    it('is called once by selectSuggestion', () => {
-      const { result, onTagAdded } = renderWithCallback()
+    it('is not called by selectSuggestion', () => {
+      const { result, onEnter } = renderWithCallback()
       act(() => result.current.selectSuggestion('react'))
-      expect(onTagAdded).toHaveBeenCalledTimes(1)
+      expect(result.current.confirmedTags).toEqual(['react'])
+      expect(onEnter).not.toHaveBeenCalled()
     })
 
-    it('is called once for a trailing space that picks a suggestion', () => {
-      const { result, onTagAdded } = renderWithCallback()
+    it('is not called for a trailing space that picks a suggestion', () => {
+      const { result, onEnter } = renderWithCallback()
       act(() => result.current.onInputChange('rea '))
       expect(result.current.confirmedTags).toEqual(['react'])
-      expect(onTagAdded).toHaveBeenCalledTimes(1)
-    })
-
-    it('is called once for a trailing space that confirms the typed text', () => {
-      const { result, onTagAdded } = renderWithCallback()
-      act(() => result.current.onInputChange('zzz '))
-      expect(result.current.confirmedTags).toEqual(['zzz'])
-      expect(onTagAdded).toHaveBeenCalledTimes(1)
-    })
-
-    it.each([' ', 'Enter', ','])('is not called for "%s" on an empty input', key => {
-      const { result, onTagAdded } = renderWithCallback()
-      act(() => result.current.onKeyPress(key))
-      expect(result.current.confirmedTags).toEqual([])
-      expect(onTagAdded).not.toHaveBeenCalled()
+      expect(onEnter).not.toHaveBeenCalled()
     })
 
     it('is not called when Tab saves the typed text with no matching tags', () => {
-      const { result, onTagAdded } = renderWithCallback([])
+      const { result, onEnter } = renderWithCallback([])
       act(() => result.current.onInputChange('rea'))
       let handled: boolean | undefined
       act(() => { handled = result.current.onKeyPress('Tab') })
       expect(handled).toBe(false)
       expect(result.current.confirmedTags).toEqual(['rea'])
-      expect(onTagAdded).not.toHaveBeenCalled()
+      expect(onEnter).not.toHaveBeenCalled()
     })
 
     it('is not called when pasting several tags', () => {
-      const { result, onTagAdded } = renderWithCallback()
+      const { result, onEnter } = renderWithCallback()
       act(() => result.current.onPaste('a, b'))
       expect(result.current.confirmedTags).toEqual(['a', 'b'])
-      expect(onTagAdded).not.toHaveBeenCalled()
+      expect(onEnter).not.toHaveBeenCalled()
     })
 
     it('calls the callback from the latest render', () => {
       const first = vi.fn()
       const second = vi.fn()
       const { result, rerender } = renderHook(
-        ({ onTagAdded }) => useTagInput('', vi.fn(), ['react'], { onTagAdded }),
-        { initialProps: { onTagAdded: first } },
+        ({ onEnter }) => useTagInput('', vi.fn(), ['react'], { onEnter }),
+        { initialProps: { onEnter: first } },
       )
-      rerender({ onTagAdded: second })
-      act(() => result.current.selectSuggestion('react'))
+      rerender({ onEnter: second })
+      act(() => result.current.onKeyPress('Enter'))
       expect(first).not.toHaveBeenCalled()
       expect(second).toHaveBeenCalledTimes(1)
+    })
+
+    it('does not throw when no options are passed', () => {
+      const { result } = renderHook(() => useTagInput('', vi.fn(), ['react']))
+      act(() => result.current.onInputChange('rea'))
+      expect(() => act(() => { result.current.onKeyPress('Enter') })).not.toThrow()
+      expect(() => act(() => { result.current.onKeyPress('Enter') })).not.toThrow()
+      expect(result.current.confirmedTags).toEqual(['rea'])
     })
   })
 

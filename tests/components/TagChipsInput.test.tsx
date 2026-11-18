@@ -90,7 +90,7 @@ describe('TagChipsInput', () => {
     expect(input.value).toBe('')
   })
 
-  describe('blur on add', () => {
+  describe('Enter blurs, other adds keep focus', () => {
     function renderFocused() {
       render(<TagChipsInput label="Tags" value="" onChange={vi.fn()} />)
       const input = screen.getByLabelText('Tags')
@@ -99,24 +99,34 @@ describe('TagChipsInput', () => {
       return input
     }
 
-    it('blurs after Space completes to a suggestion', () => {
+    it('stays focused after Space completes to a suggestion', () => {
       const input = renderFocused()
 
       fireEvent.change(input, { target: { value: 'rea' } })
       fireEvent.keyDown(input, { key: ' ' })
 
       expect(screen.getByText('#react')).toBeTruthy()
-      expect(document.activeElement).not.toBe(input)
+      expect(document.activeElement).toBe(input)
     })
 
-    it('blurs after mouse-down on a suggestion row', () => {
+    it('stays focused after mouse-down on a suggestion row', () => {
       const input = renderFocused()
 
       fireEvent.change(input, { target: { value: 'rea' } })
       fireEvent.mouseDown(screen.getByText('#react'))
 
       expect(screen.getByText('#react')).toBeTruthy()
-      expect(document.activeElement).not.toBe(input)
+      expect(document.activeElement).toBe(input)
+    })
+
+    it('stays focused after comma adds the typed text', () => {
+      const input = renderFocused()
+
+      fireEvent.change(input, { target: { value: 'rea' } })
+      fireEvent.keyDown(input, { key: ',' })
+
+      expect(screen.getByText('#rea')).toBeTruthy()
+      expect(document.activeElement).toBe(input)
     })
 
     it('blurs after Enter adds the typed text', () => {
@@ -129,12 +139,14 @@ describe('TagChipsInput', () => {
       expect(document.activeElement).not.toBe(input)
     })
 
-    it('stays focused when Space is pressed on an empty input', () => {
+    it('blurs on Enter in an empty input without adding a chip or submitting', () => {
       const input = renderFocused()
 
-      fireEvent.keyDown(input, { key: ' ' })
+      const notCancelled = fireEvent.keyDown(input, { key: 'Enter' })
 
-      expect(document.activeElement).toBe(input)
+      expect(notCancelled).toBe(false)
+      expect(screen.queryByText(/^#/)).toBeNull()
+      expect(document.activeElement).not.toBe(input)
     })
 
     it('stays focused after pasting several tags', () => {

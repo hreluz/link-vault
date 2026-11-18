@@ -26,9 +26,9 @@ export function useTagInput(
   onChange: (tags: string) => void,
   availableTags: string[] = [],
   options?: {
-    /** Called right after a tag is added by a pick or a confirm key (not paste, not
-     *  Tab-with-no-suggestions). Components blur their input here. */
-    onTagAdded?: () => void
+    /** Called on every Enter keypress, after any tag Enter adds (including on an
+     *  empty input). Components blur their input here. */
+    onEnter?: () => void
   },
 ) {
   const [confirmedTags, setConfirmedTags] = useState<string[]>(() => parseTags(initialTags))
@@ -37,9 +37,9 @@ export function useTagInput(
   // Set by Escape so the list actually closes (it's otherwise derived from the typed
   // text and would stay open); typing or pasting brings it back.
   const [dismissed, setDismissed] = useState(false)
-  const onTagAddedRef = useRef(options?.onTagAdded)
+  const onEnterRef = useRef(options?.onEnter)
   useEffect(() => {
-    onTagAddedRef.current = options?.onTagAdded
+    onEnterRef.current = options?.onEnter
   })
 
   const suggestions = useMemo(
@@ -53,7 +53,6 @@ export function useTagInput(
     setCurrentInput('')
     setSelectedIndex(-1)
     onChange(serialize(next, ''))
-    onTagAddedRef.current?.()
   }
 
   function closeSuggestions() {
@@ -70,7 +69,7 @@ export function useTagInput(
     confirmText(currentInput)
   }
 
-  function confirmText(text: string, notify = true) {
+  function confirmText(text: string) {
     const tag = text.trim().toLowerCase()
     if (!tag) return
     const next = [...confirmedTags, tag]
@@ -78,7 +77,6 @@ export function useTagInput(
     setCurrentInput('')
     setSelectedIndex(-1)
     onChange(serialize(next, ''))
-    if (notify) onTagAddedRef.current?.()
   }
 
   /** Runs the key's effect, if any, and reports whether the caller should preventDefault. */
@@ -101,6 +99,7 @@ export function useTagInput(
     }
     if ((key === 'Enter' || key === 'Tab' || key === ' ') && selectedIndex >= 0 && suggestions[selectedIndex]) {
       selectSuggestion(suggestions[selectedIndex])
+      if (key === 'Enter') onEnterRef.current?.()
       return true
     }
     // With nothing highlighted, Tab and Space complete to the first suggestion (Space is
@@ -111,7 +110,9 @@ export function useTagInput(
     }
     if (key === ','|| key === ' ' || key === 'Enter' || key === 'Tab') {
       // Tab should still move focus to the next field when no suggestions are open.
-      confirmText(currentInput, key !== 'Tab')
+      confirmText(currentInput)
+      // Enter means "done": it fires even on an empty input, so it can close the keyboard.
+      if (key === 'Enter') onEnterRef.current?.()
       return key === 'Tab' ? suggestions.length > 0 : true
     }
     if (key === 'Backspace') {
