@@ -6,6 +6,7 @@ import { getPrivateTagIds, isTagVisible } from '@/lib/services/tags/tags'
 import { useTagNameLookup } from '@/lib/hooks/tags/useTagNameLookup'
 import { useUnlockedTags } from '@/lib/context/UnlockedTagsContext'
 import { usePaginatedQuery, type PageResult } from '@/lib/hooks/shared/usePaginatedQuery'
+import { matchesTextSearch } from './linkFilterMatch'
 
 const PAGE_SIZE = 40
 
@@ -103,20 +104,9 @@ export function useLinkListQuery(filterParams: LinkFilterParams, dek: CryptoKey 
         contentCacheRef.current = { key, items: candidates }
       }
 
-      const q = params.textSearch.toLowerCase()
-      let filtered = candidates
-      if (q) {
-        filtered = candidates.filter(link => {
-          const tagNames = link.tags.map(id => tagNameById.get(id) ?? '')
-          return (
-            link.title?.toLowerCase().includes(q) ||
-            link.url.toLowerCase().includes(q) ||
-            link.site_name?.toLowerCase().includes(q) ||
-            link.notes?.toLowerCase().includes(q) ||
-            tagNames.some(name => name.toLowerCase().includes(q))
-          )
-        })
-      }
+      let filtered = params.textSearch
+        ? candidates.filter(link => matchesTextSearch(link, params.textSearch, tagNameById))
+        : candidates
 
       if (params.sortBy === 'alphabetical') {
         filtered = [...filtered].sort((a, b) => (a.title ?? '').localeCompare(b.title ?? ''))

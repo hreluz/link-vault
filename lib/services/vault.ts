@@ -60,8 +60,8 @@ export async function updateVaultKeyRow(userId: string, input: UpdateVaultKeyInp
  * Deletes every row encrypted with this user's DEK, then the vault key row
  * itself. Used by the "restart account" flow: a forgotten password means the
  * old DEK is unrecoverable, so its ciphertext is permanently useless. Order
- * follows FK cascades (links -> link_tags, categories -> category_domains) so
- * nothing is left orphaned.
+ * follows FK cascades (links -> link_tags/collection_links, categories ->
+ * category_domains, collections -> collection_links) so nothing is left orphaned.
  */
 export async function wipeVaultData(userId: string): Promise<boolean> {
   const supabase = createClient()
@@ -74,6 +74,9 @@ export async function wipeVaultData(userId: string): Promise<boolean> {
 
   const { error: categoriesError } = await supabase.from('categories').delete().eq('user_id', userId)
   if (categoriesError) return false
+
+  const { error: collectionsError } = await supabase.from('collections').delete().eq('user_id', userId)
+  if (collectionsError) return false
 
   const { error: keyError } = await supabase.from('user_encryption_keys').delete().eq('user_id', userId)
   return !keyError

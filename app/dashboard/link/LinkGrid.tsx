@@ -6,22 +6,9 @@ import { useInfiniteScrollSentinel } from '@/lib/hooks/shared/useInfiniteScrollS
 import { useReturnPulse } from '@/lib/hooks/shared/useReturnPulse'
 import { useLinkListContext } from './LinkListContext'
 import LinkCard from './LinkCard'
+import { isFullyVisibleBelowChrome, prefersReducedMotion } from '@/lib/utils/scrollVisibility'
 
 const RESTORED_PULSE_MS = 1500
-
-// Fully visible between the bottom of the sticky chrome (the DashboardHeader, plus
-// the desktop section tabs from sm up -- SPEC 38) and the bottom of the viewport.
-// The hidden mobile-width tabs report a bottom of 0, so max() skips them.
-function isCardFullyVisible(card: Element) {
-  const headerBottom = Math.max(0, ...Array.from(document.querySelectorAll('[data-sticky-chrome]'))
-    .map(el => el.getBoundingClientRect().bottom))
-  const rect = card.getBoundingClientRect()
-  return rect.top >= headerBottom && rect.bottom <= window.innerHeight
-}
-
-function prefersReducedMotion() {
-  return typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
-}
 
 export default function LinkGrid() {
   const {
@@ -46,7 +33,7 @@ export default function LinkGrid() {
       clearRestoredLink()
       return
     }
-    if (!isCardFullyVisible(card)) {
+    if (!isFullyVisibleBelowChrome(card)) {
       card.scrollIntoView({ block: 'center', behavior: prefersReducedMotion() ? 'auto' : 'smooth' })
     }
     card.querySelector<HTMLElement>('a[data-card-title]')?.focus({ preventScroll: true })

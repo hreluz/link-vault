@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from 'react'
 import { createLink, findLinkIdByUrl, type LinkWithTags } from '@/lib/services/links'
 import { fetchLinkMeta } from '@/app/dashboard/link/actions'
 import { useVault } from '@/lib/context/VaultContext'
+import { toast } from 'sonner'
 import { DEFAULT_FIELDS, useLinkForm } from './useLinkForm'
+import { COLLECTIONS_NOT_UPDATED, saveLinkCollections } from './saveLinkCollections'
 
 function isValidUrl(url: string): boolean {
   try { new URL(url); return true } catch { return false }
@@ -101,18 +103,27 @@ export function useAddLinkForm(initialUrl?: string, initialTitle?: string, isOpe
       }
     }
 
+    const { collectionIds, newCollectionNames } = form
     const result = await form.wrapSubmit(
-      () => createLink({
-        url: form.url,
-        title: form.resolvedTitle,
-        description: form.description || null,
-        image_url: form.imageUrl || null,
-        duration: form.duration || null,
-        category_id: form.categoryId!,
-        status: form.status,
-        notes: form.notes || null,
-        tags: form.parsedTags,
-      }, dek),
+      async () => {
+        const link = await createLink({
+          url: form.url,
+          title: form.resolvedTitle,
+          description: form.description || null,
+          image_url: form.imageUrl || null,
+          duration: form.duration || null,
+          category_id: form.categoryId!,
+          status: form.status,
+          notes: form.notes || null,
+          tags: form.parsedTags,
+        }, dek)
+        // The link is saved either way; a failed collection step only warns.
+        if (link && (collectionIds.length > 0 || newCollectionNames.length > 0)) {
+          const saved = await saveLinkCollections(link.id, collectionIds, [], newCollectionNames, dek)
+          if (saved === null) toast.error(COLLECTIONS_NOT_UPDATED)
+        }
+        return link
+      },
       'Failed to save link. Please try again.',
     )
     if (result) {

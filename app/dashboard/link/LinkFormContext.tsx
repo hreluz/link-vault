@@ -29,6 +29,13 @@ export type LinkFormContextValue = {
   setTags: (v: string) => void
   notes: string
   setNotes: (v: string) => void
+  collectionIds: string[]
+  setCollectionIds: (v: string[]) => void
+  newCollectionNames: string[]
+  setNewCollectionNames: (v: string[]) => void
+  // Edit only: the link's current collections are still loading or failed to load.
+  membershipState?: 'loading' | 'error' | 'ready'
+  retryMemberships?: () => void
   submitting: boolean
   hasChanges?: boolean
   error: string | null

@@ -12,7 +12,8 @@ import LinkForm from './LinkForm'
 
 interface Props {
   link: LinkWithTags | null
-  onSave: (updated: LinkWithTags) => void
+  /** collectionIds: the link's collections after the save, or null when they didn't change. */
+  onSave: (updated: LinkWithTags, collectionIds: string[] | null) => void
   onClose: () => void
 }
 
@@ -39,7 +40,7 @@ export default function EditLinkModal({ link, onSave, onClose }: Props) {
   async function handleSave() {
     const updated = await form.handleSubmit()
     if (updated) {
-      onSave(updated)
+      onSave(updated, form.savedCollectionIds())
       onClose()
       toast.success('Link updated')
     }

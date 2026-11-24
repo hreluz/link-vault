@@ -1,0 +1,295 @@
+'use client'
+
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import Link from 'next/link'
+import { formatCollectionCount } from '@/lib/services/collections'
+import type { LinkWithTags } from '@/lib/services/links'
+import { useCollectionDetail } from '@/lib/hooks/collections/useCollectionDetail'
+import type { MoveDirection } from '@/lib/hooks/collections/useCollectionOrder'
+import { useCategoryList } from '@/lib/hooks/categories/useCategoryList'
+import { scrollIntoViewIfHidden } from '@/lib/utils/scrollVisibility'
+import { PencilIcon, PlayIcon, TrashIcon } from '@/components/icons'
+import LoadErrorMessage from '@/components/LoadErrorMessage'
+import CollectionPickerSheet from '@/components/CollectionPickerSheet'
+import LinkCard from '@/app/dashboard/link/LinkCard'
+import BottomSheet from '@/app/dashboard/link/BottomSheet'
+import EditLinkModal from '@/app/dashboard/link/EditLinkModal'
+import CollectionForm from '../CollectionForm'
+import CollectionLinkRowItem from './CollectionLinkRowItem'
+import AddLinksToCollectionSheet from './AddLinksToCollectionSheet'
+
+type FocusRequest =
+  | { kind: 'row-action'; linkId: string; action: 'up' | 'down' | 'remove'; scroll: boolean }
+  | { kind: 'add-links' }
+  | { kind: 'scroll'; linkId: string }
+
+const SECONDARY_BUTTON =
+  'focus-ring inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-surface-200 bg-surface-card px-3 py-2 text-sm font-medium text-surface-600 shadow-sm transition hover:bg-surface-50 hover:text-surface-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-300 dark:hover:bg-surface-700 dark:hover:text-surface-100'
+const PRIMARY_BUTTON =
+  'focus-ring inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:opacity-60'
+
+function rowElement(linkId: string): HTMLElement | null {
+  return document.querySelector<HTMLElement>(`[data-collection-row="${CSS.escape(linkId)}"]`)
+}
+
+export default function CollectionDetail({ collectionId }: { collectionId: string }) {
+  const detail = useCollectionDetail(collectionId)
+  const {
+    collection, visibleRows, linkCount, doneCount, loading, loadError, notFound, retry,
+    order, editForm, deleteFlow, playNextRow,
+  } = detail
+  const { categories } = useCategoryList()
+  const [addLinksOpen, setAddLinksOpen] = useState(false)
+  const [announcement, setAnnouncement] = useState('')
+  // Set by handlers; a tick re-runs the layout effect that applies it after the new order renders.
+  const focusRequestRef = useRef<FocusRequest | null>(null)
+  const [focusTick, setFocusTick] = useState(0)
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set())
+  const addLinksButtonRef = useRef<HTMLButtonElement>(null)
+
+  // The name is encrypted, so the server title is generic; swap in the real one.
+  useEffect(() => {
+    if (collection) document.title = `${collection.name} — Link Vault`
+  }, [collection])
+
+  // Focus and scroll after a move / remove / add, once the new order has rendered.
+  useLayoutEffect(() => {
+    const focusRequest = focusRequestRef.current
+    if (!focusRequest) return
+    focusRequestRef.current = null
+    if (focusRequest.kind === 'add-links') {
+      addLinksButtonRef.current?.focus()
+    } else {
+      const row = rowElement(focusRequest.linkId)
+      if (row) {
+        if (focusRequest.kind === 'row-action') {
+          row.querySelector<HTMLElement>(`[data-row-action="${focusRequest.action}"]`)?.focus({ preventScroll: true })
+        }
+        if (focusRequest.kind === 'scroll' || focusRequest.scroll) scrollIntoViewIfHidden(row)
+      }
+    }
+  }, [focusTick])
+
+  function requestFocus(request: FocusRequest) {
+    focusRequestRef.current = request
+    setFocusTick(n => n + 1)
+  }
+
+  const existingIds = useMemo(() => new Set(detail.rows.map(row => row.link.id)), [detail.rows])
+
+  if (loading) {
+    return (
+      <main className="mx-auto max-w-2xl px-4 py-8">
+        <p role="status" className="py-20 text-center text-sm text-surface-500 dark:text-surface-400">Loading collection…</p>
+      </main>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <main className="mx-auto max-w-2xl px-4 py-8">
+        <BackLink />
+        <LoadErrorMessage message="Couldn't load this collection." onRetry={retry} className="py-20" />
+      </main>
+    )
+  }
+
+  if (notFound || !collection) {
+    return (
+      <main className="mx-auto max-w-2xl px-4 py-8">
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <div className="mb-4 text-4xl" aria-hidden="true">📚</div>
+          <h1 className="text-lg font-semibold text-surface-900 dark:text-surface-50">Collection not found</h1>
+          <Link href="/dashboard/organize/collections" className="focus-ring mt-3 inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-medium text-primary-600 hover:text-primary-500 dark:text-primary-400">
+            Back to Collections
+          </Link>
+        </div>
+      </main>
+    )
+  }
+
+  function handleMove(linkId: string, direction: MoveDirection) {
+    const result = order.move(linkId, direction)
+    if (!result) return
+    const lastIndex = visibleRows.length - 1
+    // Stay on the same arrow, unless the row just reached the edge that disables it.
+    const reachedEdge = (direction === 'up' && result.index === 0) || (direction === 'down' && result.index === lastIndex)
+    const action = reachedEdge ? (direction === 'up' ? 'down' : 'up') : direction
+    requestFocus({ kind: 'row-action', linkId, action, scroll: true })
+    setAnnouncement(`Moved to position ${result.index + 1}`)
+    result.saved.then(ok => {
+      // A rollback moves the row back; keep focus on the arrow that was pressed.
+      if (!ok) requestFocus({ kind: 'row-action', linkId, action: direction, scroll: true })
+    })
+  }
+
+  function handleRemove(linkId: string) {
+    const index = visibleRows.findIndex(row => row.link.id === linkId)
+    const next = visibleRows[index + 1] ?? visibleRows[index - 1]
+    order.remove(linkId)
+    requestFocus(next ? { kind: 'row-action', linkId: next.link.id, action: 'remove', scroll: false } : { kind: 'add-links' })
+  }
+
+  function handlePlayNext() {
+    const id = detail.playNext()
+    if (id) requestFocus({ kind: 'scroll', linkId: id })
+  }
+
+  function handleAdded(links: LinkWithTags[]) {
+    if (links[0]) requestFocus({ kind: 'scroll', linkId: links[0].id })
+  }
+
+  return (
+    <main className="mx-auto max-w-2xl px-4 py-8">
+      <BackLink />
+
+      {editForm.editing ? (
+        <CollectionForm
+          title="Edit collection"
+          name={editForm.editName} onNameChange={editForm.setEditName}
+          emoji={editForm.editEmoji} onEmojiChange={editForm.setEditEmoji}
+          description={editForm.editDescription} onDescriptionChange={editForm.setEditDescription}
+          error={editForm.editError} saving={editForm.saving}
+          submitLabel="Save"
+          onSubmit={editForm.handleSaveEdit} onCancel={editForm.cancelEdit}
+        />
+      ) : (
+        <header className="mb-6">
+          <h1 className="flex items-center gap-2 text-2xl font-bold text-surface-900 dark:text-surface-50">
+            {collection.emoji && <span aria-hidden="true">{collection.emoji}</span>}
+            <span className="min-w-0 break-words">{collection.name}</span>
+          </h1>
+          {collection.description && (
+            <p className="mt-1 text-sm text-surface-600 dark:text-surface-300">{collection.description}</p>
+          )}
+          <p className="mt-1 text-sm text-surface-500 dark:text-surface-400">{formatCollectionCount(linkCount, doneCount)}</p>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button type="button" onClick={handlePlayNext} disabled={!playNextRow} className={PRIMARY_BUTTON}>
+              <PlayIcon className="h-4 w-4" />
+              {playNextRow ? 'Play next' : 'All done'}
+            </button>
+            <button
+              type="button"
+              ref={addLinksButtonRef}
+              onClick={() => setAddLinksOpen(true)}
+              aria-haspopup="dialog"
+              className={SECONDARY_BUTTON}
+            >
+              + Add links
+            </button>
+            <button type="button" onClick={editForm.startEdit} className={SECONDARY_BUTTON}>
+              <PencilIcon className="h-4 w-4" />
+              Edit
+            </button>
+            <button type="button" onClick={deleteFlow.askDelete} className={SECONDARY_BUTTON}>
+              <TrashIcon className="h-4 w-4" />
+              Delete
+            </button>
+          </div>
+
+          {deleteFlow.confirmingDelete && (
+            <div role="group" aria-label="Delete collection" className="mt-4 rounded-2xl bg-red-50 p-4 dark:bg-red-950/40">
+              <p className="text-sm text-red-700 dark:text-red-300">
+                Delete &ldquo;{collection.name}&rdquo;? Its {linkCount} {linkCount === 1 ? 'link stays' : 'links stay'} saved.
+              </p>
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={deleteFlow.handleDelete}
+                  disabled={deleteFlow.deleting}
+                  className="focus-ring min-h-11 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Delete
+                </button>
+                <button type="button" onClick={deleteFlow.cancelDelete} className={SECONDARY_BUTTON}>Cancel</button>
+              </div>
+            </div>
+          )}
+        </header>
+      )}
+
+      <p aria-live="polite" className="sr-only">{announcement}</p>
+
+      {visibleRows.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="mb-4 text-4xl" aria-hidden="true">📭</div>
+          <p className="text-surface-500 dark:text-surface-400">No links in this collection yet.</p>
+        </div>
+      ) : (
+        <ol className="space-y-4">
+          {visibleRows.map(({ link }, index) => (
+            <CollectionLinkRowItem
+              key={link.id}
+              linkId={link.id}
+              number={index + 1}
+              isFirst={index === 0}
+              isLast={index === visibleRows.length - 1}
+              isSwapping={order.isSwapping}
+              onMove={direction => handleMove(link.id, direction)}
+              onRemove={() => handleRemove(link.id)}
+            >
+              <LinkCard
+                link={link}
+                category={categories.find(c => c.id === link.category_id) ?? null}
+                onMenuOpen={() => detail.setActiveLinkId(link.id)}
+                isMenuOpen={detail.activeLink?.id === link.id}
+                onFavoriteToggle={() => detail.handleFavoriteToggle(link.id)}
+                onEdit={() => detail.setEditingLink(link)}
+                onOpen={() => detail.handleLinkOpen(link.id, link.status)}
+                isLastOpened={link.id === detail.lastOpenedId}
+                imageState={failedImages.has(link.id) ? 'failed' : undefined}
+                onImageError={() => setFailedImages(prev => new Set(prev).add(link.id))}
+                onDelete={() => detail.handleDelete(link.id)}
+              />
+            </CollectionLinkRowItem>
+          ))}
+        </ol>
+      )}
+
+      <AddLinksToCollectionSheet
+        isOpen={addLinksOpen}
+        collectionName={collection.name}
+        existingIds={existingIds}
+        onAdd={detail.appendLinks}
+        onAdded={handleAdded}
+        onClose={() => setAddLinksOpen(false)}
+      />
+
+      <EditLinkModal
+        key={detail.editingLink?.id}
+        link={detail.editingLink}
+        onSave={detail.handleEdit}
+        onClose={() => detail.setEditingLink(null)}
+      />
+
+      <BottomSheet
+        link={detail.activeLink}
+        onStatusChange={detail.handleStatusChange}
+        onClose={() => detail.setActiveLinkId(null)}
+        onAddToCollection={link => { detail.setActiveLinkId(null); detail.setPickerLink(link) }}
+      />
+
+      <CollectionPickerSheet
+        link={detail.pickerLink}
+        onClose={() => detail.setPickerLink(null)}
+        onMembershipChange={detail.handleMembershipChange}
+        returnFocus={() => {
+          const id = detail.pickerLink?.id
+          return id ? rowElement(id)?.querySelector<HTMLElement>('button[aria-label="Link options"]') ?? addLinksButtonRef.current : null
+        }}
+      />
+    </main>
+  )
+}
+
+function BackLink() {
+  return (
+    <Link
+      href="/dashboard/organize/collections"
+      className="focus-ring -ml-2 mb-4 inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-sm font-medium text-surface-500 hover:text-surface-800 dark:text-surface-400 dark:hover:text-surface-100"
+    >
+      <span aria-hidden="true">‹</span> Collections
+    </Link>
+  )
+}

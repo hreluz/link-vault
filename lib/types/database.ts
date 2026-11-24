@@ -292,6 +292,51 @@ export interface Database {
         }
         Relationships: []
       }
+      collections: {
+        Row: {
+          id: string
+          user_id: string
+          enc_payload: string
+          enc_iv: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          enc_payload: string
+          enc_iv: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          enc_payload?: string
+          enc_iv?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      collection_links: {
+        Row: {
+          collection_id: string
+          link_id: string
+          user_id: string
+          position: number
+          added_at: string
+        }
+        Insert: {
+          collection_id: string
+          link_id: string
+          user_id: string
+          position: number
+          added_at?: string
+        }
+        Update: {
+          position?: number
+          added_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: {
@@ -321,6 +366,14 @@ export interface Database {
         }
         Returns: Array<{ id: string; total_count: number }>
       }
+      swap_collection_link_positions: {
+        Args: {
+          p_collection_id: string
+          p_link_a: string
+          p_link_b: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       link_status: LinkStatus
@@ -341,3 +394,5 @@ export type PrivateTagSettings = Tables<'private_tag_settings'>
 export type UserPreferences = Tables<'user_preferences'>
 export type AppSettings = Tables<'app_settings'>
 export type UserEncryptionKey = Tables<'user_encryption_keys'>
+export type CollectionRow = Tables<'collections'>
+export type CollectionLinkRow = Tables<'collection_links'>

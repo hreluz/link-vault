@@ -5,6 +5,12 @@ export const metadata: Metadata = { title: 'Organize — Link Vault' }
 
 const SECTIONS = [
   {
+    href: '/dashboard/organize/collections',
+    icon: '📚',
+    title: 'Collections',
+    description: 'Group links into ordered playlists',
+  },
+  {
     href: '/dashboard/organize/categories',
     icon: '📂',
     title: 'Categories',
@@ -30,7 +36,7 @@ export default function OrganizePage() {
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-surface-900 dark:text-surface-50">Organize</h1>
         <p className="mt-0.5 text-sm text-surface-500 dark:text-surface-400">
-          Manage your categories, tags, and deleted links
+          Manage your collections, categories, tags, and deleted links
         </p>
       </div>
 
