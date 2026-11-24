@@ -1,7 +1,13 @@
 import Link from 'next/link'
 import { formatCollectionCount, type CollectionWithCounts } from '@/lib/services/collections'
 
-export default function CollectionRow({ collection }: { collection: CollectionWithCounts }) {
+type Props = {
+  collection: CollectionWithCounts
+  /** Show the description as one muted line under the name (while searching, on a description match). */
+  showDescription?: boolean
+}
+
+export default function CollectionRow({ collection, showDescription = false }: Props) {
   return (
     <Link
       href={`/dashboard/organize/collections/${collection.id}`}
@@ -12,6 +18,11 @@ export default function CollectionRow({ collection }: { collection: CollectionWi
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-medium text-surface-900 dark:text-surface-100">{collection.name}</span>
+        {showDescription && collection.description && (
+          <span data-testid="collection-description" className="block truncate text-xs text-surface-500 dark:text-surface-400">
+            {collection.description}
+          </span>
+        )}
         <span className="block text-xs text-surface-500 dark:text-surface-400">
           {formatCollectionCount(collection.link_count, collection.done_count)}
         </span>

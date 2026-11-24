@@ -21,25 +21,27 @@ export function useCollectionAddForm(
   function closeAdd() { setAdding(false); setAddError(null); setNewName(''); setNewEmoji(''); setNewDescription('') }
   function cancelAdding() { setAdding(false) }
 
-  async function handleAdd() {
-    if (!dek || saving) return
+  /** Resolves true when the collection was saved. */
+  async function handleAdd(): Promise<boolean> {
+    if (!dek || saving) return false
     if (!newName.trim()) {
       setAddError(NAME_REQUIRED_ERROR)
-      return
+      return false
     }
     setSaving(true)
     const result = await createCollection({ name: newName, emoji: newEmoji || null, description: newDescription }, dek)
     setSaving(false)
     if (result.error === 'name_required') {
       setAddError(NAME_REQUIRED_ERROR)
-      return
+      return false
     }
     if (result.error) {
       setAddError(SAVE_ERROR)
-      return
+      return false
     }
     setCollections(prev => [result.data, ...prev])
     closeAdd()
+    return true
   }
 
   return {

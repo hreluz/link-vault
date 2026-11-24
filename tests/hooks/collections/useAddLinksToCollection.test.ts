@@ -21,7 +21,10 @@ vi.mock('@/lib/hooks/tags/useTagNameLookup', () => ({
 }))
 
 import { getMatchingLinkIds, getLinksByIds } from '@/lib/services/links'
-import { getPrivateTagIdSet } from '@/lib/services/collections'
+import { getPrivateTagIdSet, type CollectionMembership } from '@/lib/services/collections'
+import type { LinkWithTags } from '@/lib/services/links'
+
+type OnAdd = (links: LinkWithTags[]) => Promise<CollectionMembership[] | null>
 
 const DEK = {} as CryptoKey
 const CANDIDATES = [
@@ -40,7 +43,7 @@ beforeEach(() => {
 })
 afterEach(() => vi.useRealTimers())
 
-async function setup(onAdd = vi.fn(async () => [])) {
+async function setup(onAdd = vi.fn<OnAdd>(async () => [])) {
   const hook = renderHook(() => useAddLinksToCollection({ isOpen: true, dek: DEK, existingIds: new Set(['tagged']), onAdd }))
   await waitFor(() => expect(hook.result.current.loading).toBe(false))
   return { ...hook, onAdd }
@@ -95,7 +98,7 @@ describe('useAddLinksToCollection', () => {
   })
 
   it('keeps ticks across queries and adds them in tick order; links already in are not tickable', async () => {
-    const onAdd = vi.fn(async () => [])
+    const onAdd = vi.fn<OnAdd>(async () => [])
     const { result } = await setup(onAdd)
     await search(result, 'new')
     act(() => result.current.toggleTick('new-async'))
@@ -104,12 +107,12 @@ describe('useAddLinksToCollection', () => {
     expect(result.current.tickedIds).toEqual(['new-async', 'old-async'])
     let added: unknown = null
     await act(async () => { added = await result.current.submit() })
-    expect(ids(onAdd.mock.calls[0][0] as { id: string }[])).toEqual(['new-async', 'old-async'])
+    expect(ids(onAdd.mock.calls[0][0])).toEqual(['new-async', 'old-async'])
     expect(ids(added as { id: string }[])).toEqual(['new-async', 'old-async'])
   })
 
   it('keeps the ticks when the add fails', async () => {
-    const onAdd = vi.fn(async () => null)
+    const onAdd = vi.fn<OnAdd>(async () => null)
     const { result } = await setup(onAdd)
     act(() => result.current.toggleTick('new-async'))
     let added: unknown = 'x'

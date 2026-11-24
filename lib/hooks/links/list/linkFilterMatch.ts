@@ -44,3 +44,19 @@ export function parseHashtagQuery(
     .trim()
   return { textSearch, tagIds }
 }
+
+/** What `parseHashtagQuery` returns. */
+export type ParsedLinkQuery = { textSearch: string; tagIds: string[] }
+
+/**
+ * The dashboard's search rule on an already-parsed query: the link has any of the
+ * `#tag` ids (when there are some) and matches the remaining text.
+ */
+export function matchesParsedQuery(
+  link: LinkWithTags,
+  { textSearch, tagIds }: ParsedLinkQuery,
+  tagNameById: Map<string, string>,
+): boolean {
+  if (tagIds.length > 0 && !link.tags.some(id => tagIds.includes(id))) return false
+  return matchesTextSearch(link, textSearch, tagNameById)
+}

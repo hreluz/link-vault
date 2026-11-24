@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { filterCollectionsByName, findCollectionByName } from '@/lib/utils/collectionSearch'
+import { descriptionMatches, filterCollectionsByName, filterCollectionsByText, findCollectionByName } from '@/lib/utils/collectionSearch'
 
 const items = [
   { id: '1', name: 'Learn Rust' },
@@ -50,5 +50,49 @@ describe('findCollectionByName', () => {
   it('returns undefined on a miss or empty name', () => {
     expect(findCollectionByName(items, 'python')).toBeUndefined()
     expect(findCollectionByName(items, ' ')).toBeUndefined()
+  })
+})
+
+describe('filterCollectionsByText', () => {
+  const described = [
+    { id: '1', name: 'Learn Rust', description: 'Ownership and lifetimes' },
+    { id: '2', name: 'Weekend', description: null },
+    { id: '3', name: 'Go basics', description: 'Goroutines, channels' },
+  ]
+
+  it('matches on the name', () => {
+    expect(filterCollectionsByText(described, 'week').map(i => i.id)).toEqual(['2'])
+  })
+
+  it('matches on the description', () => {
+    expect(filterCollectionsByText(described, 'lifetimes').map(i => i.id)).toEqual(['1'])
+  })
+
+  it('skips a null description without throwing', () => {
+    expect(filterCollectionsByText(described, 'channels').map(i => i.id)).toEqual(['3'])
+  })
+
+  it('is case-insensitive and trims the query', () => {
+    expect(filterCollectionsByText(described, '  OWNERSHIP ').map(i => i.id)).toEqual(['1'])
+  })
+
+  it('returns every item for an empty query', () => {
+    expect(filterCollectionsByText(described, '   ')).toEqual(described)
+  })
+
+  it('keeps the given order', () => {
+    expect(filterCollectionsByText([...described].reverse(), 'o').map(i => i.id)).toEqual(['3', '1'])
+  })
+})
+
+describe('descriptionMatches', () => {
+  it('is true only when the description contains the trimmed query', () => {
+    expect(descriptionMatches('Ownership and lifetimes', ' LIFE ')).toBe(true)
+    expect(descriptionMatches('Ownership and lifetimes', 'rust')).toBe(false)
+  })
+
+  it('is false for a null description or an empty query', () => {
+    expect(descriptionMatches(null, 'rust')).toBe(false)
+    expect(descriptionMatches('Ownership', '  ')).toBe(false)
   })
 })

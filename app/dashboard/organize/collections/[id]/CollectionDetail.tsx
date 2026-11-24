@@ -7,9 +7,13 @@ import type { LinkWithTags } from '@/lib/services/links'
 import { useCollectionDetail } from '@/lib/hooks/collections/useCollectionDetail'
 import type { MoveDirection } from '@/lib/hooks/collections/useCollectionOrder'
 import { useCategoryList } from '@/lib/hooks/categories/useCategoryList'
+import { useAvailableTags } from '@/lib/hooks/tags/useAvailableTags'
 import { scrollIntoViewIfHidden } from '@/lib/utils/scrollVisibility'
 import { PencilIcon, PlayIcon, TrashIcon } from '@/components/icons'
 import LoadErrorMessage from '@/components/LoadErrorMessage'
+import SearchBar from '@/components/SearchBar'
+import SearchNoMatch from '@/components/SearchNoMatch'
+import SearchResultCount from '@/components/SearchResultCount'
 import CollectionPickerSheet from '@/components/CollectionPickerSheet'
 import LinkCard from '@/app/dashboard/link/LinkCard'
 import BottomSheet from '@/app/dashboard/link/BottomSheet'
@@ -22,6 +26,7 @@ type FocusRequest =
   | { kind: 'row-action'; linkId: string; action: 'up' | 'down' | 'remove'; scroll: boolean }
   | { kind: 'add-links' }
   | { kind: 'scroll'; linkId: string }
+  | { kind: 'search' }
 
 const SECONDARY_BUTTON =
   'focus-ring inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-surface-200 bg-surface-card px-3 py-2 text-sm font-medium text-surface-600 shadow-sm transition hover:bg-surface-50 hover:text-surface-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-300 dark:hover:bg-surface-700 dark:hover:text-surface-100'
@@ -36,9 +41,11 @@ export default function CollectionDetail({ collectionId }: { collectionId: strin
   const detail = useCollectionDetail(collectionId)
   const {
     collection, visibleRows, linkCount, doneCount, loading, loadError, notFound, retry,
-    order, editForm, deleteFlow, playNextRow,
+    order, editForm, deleteFlow, playNextRow, search,
   } = detail
+  const { shownRows, isSearching } = search
   const { categories } = useCategoryList()
+  const availableTags = useAvailableTags()
   const [addLinksOpen, setAddLinksOpen] = useState(false)
   const [announcement, setAnnouncement] = useState('')
   // Set by handlers; a tick re-runs the layout effect that applies it after the new order renders.
@@ -46,6 +53,8 @@ export default function CollectionDetail({ collectionId }: { collectionId: strin
   const [focusTick, setFocusTick] = useState(0)
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set())
   const addLinksButtonRef = useRef<HTMLButtonElement>(null)
+  const searchBoxRef = useRef<HTMLDivElement>(null)
+  const searchInput = () => searchBoxRef.current?.querySelector<HTMLInputElement>('input') ?? null
 
   // The name is encrypted, so the server title is generic; swap in the real one.
   useEffect(() => {
@@ -59,7 +68,10 @@ export default function CollectionDetail({ collectionId }: { collectionId: strin
     focusRequestRef.current = null
     if (focusRequest.kind === 'add-links') {
       addLinksButtonRef.current?.focus()
+    } else if (focusRequest.kind === 'search') {
+      searchInput()?.focus()
     } else {
+      // A row hidden by the current search isn't rendered: nothing to focus or scroll.
       const row = rowElement(focusRequest.linkId)
       if (row) {
         if (focusRequest.kind === 'row-action') {
@@ -123,11 +135,20 @@ export default function CollectionDetail({ collectionId }: { collectionId: strin
     })
   }
 
+  // Focus moves to the next shown row's ✕, else the previous one's; with no shown
+  // row left, to the search box while the collection still has links, else `+ Add links`.
   function handleRemove(linkId: string) {
-    const index = visibleRows.findIndex(row => row.link.id === linkId)
-    const next = visibleRows[index + 1] ?? visibleRows[index - 1]
+    const index = shownRows.findIndex(row => row.link.id === linkId)
+    const next = shownRows[index + 1] ?? shownRows[index - 1]
     order.remove(linkId)
-    requestFocus(next ? { kind: 'row-action', linkId: next.link.id, action: 'remove', scroll: false } : { kind: 'add-links' })
+    if (next) requestFocus({ kind: 'row-action', linkId: next.link.id, action: 'remove', scroll: false })
+    else if (visibleRows.length > 1) requestFocus({ kind: 'search' })
+    else requestFocus({ kind: 'add-links' })
+  }
+
+  function clearSearchAndFocus() {
+    search.clearSearch()
+    searchInput()?.focus()
   }
 
   function handlePlayNext() {
@@ -211,21 +232,37 @@ export default function CollectionDetail({ collectionId }: { collectionId: strin
 
       <p aria-live="polite" className="sr-only">{announcement}</p>
 
+      {visibleRows.length > 0 && (
+        <div ref={searchBoxRef}>
+          <SearchBar
+            value={search.query}
+            onChange={search.setQuery}
+            isHashTagSearch={search.isHashTagSearch}
+            availableTags={availableTags}
+            label="Search this collection"
+          />
+          <SearchResultCount shown={shownRows.length} total={linkCount} noun="link" active={isSearching} />
+        </div>
+      )}
+
       {visibleRows.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <div className="mb-4 text-4xl" aria-hidden="true">📭</div>
           <p className="text-surface-500 dark:text-surface-400">No links in this collection yet.</p>
         </div>
+      ) : shownRows.length === 0 ? (
+        <SearchNoMatch message={`No links match "${search.query.trim()}".`} onClear={clearSearchAndFocus} />
       ) : (
         <ol className="space-y-4">
-          {visibleRows.map(({ link }, index) => (
+          {shownRows.map(({ link, number }) => (
             <CollectionLinkRowItem
               key={link.id}
               linkId={link.id}
-              number={index + 1}
-              isFirst={index === 0}
-              isLast={index === visibleRows.length - 1}
+              number={number}
+              isFirst={number === 1}
+              isLast={number === visibleRows.length}
               isSwapping={order.isSwapping}
+              showMoveButtons={!isSearching}
               onMove={direction => handleMove(link.id, direction)}
               onRemove={() => handleRemove(link.id)}
             >
@@ -261,6 +298,7 @@ export default function CollectionDetail({ collectionId }: { collectionId: strin
         link={detail.editingLink}
         onSave={detail.handleEdit}
         onClose={() => detail.setEditingLink(null)}
+        fallbackFocus={searchInput}
       />
 
       <BottomSheet

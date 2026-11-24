@@ -1,7 +1,12 @@
 'use client'
 
+import { useRef } from 'react'
 import { useCollections } from '@/lib/hooks/collections/useCollections'
+import { descriptionMatches } from '@/lib/utils/collectionSearch'
 import LoadErrorMessage from '@/components/LoadErrorMessage'
+import SearchBar from '@/components/SearchBar'
+import SearchNoMatch from '@/components/SearchNoMatch'
+import SearchResultCount from '@/components/SearchResultCount'
 import CollectionForm from './CollectionForm'
 import CollectionRow from './CollectionRow'
 
@@ -10,9 +15,17 @@ export default function CollectionList() {
     collections, loading, loadError, retry,
     adding, addError, saving, newName, setNewName, newEmoji, setNewEmoji, newDescription, setNewDescription,
     openAdd, closeAdd, handleAdd,
+    query, setQuery, filteredCollections, isSearching, clearSearch,
   } = useCollections()
+  const searchRef = useRef<HTMLDivElement>(null)
 
   const canAdd = !loading && !loadError && !adding
+  const showSearch = !loading && !loadError && collections.length > 0
+
+  function clearAndFocus() {
+    clearSearch()
+    searchRef.current?.querySelector('input')?.focus()
+  }
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
@@ -35,6 +48,13 @@ export default function CollectionList() {
           </button>
         )}
       </div>
+
+      {showSearch && (
+        <div ref={searchRef}>
+          <SearchBar value={query} onChange={setQuery} label="Search collections" placeholder="Search collections" />
+          <SearchResultCount shown={filteredCollections.length} total={collections.length} noun="collection" active={isSearching} />
+        </div>
+      )}
 
       {adding && (
         <CollectionForm
@@ -66,9 +86,17 @@ export default function CollectionList() {
             </button>
           </div>
         )
+      ) : filteredCollections.length === 0 ? (
+        <SearchNoMatch message={`No collections match "${query.trim()}".`} onClear={clearAndFocus} />
       ) : (
         <div className="space-y-2">
-          {collections.map(collection => <CollectionRow key={collection.id} collection={collection} />)}
+          {filteredCollections.map(collection => (
+            <CollectionRow
+              key={collection.id}
+              collection={collection}
+              showDescription={isSearching && descriptionMatches(collection.description, query)}
+            />
+          ))}
         </div>
       )}
     </main>

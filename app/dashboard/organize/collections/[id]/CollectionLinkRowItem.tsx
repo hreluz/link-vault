@@ -16,6 +16,8 @@ type Props = {
   isSwapping: boolean
   onMove: (direction: MoveDirection) => void
   onRemove: () => void
+  /** False while a search is active: ▲/▼ aren't rendered; the number and ✕ keep their places. */
+  showMoveButtons?: boolean
   children: ReactNode
 }
 
@@ -24,7 +26,7 @@ type Props = {
  * the number and controls sit in a bar under the full-width card; from sm up the
  * number is on the left and the controls in a column on the right.
  */
-export default function CollectionLinkRowItem({ linkId, number, isFirst, isLast, isSwapping, onMove, onRemove, children }: Props) {
+export default function CollectionLinkRowItem({ linkId, number, isFirst, isLast, isSwapping, onMove, onRemove, showMoveButtons = true, children }: Props) {
   const numberEl = (extra: string) => (
     <span className={`text-sm font-semibold tabular-nums text-surface-500 dark:text-surface-400 ${extra}`}>{number}</span>
   )
@@ -53,8 +55,8 @@ export default function CollectionLinkRowItem({ linkId, number, isFirst, isLast,
       <div className="mt-1 flex items-center justify-between px-1 sm:mt-0 sm:flex-col sm:px-0 sm:pt-2">
         {numberEl('sm:hidden')}
         <div className="flex items-center gap-1 sm:flex-col">
-          {arrow('up')}
-          {arrow('down')}
+          {showMoveButtons && arrow('up')}
+          {showMoveButtons && arrow('down')}
           <button
             type="button"
             data-row-action="remove"

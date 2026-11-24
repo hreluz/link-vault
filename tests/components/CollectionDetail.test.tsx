@@ -17,6 +17,56 @@ vi.mock('@/lib/services/collections', async importOriginal => ({
   getPrivateTagIdSet: vi.fn(),
   swapCollectionLinkPositions: vi.fn(),
   removeLinkFromCollection: vi.fn(),
+  restoreMembership: vi.fn(async () => true),
+  addLinksToCollection: vi.fn(),
+}))
+const { TAGS } = vi.hoisted(() => ({
+  TAGS: [{ id: 't-rust', name: 'rust', is_private: false }, { id: 'p', name: 'secret', is_private: true }],
+}))
+vi.mock('@/lib/utils/scrollVisibility', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/lib/utils/scrollVisibility')>()),
+  scrollIntoViewIfHidden: vi.fn(),
+}))
+vi.mock('@/lib/context/TagsContext', () => ({ useTagsContext: () => ({ tags: TAGS, loading: false, refetchTags: () => {} }) }))
+// The real modal is covered in EditLinkModal.test.tsx; this stand-in saves a new title
+// and exposes the page's focus fallback.
+vi.mock('@/app/dashboard/link/EditLinkModal', () => ({
+  default: ({ link, onSave, onClose, fallbackFocus }: {
+    link: { id: string } | null
+    onSave: (updated: unknown, collectionIds: null) => void
+    onClose: () => void
+    fallbackFocus?: () => HTMLElement | null
+  }) => link && (
+    <div role="dialog">
+      <button onClick={() => { onSave({ ...link, title: 'Renamed' }, null); onClose(); fallbackFocus?.()?.focus() }}>
+        Save edit
+      </button>
+    </div>
+  ),
+}))
+// Stand-in for the Add links sheet: adds link "n" through the page's onAdd/onAdded.
+vi.mock('@/app/dashboard/organize/collections/[id]/AddLinksToCollectionSheet', () => ({
+  default: ({ isOpen, onAdd, onAdded, onClose }: {
+    isOpen: boolean
+    onAdd: (links: unknown[]) => Promise<unknown>
+    onAdded: (links: unknown[]) => void
+    onClose: () => void
+  }) => isOpen && (
+    <button onClick={async () => {
+      const links = [{ ...NEW_LINK }]
+      if (await onAdd(links)) { onClose(); onAdded(links) }
+    }}>
+      Add stub link
+    </button>
+  ),
+}))
+const { NEW_LINK } = vi.hoisted(() => ({
+  NEW_LINK: {
+    id: 'n', user_id: 'u1', url: 'https://example.com/n', title: 'November', description: null,
+    site_name: 'example.com', image_url: null, duration: null, notes: null, category_id: null,
+    status: 'unread', is_favorite: false, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+    deleted_at: null, moved_to_end_at: null, tags: [],
+  },
 }))
 vi.mock('@/lib/services/links', async importOriginal => ({
   ...(await importOriginal<typeof import('@/lib/services/links')>()),
@@ -27,7 +77,11 @@ vi.mock('@/lib/services/links', async importOriginal => ({
 
 import {
   getCollection, getCollectionMemberships, getPrivateTagIdSet, swapCollectionLinkPositions, removeLinkFromCollection,
+  addLinksToCollection,
 } from '@/lib/services/collections'
+import { toast } from 'sonner'
+import { scrollIntoViewIfHidden } from '@/lib/utils/scrollVisibility'
+import { UnlockedTagsProvider, useUnlockedTags } from '@/lib/context/UnlockedTagsContext'
 import { getLinksByIds, updateLinkStatus, markLinkMovedToEnd } from '@/lib/services/links'
 
 const membership = (link_id: string, position: number) => ({ collection_id: 'c1', link_id, position, added_at: '2026-01-01T00:00:00Z' })
@@ -45,6 +99,9 @@ beforeEach(() => {
   vi.mocked(swapCollectionLinkPositions).mockResolvedValue(true)
   vi.mocked(removeLinkFromCollection).mockResolvedValue(true)
   Element.prototype.scrollIntoView = vi.fn()
+  window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+    matches: false, media: query, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+  })) as unknown as typeof window.matchMedia
   if (!globalThis.CSS?.escape) (globalThis as { CSS?: unknown }).CSS = { escape: (s: string) => s }
 })
 afterEach(cleanup)
@@ -160,5 +217,204 @@ describe('CollectionDetail', () => {
     await renderPage()
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
     expect(screen.getByText(/Delete “Learn Rust”\? Its 2 links stay saved\./)).toBeTruthy()
+  })
+})
+
+describe('CollectionDetail search', () => {
+  const searchBox = () => screen.getByLabelText('Search this collection') as HTMLInputElement
+  const type = (value: string) => fireEvent.change(searchBox(), { target: { value } })
+  const number = (id: string) => row(id).querySelector('span.tabular-nums')!.textContent
+
+  beforeEach(() => {
+    vi.mocked(getCollectionMemberships).mockResolvedValue([
+      membership('a', 1), membership('b', 2), membership('c', 3), membership('d', 4),
+    ])
+    vi.mocked(getLinksByIds).mockResolvedValue([
+      makeLink('a', { title: 'Async Rust', status: 'read', tags: ['t-rust'] }),
+      makeLink('b', { title: 'Go channels' }),
+      makeLink('c', { title: 'Rust macros', notes: 'read later' }),
+      makeLink('d', { title: 'Python tips' }),
+    ])
+  })
+
+  it('shows the box between the header and the list', async () => {
+    await renderPage()
+    const box = searchBox()
+    expect(box.compareDocumentPosition(row('a')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Play next' }).compareDocumentPosition(box) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('is absent on an empty collection, while loading, on errors and on not found', async () => {
+    vi.mocked(getCollectionMemberships).mockResolvedValue([])
+    await renderPage()
+    expect(screen.getByText('No links in this collection yet.')).toBeTruthy()
+    expect(screen.queryByLabelText('Search this collection')).toBeNull()
+    cleanup()
+
+    vi.mocked(getCollection).mockReturnValue(new Promise(() => {}))
+    render(<CollectionDetail collectionId="c1" />)
+    expect(screen.getByText('Loading collection…')).toBeTruthy()
+    expect(screen.queryByLabelText('Search this collection')).toBeNull()
+    cleanup()
+
+    vi.mocked(getCollection).mockRejectedValueOnce(new Error('x'))
+    render(<CollectionDetail collectionId="c1" />)
+    await screen.findByText("Couldn't load this collection.")
+    expect(screen.queryByLabelText('Search this collection')).toBeNull()
+    cleanup()
+
+    vi.mocked(getCollection).mockResolvedValue(null)
+    render(<CollectionDetail collectionId="nope" />)
+    await screen.findByText('Collection not found')
+    expect(screen.queryByLabelText('Search this collection')).toBeNull()
+  })
+
+  it('filters on every keystroke by title, notes and #tag, keeping full-list numbers', async () => {
+    await renderPage()
+    type('rust')
+    expect(rowIds()).toEqual(['a', 'c'])
+    expect([number('a'), number('c')]).toEqual(['1', '3'])
+    type('later')
+    expect(rowIds()).toEqual(['c'])
+    type('#rust')
+    expect(rowIds()).toEqual(['a'])
+    expect(searchBox().className).toContain('ring-primary-300')
+  })
+
+  it('matches an unknown #tag as plain text', async () => {
+    await renderPage()
+    type('#nosuchtag')
+    expect(rowIds()).toEqual([])
+    expect(screen.getByText('No links match "#nosuchtag".')).toBeTruthy()
+  })
+
+  it('hides ▲/▼ while searching and brings them back on every row after clearing', async () => {
+    await renderPage()
+    type('rust')
+    expect(screen.queryByRole('button', { name: 'Move up' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Move down' })).toBeNull()
+    expect(button('a', 'Remove from collection')).toBeTruthy()
+    type('')
+    expect(screen.getAllByRole('button', { name: 'Move up' })).toHaveLength(4)
+    expect(screen.getAllByRole('button', { name: 'Move down' })).toHaveLength(4)
+  })
+
+  it('shows "Showing X of N links" as a status line and keeps the header count', async () => {
+    await renderPage()
+    expect(screen.queryByText(/^Showing/)).toBeNull()
+    type('rust')
+    expect(screen.getByText('Showing 2 of 4 links').getAttribute('role')).toBe('status')
+    expect(screen.getByText('4 links · 1 done')).toBeTruthy()
+  })
+
+  it('Play next ignores the search: opens the hidden next link, keeps the query and does not scroll', async () => {
+    const open = vi.spyOn(window, 'open').mockReturnValue(null)
+    await renderPage()
+    type('rust')
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Play next' })) })
+    expect(open).toHaveBeenCalledWith('https://example.com/b', '_blank', 'noopener,noreferrer')
+    expect(updateLinkStatus).toHaveBeenCalledWith('b', 'watching')
+    expect(searchBox().value).toBe('rust')
+    expect(scrollIntoViewIfHidden).not.toHaveBeenCalled()
+  })
+
+  it('Play next scrolls to its row when the row is shown', async () => {
+    vi.spyOn(window, 'open').mockReturnValue(null)
+    await renderPage()
+    type('go')
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Play next' })) })
+    expect(scrollIntoViewIfHidden).toHaveBeenCalledWith(row('b'))
+  })
+
+  it('✕ while searching removes with the toast and focuses the previous shown ✕, then the search box', async () => {
+    await renderPage()
+    type('rust')
+    await act(async () => { fireEvent.click(button('c', 'Remove from collection')) })
+    expect(toast).toHaveBeenCalledWith('Removed from Learn Rust', expect.objectContaining({ action: expect.objectContaining({ label: 'Undo' }) }))
+    expect(rowIds()).toEqual(['a'])
+    expect(document.activeElement).toBe(button('a', 'Remove from collection'))
+
+    await act(async () => { fireEvent.click(button('a', 'Remove from collection')) })
+    expect(rowIds()).toEqual([])
+    expect(screen.getByText('No links match "rust".')).toBeTruthy()
+    expect(document.activeElement).toBe(searchBox())
+  })
+
+  it('✕ on the only visible link while searching clears the query and focuses + Add links; Undo keeps the box empty', async () => {
+    vi.mocked(getCollectionMemberships).mockResolvedValue([membership('a', 1)])
+    await renderPage()
+    type('rust')
+    await act(async () => { fireEvent.click(button('a', 'Remove from collection')) })
+    expect(screen.getByText('No links in this collection yet.')).toBeTruthy()
+    expect(screen.queryByLabelText('Search this collection')).toBeNull()
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: '+ Add links' }))
+
+    const undo = vi.mocked(toast).mock.calls.at(-1)![1] as { action: { onClick: () => Promise<void> } }
+    await act(async () => { await undo.action.onClick() })
+    expect(rowIds()).toEqual(['a'])
+    expect(searchBox().value).toBe('')
+  })
+
+  it('locking private tags until the collection is empty clears the query', async () => {
+    vi.mocked(getCollectionMemberships).mockResolvedValue([membership('a', 1)])
+    vi.mocked(getLinksByIds).mockResolvedValue([makeLink('a', { title: 'Secret rust', tags: ['p'] })])
+    let unlocked: ReturnType<typeof useUnlockedTags> | null = null
+    function Grab() { unlocked = useUnlockedTags(); return null }
+    render(<UnlockedTagsProvider><Grab /><CollectionDetail collectionId="c1" /></UnlockedTagsProvider>)
+    await screen.findByRole('heading', { name: /Learn Rust/ })
+    act(() => unlocked!.unlockTag('p'))
+    type('rust')
+    expect(rowIds()).toEqual(['a'])
+
+    act(() => unlocked!.lockAll())
+    expect(screen.getByText('No links in this collection yet.')).toBeTruthy()
+    act(() => unlocked!.unlockTag('p'))
+    expect(rowIds()).toEqual(['a'])
+    expect(searchBox().value).toBe('')
+  })
+
+  it('Clear search empties and focuses the box', async () => {
+    await renderPage()
+    type('zzz')
+    fireEvent.click(screen.getByRole('button', { name: 'Clear search' }))
+    expect(searchBox().value).toBe('')
+    expect(document.activeElement).toBe(searchBox())
+    expect(rowIds()).toEqual(['a', 'b', 'c', 'd'])
+  })
+
+  it('+ Add links clears the query and scrolls to the first new link', async () => {
+    vi.mocked(addLinksToCollection).mockResolvedValue([membership('n', 5)])
+    await renderPage()
+    type('rust')
+    fireEvent.click(screen.getByRole('button', { name: '+ Add links' }))
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Add stub link' })) })
+    expect(searchBox().value).toBe('')
+    expect(rowIds()).toEqual(['a', 'b', 'c', 'd', 'n'])
+    expect(scrollIntoViewIfHidden).toHaveBeenLastCalledWith(row('n'))
+  })
+
+  it('an edit that stops a row matching removes it and sends focus to the search box', async () => {
+    await renderPage()
+    type('macros')
+    fireEvent.click(within(row('c')).getByRole('button', { name: /edit/i }))
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Save edit' })) })
+    expect(rowIds()).toEqual([])
+    expect(document.activeElement).toBe(searchBox())
+  })
+
+  it('a status change never hides a shown row', async () => {
+    await renderPage()
+    type('go')
+    fireEvent.click(within(row('b')).getByRole('button', { name: 'Link options' }))
+    await act(async () => { fireEvent.click(screen.getByRole('radio', { name: /^Read/ })) })
+    expect(rowIds()).toEqual(['b'])
+  })
+
+  it('starts with an empty box when the page is mounted again', async () => {
+    await renderPage()
+    type('rust')
+    cleanup()
+    await renderPage()
+    expect(searchBox().value).toBe('')
   })
 })

@@ -8,7 +8,7 @@ import { useTagsContext } from '@/lib/context/TagsContext'
 import { useUnlockedTags } from '@/lib/context/UnlockedTagsContext'
 import { useTagNameLookup } from '@/lib/hooks/tags/useTagNameLookup'
 import { useDebouncedValue } from '@/lib/hooks/shared/useDebouncedValue'
-import { matchesTextSearch, parseHashtagQuery } from '@/lib/hooks/links/list/linkFilterMatch'
+import { matchesParsedQuery, parseHashtagQuery } from '@/lib/hooks/links/list/linkFilterMatch'
 
 export const ADD_LINKS_RESULT_LIMIT = 50
 const SEARCH_DEBOUNCE_MS = 350
@@ -82,13 +82,12 @@ export function useAddLinksToCollection({ isOpen, dek, existingIds, onAdd }: Par
 
   const { results, totalMatches } = useMemo(() => {
     if (!trimmedQuery) return { results: [] as LinkWithTags[], totalMatches: 0 }
-    const { textSearch, tagIds } = parseHashtagQuery(trimmedQuery, tags)
+    const parsed = parseHashtagQuery(trimmedQuery, tags)
     const matches = candidates
       .filter(link => link.deleted_at === null)
       // Second check on top of the RPC: no link with a locked private tag.
       .filter(link => link.tags.every(id => isTagVisible(privateTagIds.has(id), id, unlockedTagIds)))
-      .filter(link => tagIds.length === 0 || link.tags.some(id => tagIds.includes(id)))
-      .filter(link => matchesTextSearch(link, textSearch, tagNameById))
+      .filter(link => matchesParsedQuery(link, parsed, tagNameById))
       .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
     return { results: matches.slice(0, ADD_LINKS_RESULT_LIMIT), totalMatches: matches.length }
   }, [trimmedQuery, tags, candidates, privateTagIds, unlockedTagIds, tagNameById])

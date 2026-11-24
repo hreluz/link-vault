@@ -14,8 +14,8 @@ Adding a link to a collection has to be quick. The user types a few letters and 
 This spec merges the earlier drafts of SPEC 40 (collections) and SPEC 41 (Collections field after Title, with search and create). The full idea is split in three:
 
 - **SPEC 40 (this one):** data, CRUD, the collection page, manual order, three ways to add links (with search-or-create), and Play next.
-- **SPEC 41 (future):** collection chips on `LinkCard` and a Collection filter on `/dashboard` (changes `filtered_links`/`search_links`).
-- **SPEC 42 (future):** collections in the "Everything" export and the v2 import.
+- **SPEC 42 (future):** collection chips on `LinkCard` and a Collection filter on `/dashboard` (changes `filtered_links`/`search_links`).
+- **SPEC 43 (future):** collections in the "Everything" export and the v2 import.
 
 ## Scope
 
@@ -114,9 +114,9 @@ This spec merges the earlier drafts of SPEC 40 (collections) and SPEC 41 (Collec
 
 **Out of scope (for future specs):**
 
-- Collection chips on `LinkCard` on `/dashboard` (SPEC 41).
-- A Collection filter in `FilterSheet` / the `search_links` RPC (SPEC 41).
-- Collections in Export / Import (SPEC 42).
+- Collection chips on `LinkCard` on `/dashboard` (SPEC 42).
+- A Collection filter in `FilterSheet` / the `search_links` RPC (SPEC 42).
+- Collections in Export / Import (SPEC 43).
 - Drag-and-drop reordering, on any device.
 - Private or password-locked collections.
 - "Play next" based on the last-opened position, autoplay, or a player view.
@@ -391,7 +391,7 @@ type FormState = {
 - **Yes:** hard delete of a collection, links kept, no undo. A collection is cheap to rebuild; links are the valuable part.
 - **No:** an option to also trash its links.
 - **Yes:** no pagination on the collection page. Playlists are small; `getLinksByIds` already chunks.
-- **Yes:** split into SPEC 40/41/42. The full idea touched DB, Organize, LinkCard, the link form, the search RPC and Import/Export.
+- **Yes:** split into SPEC 40/42/43 (41 is search inside collections). The full idea touched DB, Organize, LinkCard, the link form, the search RPC and Import/Export.
 - **Yes:** this spec merges the earlier SPEC 40 and SPEC 41 drafts into one, written as the final design. Neither had been implemented, so there was no reason to build SPEC 40's original form field and then replace it.
 
 ## Risks
@@ -416,8 +416,8 @@ type FormState = {
 
 ## What is **not** in this spec
 
-- Collection chips on dashboard cards and a dashboard Collection filter (SPEC 41).
-- Collections in Export / Import (SPEC 42).
+- Collection chips on dashboard cards and a dashboard Collection filter (SPEC 42).
+- Collections in Export / Import (SPEC 43).
 - Drag-and-drop, private collections, sharing, a player view or autoplay.
 - Pagination on the collection page.
 - Deleting a collection's links with it.

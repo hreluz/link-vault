@@ -15,9 +15,13 @@ interface Props {
   /** Whether the sheet opened by Filters is showing (drives aria-expanded). */
   filterOpen?: boolean
   availableTags?: string[]
+  /** Screen-reader label. Defaults to `Search links`. */
+  label?: string
+  /** Placeholder. Defaults to the responsive dashboard text (short below `sm`). */
+  placeholder?: string
 }
 
-export default function SearchBar({ value, onChange, isHashTagSearch = false, filterCount, onFilterOpen, filterOpen = false, availableTags = [] }: Props) {
+export default function SearchBar({ value, onChange, isHashTagSearch = false, filterCount, onFilterOpen, filterOpen = false, availableTags = [], label = 'Search links', placeholder }: Props) {
   const { suggestions, selectedIndex, onKeyPress, selectSuggestion, closeSuggestions } =
     useSearchTagSuggestions(value, onChange, availableTags)
   const inputId = useId()
@@ -27,12 +31,12 @@ export default function SearchBar({ value, onChange, isHashTagSearch = false, fi
   return (
     <div className="mb-4 flex gap-2">
       <div className="relative flex-1">
-        <label htmlFor={inputId} className="sr-only">Search links</label>
+        <label htmlFor={inputId} className="sr-only">{label}</label>
         <SearchIcon className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-surface-400 dark:text-surface-500" />
         <input
           id={inputId}
           type="search"
-          placeholder={isSmUp ? 'Search by title, domain, tag… or #tag for tag-only' : 'Search or #tag'}
+          placeholder={placeholder ?? (isSmUp ? 'Search by title, domain, tag… or #tag for tag-only' : 'Search or #tag')}
           value={value}
           onChange={e => onChange(e.target.value)}
           onKeyDown={e => {

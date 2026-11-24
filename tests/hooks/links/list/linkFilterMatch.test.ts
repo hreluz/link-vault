@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { matchesTextSearch, parseHashtagQuery } from '@/lib/hooks/links/list/linkFilterMatch'
+import { matchesParsedQuery, matchesTextSearch, parseHashtagQuery } from '@/lib/hooks/links/list/linkFilterMatch'
 import type { LinkWithTags } from '@/lib/services/links'
 
 const link = {
@@ -50,5 +50,31 @@ describe('parseHashtagQuery', () => {
 
   it('collects several tags once each', () => {
     expect(parseHashtagQuery('#rust #golang #rust', tags).tagIds).toEqual(['t-rust', 't-go'])
+  })
+})
+
+describe('matchesParsedQuery', () => {
+  const goLink = { ...link, id: 'l2', title: 'Go channels', notes: null, tags: ['t-go'] } as LinkWithTags
+
+  it('tag-only: keeps links with any of the tags', () => {
+    const q = { textSearch: '', tagIds: ['t-rust'] }
+    expect(matchesParsedQuery(link, q, tagNameById)).toBe(true)
+    expect(matchesParsedQuery(goLink, q, tagNameById)).toBe(false)
+    expect(matchesParsedQuery(goLink, { textSearch: '', tagIds: ['t-rust', 't-go'] }, tagNameById)).toBe(true)
+  })
+
+  it('text-only: uses the text rule', () => {
+    const q = { textSearch: 'channels', tagIds: [] }
+    expect(matchesParsedQuery(goLink, q, tagNameById)).toBe(true)
+    expect(matchesParsedQuery(link, q, tagNameById)).toBe(false)
+  })
+
+  it('both: needs the tag and the text', () => {
+    expect(matchesParsedQuery(link, { textSearch: 'async', tagIds: ['t-rust'] }, tagNameById)).toBe(true)
+    expect(matchesParsedQuery(link, { textSearch: 'channels', tagIds: ['t-rust'] }, tagNameById)).toBe(false)
+  })
+
+  it('no tag ids and no text: matches everything', () => {
+    expect(matchesParsedQuery(goLink, { textSearch: '', tagIds: [] }, tagNameById)).toBe(true)
   })
 })
