@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useToast } from '@/components/ToastProvider'
 import { useTagsContext } from '@/lib/context/TagsContext'
+import { useVault } from '@/lib/context/VaultContext'
+import { useLinkCollectionChips } from './useLinkCollectionChips'
 import { useLinkModals } from './useLinkModals'
 import { useLinks } from './useLinks'
 import { useLinkFilters } from './useLinkFilters'
@@ -23,7 +25,7 @@ export function useLinkList(autoFetchDefault = true, moveToEndDelaySeconds = DEF
     handleEdit: editLink,
     handleDelete: deleteLink,
     handleFavoriteToggle: toggleFavorite,
-    handleCreate,
+    handleCreate: createLink,
     handleMoveToEnd,
     lastMove,
     undoingMove,
@@ -33,6 +35,11 @@ export function useLinkList(autoFetchDefault = true, moveToEndDelaySeconds = DEF
   const { addToast } = useToast()
   const { refetchTags } = useTagsContext()
   const [refreshKey, setRefreshKey] = useState(0)
+  const { dek } = useVault()
+  // Collection chips on the cards (SPEC 46): every loaded link, held-back moved ones included.
+  const { collectionsFor, applyMembershipChange, reloadLinkCollections } = useLinkCollectionChips(
+    loadedLinks.map(link => link.id), dek, refreshKey,
+  )
   const [lastOpenedId, setLastOpenedId] = useState<string | null>(null)
   // Set after a saved undo; LinkGrid scrolls to that card and pulses it until it clears this (SPEC 36).
   const [restoredLinkId, setRestoredLinkId] = useState<string | null>(null)
@@ -100,9 +107,17 @@ export function useLinkList(autoFetchDefault = true, moveToEndDelaySeconds = DEF
     modals.setActiveLink(prev => prev?.id === id ? { ...prev, status } : prev)
   }
 
-  function handleEdit(updated: LinkWithTags) {
+  /** collectionIds: the link's collections after the save, or null when they didn't change. */
+  function handleEdit(updated: LinkWithTags, collectionIds: string[] | null = null) {
     editLink(updated)
     modals.setEditingLink(null)
+    if (collectionIds !== null) reloadLinkCollections(updated.id)
+  }
+
+  // The Add form saves the link's collections before it returns, so this refetch sees them.
+  function handleCreate(link: LinkWithTags) {
+    createLink(link)
+    reloadLinkCollections(link.id)
   }
 
   function handleDeleteById(id: string) {
@@ -178,6 +193,8 @@ export function useLinkList(autoFetchDefault = true, moveToEndDelaySeconds = DEF
     handleDeleteById,
     handleFavoriteToggle,
     handleCreate,
+    collectionsFor,
+    applyMembershipChange,
     addToast,
   }
 }

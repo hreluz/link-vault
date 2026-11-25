@@ -96,3 +96,20 @@ describe('useLinkModals', () => {
     expect(mockReplace).not.toHaveBeenCalled()
   })
 })
+
+describe('useLinkModals collection picker (SPEC 46)', () => {
+  it('opens the picker for a link, remembering where it was opened from, and closes it', () => {
+    const { result } = renderHook(() => useLinkModals())
+    expect(result.current.pickerLink).toBeNull()
+
+    act(() => result.current.openCollectionPicker(LINK, 'more'))
+    expect(result.current.pickerLink).toEqual(LINK)
+    expect(result.current.pickerOrigin).toBe('more')
+
+    act(() => result.current.closeCollectionPicker())
+    expect(result.current.pickerLink).toBeNull()
+
+    act(() => result.current.openCollectionPicker(LINK, 'menu'))
+    expect(result.current.pickerOrigin).toBe('menu')
+  })
+})

@@ -3,11 +3,13 @@
 import SwipeableCard from '@/components/SwipeableCard'
 import type { LinkWithTags } from '@/lib/services/links'
 import type { Category } from '@/lib/services/categories'
+import type { CardCollection } from '@/lib/services/collections'
 import type { CardImageState } from '@/lib/hooks/links/list/useCardImageRefresh'
 import { useTagNameLookup } from '@/lib/hooks/tags/useTagNameLookup'
 import { displayTitle } from '@/lib/utils/urlTitle'
 import { STATUS_CONFIG } from '../config'
 import { PencilIcon, SendToEndIcon, StarIcon, TrashIcon } from '@/components/icons'
+import CardCollections from './CardCollections'
 
 interface Props {
   link: LinkWithTags
@@ -25,6 +27,10 @@ interface Props {
   /** 'refreshing' shows a placeholder while a broken image is refetched; 'failed' drops the image. */
   imageState?: CardImageState
   onImageError?: () => void
+  /** The link's collections, most recently added first (SPEC 46). Only /dashboard passes it. */
+  collections?: CardCollection[]
+  /** Opens the collection picker from the "+N" button. */
+  onShowAllCollections?: () => void
 }
 
 // Action buttons sit above the stretched title link (z-10) one by one, so the
@@ -37,7 +43,7 @@ const ICON_SVG = 'h-5 w-5'
 
 export default function LinkCard({
   link, category, onMenuOpen, isMenuOpen = false, onFavoriteToggle, onEdit, onOpen, onDelete, onSendToEnd,
-  isLastOpened, pulse, imageState, onImageError,
+  isLastOpened, pulse, imageState, onImageError, collections, onShowAllCollections,
 }: Props) {
   const status = STATUS_CONFIG[link.status]
   const showImage = !!link.image_url && imageState !== 'failed'
@@ -126,6 +132,10 @@ export default function LinkCard({
           </div>
 
           <p className="line-clamp-2 flex-1 text-sm text-surface-500 dark:text-surface-400">{link.description}</p>
+
+          {collections && (
+            <CardCollections linkId={link.id} collections={collections} onShowAll={onShowAllCollections} />
+          )}
 
           <div className="relative z-10 flex flex-wrap items-center gap-1.5">
             <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${status.badge}`}>

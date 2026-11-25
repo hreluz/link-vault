@@ -1,7 +1,5 @@
 'use client'
 
-import { useState } from 'react'
-import type { LinkWithTags } from '@/lib/services/links'
 import CollectionPickerSheet from '@/components/CollectionPickerSheet'
 import { useCategoryList } from '@/lib/hooks/categories/useCategoryList'
 import { useAvailableTagsWithIds } from '@/lib/hooks/tags/useAvailableTags'
@@ -31,8 +29,20 @@ export default function LinkModals() {
     addToast,
     pendingCapture, setPendingCapture,
     autoFetchDefault,
+    pickerLink, pickerOrigin, openCollectionPicker, closeCollectionPicker,
+    applyMembershipChange,
   } = useLinkListContext()
-  const [pickerLink, setPickerLink] = useState<LinkWithTags | null>(null)
+
+  // useDialog returns focus to the opener while it's still in the page; this is
+  // the fallback. From "+N" that's "+N" (gone if unticks left 2 or fewer), else
+  // the card's ··· button, which is also where the ··· menu path lands (SPEC 46).
+  function pickerReturnTarget(): HTMLElement | null {
+    if (!pickerLink) return null
+    const card = document.querySelector(`[data-link-id="${CSS.escape(pickerLink.id)}"]`)
+    if (!card) return null
+    const more = pickerOrigin === 'more' ? card.querySelector<HTMLElement>('button[data-collections-more]') : null
+    return more ?? card.querySelector<HTMLElement>('button[aria-label="Link options"]')
+  }
 
   return (
     <>
@@ -74,13 +84,15 @@ export default function LinkModals() {
         link={activeLink}
         onStatusChange={handleStatusChange}
         onClose={() => setActiveLink(null)}
-        onAddToCollection={link => { setActiveLink(null); setPickerLink(link) }}
+        onAddToCollection={link => { setActiveLink(null); openCollectionPicker(link, 'menu') }}
       />
 
       <CollectionPickerSheet
         link={pickerLink}
-        onClose={() => setPickerLink(null)}
-        returnFocus={() => pickerLink && document.querySelector<HTMLElement>(`[data-link-id="${CSS.escape(pickerLink.id)}"] button[aria-label="Link options"]`)}
+        onClose={closeCollectionPicker}
+        onMembershipChange={(link, collectionId, isMember, membership) =>
+          applyMembershipChange(link.id, collectionId, isMember, membership)}
+        returnFocus={pickerReturnTarget}
       />
     </>
   )

@@ -43,6 +43,8 @@ function setContext(overrides: Record<string, unknown> = {}) {
     resetFilters: vi.fn(),
     imageStateById: {},
     handleImageError: vi.fn(),
+    collectionsFor: () => [],
+    openCollectionPicker: vi.fn(),
     ...overrides,
   })
 }
@@ -263,5 +265,26 @@ describe('LinkGrid restored card after undo', () => {
     expect(scrollIntoView).not.toHaveBeenCalled()
     expect(screen.queryByTestId('last-opened-pulse')).toBeNull()
     expect(clearRestoredLink).toHaveBeenCalledOnce()
+  })
+})
+
+describe('LinkGrid collection chips (SPEC 46)', () => {
+  it('passes each card its collections and opens the picker from +N', () => {
+    const openCollectionPicker = vi.fn()
+    const many = [
+      { id: 'c1', name: 'One', emoji: null }, { id: 'c2', name: 'Two', emoji: null }, { id: 'c3', name: 'Three', emoji: null },
+    ]
+    const collectionsFor = vi.fn((id: string) => id === 'a' ? many : [])
+    const a = link('a')
+    setContext({ links: [a, link('b')], collectionsFor, openCollectionPicker })
+    const { container } = render(<LinkGrid />)
+
+    const cardA = container.querySelector('[data-link-id="a"]')!
+    const cardB = container.querySelector('[data-link-id="b"]')!
+    expect(cardA.querySelectorAll('a[aria-label^="Open collection"]')).toHaveLength(2)
+    expect(cardB.querySelector('[data-testid="card-collections"]')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show all 3 collections' }))
+    expect(openCollectionPicker).toHaveBeenCalledExactlyOnceWith(a, 'more')
   })
 })

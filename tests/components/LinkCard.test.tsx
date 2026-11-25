@@ -302,3 +302,118 @@ describe('LinkCard favorite star', () => {
     expect(button.className).toContain('text-amber-400')
   })
 })
+
+// ── Collection chips (SPEC 46) ───────────────────────────────────────────────
+
+const FIVE = [
+  { id: 'c1', name: 'Q4 goals', emoji: '🎯' },
+  { id: 'c2', name: 'Distributed systems reading list', emoji: null },
+  { id: 'c3', name: 'Learn Rust', emoji: '📚' },
+  { id: 'c4', name: 'Watch later', emoji: null },
+  { id: 'c5', name: 'Systems', emoji: '🗂' },
+]
+
+describe('LinkCard collection chips', () => {
+  it('renders no row without the prop or with an empty array', () => {
+    const { unmount } = renderCard()
+    expect(screen.queryByTestId('card-collections')).toBeNull()
+    unmount()
+
+    renderCard({ collections: [] })
+    expect(screen.queryByTestId('card-collections')).toBeNull()
+  })
+
+  it('shows one chip per collection and no +N with 1 or 2 collections', () => {
+    const { unmount } = renderCard({ collections: FIVE.slice(0, 1) })
+    expect(screen.getAllByRole('link', { name: /^Open collection/ })).toHaveLength(1)
+    expect(screen.queryByRole('button', { name: /^Show all/ })).toBeNull()
+    unmount()
+
+    renderCard({ collections: FIVE.slice(0, 2) })
+    expect(screen.getAllByRole('link', { name: /^Open collection/ })).toHaveLength(2)
+    expect(screen.queryByRole('button', { name: /^Show all/ })).toBeNull()
+  })
+
+  it('shows the first 2 chips plus +3 with 5 collections', () => {
+    renderCard({ collections: FIVE })
+    const chips = screen.getAllByRole('link', { name: /^Open collection/ })
+    expect(chips.map(c => c.getAttribute('aria-label'))).toEqual([
+      'Open collection Q4 goals', 'Open collection Distributed systems reading list',
+    ])
+    const more = screen.getByRole('button', { name: 'Show all 5 collections' })
+    expect(more.textContent).toBe('+3')
+    expect(more.getAttribute('aria-haspopup')).toBe('dialog')
+    expect(more.getAttribute('data-collections-more')).toBe('1')
+  })
+
+  it('links each chip to its collection with the full name as title', () => {
+    renderCard({ collections: FIVE.slice(0, 2) })
+    const chip = screen.getByRole('link', { name: 'Open collection Distributed systems reading list' })
+    expect(chip.getAttribute('href')).toBe('/dashboard/organize/collections/c2')
+    expect(chip.getAttribute('title')).toBe('Distributed systems reading list')
+    expect(chip.className).toContain('relative z-10')
+    expect(chip.className).toContain('min-h-11')
+  })
+
+  it('shows the emoji, or the folder icon when there is none', () => {
+    renderCard({ collections: FIVE.slice(0, 2) })
+    const withEmoji = screen.getByRole('link', { name: 'Open collection Q4 goals' })
+    expect(withEmoji.textContent).toContain('🎯')
+    expect(withEmoji.querySelector('svg')).toBeNull()
+    const withoutEmoji = screen.getByRole('link', { name: 'Open collection Distributed systems reading list' })
+    expect(withoutEmoji.querySelector('svg')).not.toBeNull()
+  })
+
+  it('calls onShowAllCollections from +N, and a chip click does not call onOpen', () => {
+    const onShowAllCollections = vi.fn()
+    const onOpen = vi.fn()
+    renderCard({ collections: FIVE, onShowAllCollections, onOpen })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show all 5 collections' }))
+    expect(onShowAllCollections).toHaveBeenCalledTimes(1)
+
+    fireEvent.click(screen.getByRole('link', { name: 'Open collection Q4 goals' }))
+    expect(onOpen).not.toHaveBeenCalled()
+  })
+
+  it('places the chips after the title and before the status row', () => {
+    renderCard({ collections: FIVE, link: { ...LINK, tags: [] } })
+    const title = screen.getByRole('link', { name: 'Alpha Article' })
+    const row = screen.getByTestId('card-collections')
+    const status = screen.getByText('Read')
+    expect(title.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(row.compareDocumentPosition(status) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    const actions = screen.getByTestId('card-actions')
+    expect(row.compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('on a card swiped open, a chip click only closes the card and navigation is prevented', () => {
+    vi.useFakeTimers()
+    try {
+      const { container } = renderCard({ collections: FIVE, onDelete: vi.fn() })
+      const outer = container.lastElementChild as HTMLElement
+      const inner = outer.children[1] as HTMLElement
+      Object.defineProperty(inner, 'offsetWidth', { configurable: true, get: () => 300 })
+      const touch = (type: string, x: number) => {
+        const event = new Event(type, { bubbles: true, cancelable: true })
+        Object.defineProperty(event, 'touches', {
+          value: type === 'touchend' ? [] : [{ clientX: x, clientY: 0, identifier: 1, target: inner }],
+        })
+        act(() => { inner.dispatchEvent(event) })
+      }
+      touch('touchstart', 250)
+      touch('touchmove', 100)
+      touch('touchend', 100)
+      act(() => { vi.runAllTimers() })
+      expect(inner.style.transform).not.toBe('translateX(0px)')
+
+      const chip = screen.getByRole('link', { name: 'Open collection Q4 goals' })
+      const click = new MouseEvent('click', { bubbles: true, cancelable: true })
+      act(() => { chip.dispatchEvent(click) })
+      expect(click.defaultPrevented).toBe(true)
+      expect(inner.style.transform).toBe('translateX(0px)')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})

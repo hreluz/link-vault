@@ -119,6 +119,8 @@ describe('CollectionDetail', () => {
   it('shows the header, counts and the tab title', async () => {
     await renderPage()
     expect(screen.getByText('3 links · 1 done')).toBeTruthy()
+    // Collection chips are a /dashboard-only feature (SPEC 46).
+    expect(screen.queryByTestId('card-collections')).toBeNull()
     await waitFor(() => expect(document.title).toBe('Learn Rust — Link Vault'))
   })
 
