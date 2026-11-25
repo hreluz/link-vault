@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React, { useState } from 'react'
-import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
-import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import CollectionsField from '@/app/dashboard/link/LinkForm/CollectionsField'
 import { LinkFormContext, type LinkFormContextValue } from '@/app/dashboard/link/LinkFormContext'
 import { useDialog } from '@/lib/hooks/shared/useDialog'
@@ -18,7 +18,6 @@ import { getCollections } from '@/lib/services/collections'
 const col = (id: string, name: string): Collection =>
   ({ id, user_id: 'u1', name, emoji: null, description: null, created_at: 't', updated_at: 't' })
 
-afterEach(cleanup)
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(getCollections).mockResolvedValue([col('r', 'Learn Rust'), col('v', 'Rust videos'), col('g', 'Go')])

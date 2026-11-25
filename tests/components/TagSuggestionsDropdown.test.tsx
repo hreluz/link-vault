@@ -1,15 +1,11 @@
 // @vitest-environment jsdom
 import React from 'react'
-import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen } from '@testing-library/react'
 import TagSuggestionsDropdown from '@/components/TagSuggestionsDropdown'
 
 const HINT = 'bg-surface-50'
 const SELECTED = 'bg-primary-50'
-
-afterEach(() => {
-  cleanup()
-})
 
 function row(tag: string) {
   return screen.getByText(`#${tag}`)

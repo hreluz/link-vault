@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React, { useState } from 'react'
-import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
-import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import CollectionPickerSheet from '@/components/CollectionPickerSheet'
 import BottomSheet from '@/app/dashboard/link/BottomSheet'
 import type { Collection } from '@/lib/services/collections'
@@ -30,7 +30,6 @@ beforeEach(() => {
   vi.mocked(getCollections).mockResolvedValue([col('r', 'Learn Rust', '🎓'), col('v', 'Rust videos')])
   vi.mocked(getCollectionIdsForLink).mockResolvedValue(['r'])
 })
-afterEach(cleanup)
 
 function Harness() {
   const [open, setOpen] = useState(false)

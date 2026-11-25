@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, fireEvent, cleanup, act } from '@testing-library/react'
+import { render, fireEvent, act } from '@testing-library/react'
 import { useDialog } from '@/lib/hooks/shared/useDialog'
 
 interface HarnessProps {
@@ -47,7 +47,6 @@ function stubPointer(coarse: boolean) {
 
 describe('useDialog', () => {
   afterEach(() => {
-    cleanup()
     // jsdom has no matchMedia; don't leak a stub between tests.
     delete (window as { matchMedia?: unknown }).matchMedia
   })

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from 'react'
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import LinkPreferencesForm from '@/app/dashboard/config/link-preferences/LinkPreferencesForm'
 
 const { mockSave, mockToggle, mockReset, mockToastSuccess } = vi.hoisted(() => ({
@@ -22,8 +22,6 @@ beforeEach(() => {
   vi.clearAllMocks()
   mockSave.mockResolvedValue({ success: true })
 })
-
-afterEach(() => cleanup())
 
 function setup(seconds = 30) {
   render(<LinkPreferencesForm initialAutoFetchEnabled initialMoveToEndDelaySeconds={seconds} />)

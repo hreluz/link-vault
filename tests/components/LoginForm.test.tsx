@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from 'react'
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import LoginForm from '@/app/(auth)/login/LoginForm'
 
 const { mockLoginAction, mockUnlock, mockPush, mockParams } = vi.hoisted(() => ({
@@ -27,10 +27,6 @@ beforeEach(() => {
   for (const key of Array.from(mockParams.keys())) mockParams.delete(key)
   mockLoginAction.mockResolvedValue({ success: true })
   mockUnlock.mockResolvedValue({ status: 'unlocked', dek: {} })
-})
-
-afterEach(() => {
-  cleanup()
 })
 
 async function fillAndSubmit() {

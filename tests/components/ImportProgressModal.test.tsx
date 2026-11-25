@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, cleanup, act } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import ImportProgressModal, { formatTimeAgo } from '@/app/dashboard/config/import-export/ImportProgressModal'
 import type { ImportStats } from '@/lib/hooks/importExport/useLinkImport'
 
@@ -54,8 +54,6 @@ beforeEach(() => {
   writeText.mockResolvedValue(undefined)
   Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
 })
-
-afterEach(cleanup)
 
 describe('ImportProgressModal', () => {
   it('renders nothing when closed', () => {

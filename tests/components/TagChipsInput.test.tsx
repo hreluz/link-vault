@@ -1,16 +1,12 @@
 // @vitest-environment jsdom
 import React from 'react'
-import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, fireEvent, cleanup } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen, fireEvent } from '@testing-library/react'
 import TagChipsInput from '@/components/TagChipsInput'
 
 vi.mock('@/lib/hooks/tags/useAvailableTags', () => ({
   useAvailableTags: () => ['react', 'reading'],
 }))
-
-afterEach(() => {
-  cleanup()
-})
 
 describe('TagChipsInput', () => {
   it('adds a chip on comma and reports the comma-separated value', () => {

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, cleanup, act } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import ColorFamilyPicker from '@/app/dashboard/config/appearance/ColorFamilyPicker'
 import { PRESET_ACCENTS, isPresetAccent, checkAccentContrast } from '@/lib/utils/accentRamp'
 
@@ -25,7 +25,7 @@ function renderPicker(overrides: Partial<React.ComponentProps<typeof ColorFamily
 }
 
 beforeEach(() => vi.useFakeTimers())
-afterEach(() => { vi.useRealTimers(); cleanup() })
+afterEach(() => { vi.useRealTimers() })
 
 describe('ColorFamilyPicker', () => {
   it('renders the label, description, and one swatch per preset', () => {

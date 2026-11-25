@@ -1,15 +1,13 @@
 // @vitest-environment jsdom
 
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, cleanup, fireEvent, act } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import LinkCard from '@/app/dashboard/link/LinkCard'
 import type { LinkWithTags } from '@/lib/services/links'
 
 vi.mock('@/lib/context/TagsContext', () => ({
   useTagsContext: () => ({ tags: [], loading: false, refetchTags: vi.fn() }),
 }))
-
-afterEach(cleanup)
 
 const LINK: LinkWithTags = {
   id: '1', user_id: 'user-1', url: 'https://alpha.com', title: 'Alpha Article',

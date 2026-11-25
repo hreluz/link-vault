@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from 'react'
-import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
-import { render, screen, fireEvent, cleanup } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, fireEvent } from '@testing-library/react'
 import CollectionList from '@/app/dashboard/organize/collections/CollectionList'
 import { UnlockedTagsProvider } from '@/lib/context/UnlockedTagsContext'
 import { COLLECTION } from '../hooks/collections/fixtures'
@@ -30,7 +30,6 @@ beforeEach(() => {
     matches: true, media: query, addEventListener: vi.fn(), removeEventListener: vi.fn(),
   })) as unknown as typeof window.matchMedia
 })
-afterEach(cleanup)
 
 function renderList() {
   return render(<UnlockedTagsProvider><CollectionList /></UnlockedTagsProvider>)

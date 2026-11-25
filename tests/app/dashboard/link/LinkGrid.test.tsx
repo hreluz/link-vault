@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, cleanup, fireEvent, act } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import LinkGrid from '@/app/dashboard/link/LinkGrid'
 import type { LinkWithTags } from '@/lib/services/links'
 
@@ -59,7 +59,6 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  cleanup()
   vi.unstubAllGlobals()
 })
 

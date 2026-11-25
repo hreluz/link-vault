@@ -1,11 +1,9 @@
 // @vitest-environment jsdom
 
-import { describe, it, expect, afterEach } from 'vitest'
-import { render, cleanup } from '@testing-library/react'
+import { describe, it, expect } from 'vitest'
+import { render } from '@testing-library/react'
 import * as icons from '@/components/icons'
 import { Icon, StarIcon, TrashSolidIcon, ChevronDownIcon, RefreshIcon } from '@/components/icons'
-
-afterEach(cleanup)
 
 function svgOf(ui: React.ReactElement) {
   return render(ui).container.querySelector('svg')!
@@ -57,10 +55,11 @@ describe('icon components', () => {
 
 describe('StarIcon', () => {
   it('fills only when filled, with the same path and box either way', () => {
-    const outline = svgOf(<StarIcon />)
+    const first = render(<StarIcon />)
+    const outline = first.container.querySelector('svg')!
     const outlinePath = outline.querySelector('path')!.getAttribute('d')
     const outlineBox = outline.getAttribute('viewBox')
-    cleanup()
+    first.unmount()
     const filled = svgOf(<StarIcon filled />)
 
     expect(outline.getAttribute('fill')).toBe('none')

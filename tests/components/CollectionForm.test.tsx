@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from 'react'
-import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
-import { render, screen, fireEvent, cleanup } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, fireEvent } from '@testing-library/react'
 import CollectionForm, { DESCRIPTION_COUNTER_FROM } from '@/app/dashboard/organize/collections/CollectionForm'
 import CollectionRow from '@/app/dashboard/organize/collections/CollectionRow'
 import { COLLECTION } from '../hooks/collections/fixtures'
@@ -37,7 +37,6 @@ beforeEach(() => {
   theme.current = 'light'
   setPointer(true)
 })
-afterEach(cleanup)
 
 describe('CollectionForm', () => {
   it('has visible Name and Description labels', () => {
@@ -47,9 +46,9 @@ describe('CollectionForm', () => {
   })
 
   it('focuses the name with a fine pointer, but not on touch screens', () => {
-    render(<Harness />)
+    const { unmount } = render(<Harness />)
     expect(document.activeElement).toBe(screen.getByLabelText('Name'))
-    cleanup()
+    unmount()
     setPointer(false)
     render(<Harness />)
     expect(document.activeElement).not.toBe(screen.getByLabelText('Name'))

@@ -1,11 +1,9 @@
 // @vitest-environment jsdom
 // SPEC 35: ToastProvider toasts are announced, clickable ones are real buttons,
 // and the mobile stack sits above the bottom nav plus the safe-area inset.
-import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, fireEvent, cleanup, act } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import { ToastProvider, useToast } from '@/components/ToastProvider'
-
-afterEach(cleanup)
 
 function Trigger({ onClick }: { onClick?: () => void }) {
   const { addToast } = useToast()

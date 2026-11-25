@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import HeaderUndoButton from '@/app/dashboard/link/HeaderUndoButton'
 
 const mockUseLinkListContext = vi.fn()
@@ -34,7 +34,6 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  cleanup()
   document.querySelectorAll('[data-testid="slot"]').forEach(el => el.remove())
 })
 
