@@ -9,11 +9,12 @@ import type { MoveDirection } from '@/lib/hooks/collections/useCollectionOrder'
 import { useCategoryList } from '@/lib/hooks/categories/useCategoryList'
 import { useAvailableTags } from '@/lib/hooks/tags/useAvailableTags'
 import { scrollIntoViewIfHidden } from '@/lib/utils/scrollVisibility'
-import { PencilIcon, PlayIcon, TrashIcon } from '@/components/icons'
+import { ChevronLeftIcon, EllipsisHorizontalIcon, PlayIcon, PlusIcon } from '@/components/icons'
 import LoadErrorMessage from '@/components/LoadErrorMessage'
 import SearchBar from '@/components/SearchBar'
 import SearchNoMatch from '@/components/SearchNoMatch'
 import SearchResultCount from '@/components/SearchResultCount'
+import SkeletonRows from '@/components/SkeletonRows'
 import CollectionPickerSheet from '@/components/CollectionPickerSheet'
 import LinkCard from '@/app/dashboard/link/LinkCard'
 import BottomSheet from '@/app/dashboard/link/BottomSheet'
@@ -21,6 +22,7 @@ import EditLinkModal from '@/app/dashboard/link/EditLinkModal'
 import CollectionForm from '../CollectionForm'
 import CollectionLinkRowItem from './CollectionLinkRowItem'
 import AddLinksToCollectionSheet from './AddLinksToCollectionSheet'
+import CollectionOptionsSheet from './CollectionOptionsSheet'
 
 type FocusRequest =
   | { kind: 'row-action'; linkId: string; action: 'up' | 'down' | 'remove'; scroll: boolean }
@@ -47,12 +49,15 @@ export default function CollectionDetail({ collectionId }: { collectionId: strin
   const { categories } = useCategoryList()
   const availableTags = useAvailableTags()
   const [addLinksOpen, setAddLinksOpen] = useState(false)
+  const [optionsOpen, setOptionsOpen] = useState(false)
   const [announcement, setAnnouncement] = useState('')
   // Set by handlers; a tick re-runs the layout effect that applies it after the new order renders.
   const focusRequestRef = useRef<FocusRequest | null>(null)
   const [focusTick, setFocusTick] = useState(0)
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set())
   const addLinksButtonRef = useRef<HTMLButtonElement>(null)
+  const optionsButtonRef = useRef<HTMLButtonElement>(null)
+  const cancelDeleteRef = useRef<HTMLButtonElement>(null)
   const searchBoxRef = useRef<HTMLDivElement>(null)
   const searchInput = () => searchBoxRef.current?.querySelector<HTMLInputElement>('input') ?? null
 
@@ -60,6 +65,12 @@ export default function CollectionDetail({ collectionId }: { collectionId: strin
   useEffect(() => {
     if (collection) document.title = `${collection.name} — Link Vault`
   }, [collection])
+
+  // The delete confirm takes focus on its safe choice, Cancel.
+  const { confirmingDelete } = deleteFlow
+  useEffect(() => {
+    if (confirmingDelete) cancelDeleteRef.current?.focus()
+  }, [confirmingDelete])
 
   // Focus and scroll after a move / remove / add, once the new order has rendered.
   useLayoutEffect(() => {
@@ -92,7 +103,8 @@ export default function CollectionDetail({ collectionId }: { collectionId: strin
   if (loading) {
     return (
       <main className="mx-auto max-w-2xl px-4 py-8">
-        <p role="status" className="py-20 text-center text-sm text-surface-500 dark:text-surface-400">Loading collection…</p>
+        <BackLink />
+        <SkeletonRows count={3} variant="card" label="Loading collection…" header />
       </main>
     )
   }
@@ -156,6 +168,11 @@ export default function CollectionDetail({ collectionId }: { collectionId: strin
     if (id) requestFocus({ kind: 'scroll', linkId: id })
   }
 
+  function cancelDelete() {
+    deleteFlow.cancelDelete()
+    optionsButtonRef.current?.focus()
+  }
+
   function handleAdded(links: LinkWithTags[]) {
     if (links[0]) requestFocus({ kind: 'scroll', linkId: links[0].id })
   }
@@ -195,22 +212,33 @@ export default function CollectionDetail({ collectionId }: { collectionId: strin
               ref={addLinksButtonRef}
               onClick={() => setAddLinksOpen(true)}
               aria-haspopup="dialog"
+              aria-label="+ Add links"
               className={SECONDARY_BUTTON}
             >
-              + Add links
+              <PlusIcon className="h-4 w-4" />
+              Add links
             </button>
-            <button type="button" onClick={editForm.startEdit} className={SECONDARY_BUTTON}>
-              <PencilIcon className="h-4 w-4" />
-              Edit
-            </button>
-            <button type="button" onClick={deleteFlow.askDelete} className={SECONDARY_BUTTON}>
-              <TrashIcon className="h-4 w-4" />
-              Delete
+            <button
+              type="button"
+              ref={optionsButtonRef}
+              onClick={() => setOptionsOpen(true)}
+              aria-haspopup="dialog"
+              aria-expanded={optionsOpen}
+              aria-label="Collection options"
+              title="Collection options"
+              className={`${SECONDARY_BUTTON} ml-auto w-11 justify-center px-0`}
+            >
+              <EllipsisHorizontalIcon className="h-5 w-5" />
             </button>
           </div>
 
           {deleteFlow.confirmingDelete && (
-            <div role="group" aria-label="Delete collection" className="mt-4 rounded-2xl bg-red-50 p-4 dark:bg-red-950/40">
+            <div
+              role="group"
+              aria-label="Delete collection"
+              onKeyDown={e => { if (e.key === 'Escape') { e.preventDefault(); cancelDelete() } }}
+              className="mt-4 rounded-2xl bg-red-50 p-4 dark:bg-red-950/40"
+            >
               <p className="text-sm text-red-700 dark:text-red-300">
                 Delete &ldquo;{collection.name}&rdquo;? Its {linkCount} {linkCount === 1 ? 'link stays' : 'links stay'} saved.
               </p>
@@ -221,9 +249,9 @@ export default function CollectionDetail({ collectionId }: { collectionId: strin
                   disabled={deleteFlow.deleting}
                   className="focus-ring min-h-11 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Delete
+                  {deleteFlow.deleting ? 'Deleting…' : 'Delete'}
                 </button>
-                <button type="button" onClick={deleteFlow.cancelDelete} className={SECONDARY_BUTTON}>Cancel</button>
+                <button type="button" ref={cancelDeleteRef} onClick={cancelDelete} className={SECONDARY_BUTTON}>Cancel</button>
               </div>
             </div>
           )}
@@ -249,6 +277,15 @@ export default function CollectionDetail({ collectionId }: { collectionId: strin
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <div className="mb-4 text-4xl" aria-hidden="true">📭</div>
           <p className="text-surface-500 dark:text-surface-400">No links in this collection yet.</p>
+          <button
+            type="button"
+            onClick={() => setAddLinksOpen(true)}
+            aria-haspopup="dialog"
+            className={`${PRIMARY_BUTTON} mt-4`}
+          >
+            <PlusIcon className="h-4 w-4" />
+            Add links
+          </button>
         </div>
       ) : shownRows.length === 0 ? (
         <SearchNoMatch message={`No links match "${search.query.trim()}".`} onClear={clearSearchAndFocus} />
@@ -293,6 +330,15 @@ export default function CollectionDetail({ collectionId }: { collectionId: strin
         onClose={() => setAddLinksOpen(false)}
       />
 
+      <CollectionOptionsSheet
+        isOpen={optionsOpen}
+        collectionName={collection.name}
+        onEdit={editForm.startEdit}
+        onDelete={deleteFlow.askDelete}
+        onClose={() => setOptionsOpen(false)}
+        returnFocus={() => optionsButtonRef.current}
+      />
+
       <EditLinkModal
         key={detail.editingLink?.id}
         link={detail.editingLink}
@@ -327,7 +373,7 @@ function BackLink() {
       href="/dashboard/organize/collections"
       className="focus-ring -ml-2 mb-4 inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-sm font-medium text-surface-500 hover:text-surface-800 dark:text-surface-400 dark:hover:text-surface-100"
     >
-      <span aria-hidden="true">‹</span> Collections
+      <ChevronLeftIcon className="h-4 w-4" /> Collections
     </Link>
   )
 }

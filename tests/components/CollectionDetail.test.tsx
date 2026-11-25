@@ -215,8 +215,44 @@ describe('CollectionDetail', () => {
       makeLink('a'), makeLink('b', { deleted_at: '2026-02-01T00:00:00Z' }), makeLink('c'),
     ])
     await renderPage()
-    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Collection options' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Delete collection' }))
     expect(screen.getByText(/Delete “Learn Rust”\? Its 2 links stay saved\./)).toBeTruthy()
+  })
+
+  it('keeps Edit and Delete in the ··· options sheet, not the header row', async () => {
+    await renderPage()
+    expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull()
+    const options = screen.getByRole('button', { name: 'Collection options' })
+    expect(options.getAttribute('aria-haspopup')).toBe('dialog')
+    fireEvent.click(options)
+    expect(screen.getByRole('dialog', { name: 'Learn Rust' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Edit collection' }))
+    expect(screen.queryByRole('dialog', { name: 'Learn Rust' })).toBeNull()
+    expect(screen.getByText('Edit collection')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Save' })).toBeTruthy()
+  })
+
+  it('focuses Cancel in the delete confirm, and Escape closes it back to ···', async () => {
+    await renderPage()
+    const options = screen.getByRole('button', { name: 'Collection options' })
+    fireEvent.click(options)
+    fireEvent.click(screen.getByRole('button', { name: 'Delete collection' }))
+    const cancel = screen.getByRole('button', { name: 'Cancel' })
+    expect(document.activeElement).toBe(cancel)
+    fireEvent.keyDown(cancel, { key: 'Escape' })
+    expect(screen.queryByRole('group', { name: 'Delete collection' })).toBeNull()
+    expect(document.activeElement).toBe(options)
+  })
+
+  it('offers Add links on an empty collection', async () => {
+    vi.mocked(getCollectionMemberships).mockResolvedValue([])
+    await renderPage()
+    const add = screen.getByRole('button', { name: 'Add links' })
+    expect(add.getAttribute('aria-haspopup')).toBe('dialog')
+    fireEvent.click(add)
+    expect(screen.getByRole('button', { name: 'Add stub link' })).toBeTruthy()
   })
 })
 

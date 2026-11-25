@@ -123,7 +123,7 @@ describe('CollectionList search', () => {
     vi.mocked(createCollection).mockResolvedValue({ data: { ...COLLECTION, id: 'c4', name: 'Fresh' }, error: null })
     const input = await loaded()
     type(input, 'python')
-    fireEvent.click(screen.getByRole('button', { name: '+ New' }))
+    fireEvent.click(screen.getByRole('button', { name: 'New collection' }))
     fireEvent.change(screen.getByPlaceholderText('Collection name'), { target: { value: 'Fresh' } })
     fireEvent.click(screen.getByRole('button', { name: 'Add collection' }))
     await screen.findByText('Fresh')

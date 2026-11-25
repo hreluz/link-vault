@@ -11,7 +11,7 @@ SPEC 40 shipped collections with no way to find things inside them. A user with 
 
 Everything on both pages is already loaded and decrypted in memory, and there's no pagination. So both searches are pure client-side filters over data the page already holds. Nothing new is fetched or stored.
 
-Numbered 41 because it builds directly on SPEC 40. Collection chips + a Collection filter on `/dashboard` moved to SPEC 42, and collections in export/import to SPEC 43.
+Numbered 41 because it builds directly on SPEC 40. Collection chips + a Collection filter on `/dashboard` moved to SPEC 43, and collections in export/import to SPEC 44.
 
 ## Scope
 

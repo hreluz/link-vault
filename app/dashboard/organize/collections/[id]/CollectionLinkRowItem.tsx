@@ -1,7 +1,7 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { ChevronDownIcon, ChevronUpIcon } from '@/components/icons'
+import { ChevronDownIcon, ChevronUpIcon, XMarkIcon } from '@/components/icons'
 import type { MoveDirection } from '@/lib/hooks/collections/useCollectionOrder'
 
 const CONTROL =
@@ -64,7 +64,7 @@ export default function CollectionLinkRowItem({ linkId, number, isFirst, isLast,
             onClick={onRemove}
             className={`${CONTROL} hover:text-red-600 dark:hover:text-red-400`}
           >
-            <span aria-hidden="true">✕</span>
+            <XMarkIcon className="h-5 w-5" />
           </button>
         </div>
       </div>

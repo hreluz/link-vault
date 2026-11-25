@@ -3,10 +3,12 @@
 import { useRef } from 'react'
 import { useCollections } from '@/lib/hooks/collections/useCollections'
 import { descriptionMatches } from '@/lib/utils/collectionSearch'
+import { PlusIcon } from '@/components/icons'
 import LoadErrorMessage from '@/components/LoadErrorMessage'
 import SearchBar from '@/components/SearchBar'
 import SearchNoMatch from '@/components/SearchNoMatch'
 import SearchResultCount from '@/components/SearchResultCount'
+import SkeletonRows from '@/components/SkeletonRows'
 import CollectionForm from './CollectionForm'
 import CollectionRow from './CollectionRow'
 
@@ -42,9 +44,11 @@ export default function CollectionList() {
           <button
             type="button"
             onClick={openAdd}
-            className="focus-ring min-h-11 rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500"
+            aria-label="New collection"
+            className="focus-ring inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500"
           >
-            + New
+            <PlusIcon className="h-4 w-4" />
+            New
           </button>
         )}
       </div>
@@ -69,7 +73,7 @@ export default function CollectionList() {
       )}
 
       {loading ? (
-        <p role="status" className="py-20 text-center text-sm text-surface-500 dark:text-surface-400">Loading collections…</p>
+        <SkeletonRows count={4} variant="row" label="Loading collections…" />
       ) : loadError ? (
         <LoadErrorMessage message="Couldn't load your collections." onRetry={retry} className="py-20" />
       ) : collections.length === 0 ? (
@@ -80,8 +84,9 @@ export default function CollectionList() {
             <button
               type="button"
               onClick={openAdd}
-              className="focus-ring mt-4 min-h-11 rounded-xl bg-primary-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500"
+              className="focus-ring mt-4 inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-primary-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500"
             >
+              <PlusIcon className="h-4 w-4" />
               New collection
             </button>
           </div>
