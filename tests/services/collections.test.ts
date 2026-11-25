@@ -5,6 +5,7 @@ import {
   getCollectionMemberships, getCollectionIdsForLink, addLinksToCollection, removeLinkFromCollection,
   restoreMembership, swapCollectionLinkPositions, setLinkCollections, createPendingCollections,
   getCollectionCounts, countCollectionLinks, compareMemberships, formatCollectionCount,
+  getMembershipsForLinks,
 } from '@/lib/services/collections'
 
 // A chainable query-builder mock: every method records its call and returns the
@@ -295,5 +296,39 @@ describe('counts', () => {
     const a = { collection_id: 'c', link_id: 'a', position: 1, added_at: '2026-01-01T00:00:02Z' }
     const b = { collection_id: 'c', link_id: 'b', position: 1, added_at: '2026-01-01T00:00:01Z' }
     expect([a, b].sort(compareMemberships).map(r => r.link_id)).toEqual(['b', 'a'])
+  })
+})
+
+describe('getMembershipsForLinks', () => {
+  it('makes no request for an empty list', async () => {
+    expect(await getMembershipsForLinks([])).toEqual([])
+    expect(callsOf('collection_links')).toHaveLength(0)
+  })
+
+  it('queries collection_links by link id and returns the rows', async () => {
+    const rows = [{ collection_id: 'c1', link_id: 'l1', added_at: 't1' }]
+    queue('collection_links', { data: rows })
+    expect(await getMembershipsForLinks(['l1', 'l2'])).toEqual(rows)
+    expect(callsOf('collection_links', 'select')[0].args[0]).toBe('collection_id, link_id, added_at')
+    expect(callsOf('collection_links', 'in')[0].args).toEqual(['link_id', ['l1', 'l2']])
+  })
+
+  it('batches the ids 200 at a time and merges the results', async () => {
+    const ids = Array.from({ length: 450 }, (_, i) => `l${i}`)
+    queue('collection_links',
+      { data: [{ collection_id: 'c', link_id: 'l0', added_at: 't' }] },
+      { data: [{ collection_id: 'c', link_id: 'l200', added_at: 't' }] },
+      { data: [{ collection_id: 'c', link_id: 'l400', added_at: 't' }] },
+    )
+    const refs = await getMembershipsForLinks(ids)
+    const batches = callsOf('collection_links', 'in').map(c => (c.args[1] as string[]))
+    expect(batches.map(b => b.length)).toEqual([200, 200, 50])
+    expect(batches[1][0]).toBe('l200')
+    expect(refs.map(r => r.link_id)).toEqual(['l0', 'l200', 'l400'])
+  })
+
+  it('throws on a database error', async () => {
+    queue('collection_links', { error: { message: 'boom' } })
+    await expect(getMembershipsForLinks(['l1'])).rejects.toThrow('boom')
   })
 })

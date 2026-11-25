@@ -16,6 +16,7 @@ export default function LinkGrid() {
     hasMore, loadingMore, loadMore, loadError, retryLoad, refreshKey,
     activeLink, setActiveLink, setEditingLink, handleFavoriteToggle, handleLinkOpen, handleSendToEnd, lastOpenedId, handleDeleteById, resetFilters,
     imageStateById, handleImageError, restoredLinkId, clearRestoredLink, setModalOpen,
+    collectionsFor, openCollectionPicker,
   } = useLinkListContext()
   const { categories } = useCategoryList(refreshKey)
   // After a failed page the sentinel is replaced by Try again, so it stops firing until a retry.
@@ -143,6 +144,8 @@ export default function LinkGrid() {
             imageState={imageStateById[link.id]}
             onImageError={() => handleImageError(link.id)}
             onDelete={() => handleDeleteById(link.id)}
+            collections={collectionsFor(link.id)}
+            onShowAllCollections={() => openCollectionPicker(link, 'more')}
           />
         ))}
         {loadingMore && Array.from({ length: 3 }).map((_, i) => (

@@ -152,6 +152,33 @@ export async function getCollectionIdsForLink(linkId: string): Promise<string[]>
   return (data ?? []).map(row => row.collection_id)
 }
 
+/** One link's membership in one collection, as the dashboard card chips need it (SPEC 46). */
+export type LinkCollectionRef = { collection_id: string; link_id: string; added_at: string }
+/** What a dashboard card shows for one collection, already resolved and sorted (SPEC 46). */
+export type CardCollection = { id: string; name: string; emoji: string | null }
+
+export const MEMBERSHIP_BATCH_SIZE = 200
+
+/**
+ * Memberships of the given links, queried in batches of 200 ids. No request for
+ * an empty list. Throws on a database error.
+ */
+export async function getMembershipsForLinks(linkIds: string[]): Promise<LinkCollectionRef[]> {
+  if (linkIds.length === 0) return []
+  const supabase = createClient()
+  const refs: LinkCollectionRef[] = []
+  for (let i = 0; i < linkIds.length; i += MEMBERSHIP_BATCH_SIZE) {
+    const batch = linkIds.slice(i, i + MEMBERSHIP_BATCH_SIZE)
+    const { data, error } = await supabase
+      .from('collection_links')
+      .select('collection_id, link_id, added_at')
+      .in('link_id', batch)
+    if (error) throw new Error(`Failed to load link collections: ${error.message}`)
+    refs.push(...(data ?? []))
+  }
+  return refs
+}
+
 /**
  * Appends the links at the end of the collection, in the given order
  * (`max(position) + 1`, `+ 2`, ...). Returns the inserted rows, or null on failure.

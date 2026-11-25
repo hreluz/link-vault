@@ -53,6 +53,11 @@ vi.mock('@/lib/services/links', () => ({
   updateLinkStatus: vi.fn().mockResolvedValue(true),
 }))
 
+vi.mock('@/lib/services/collections', () => ({
+  getCollections: vi.fn().mockResolvedValue([]),
+  getMembershipsForLinks: vi.fn().mockResolvedValue([]),
+}))
+
 vi.mock('@/lib/services/tags/tags', () => ({
   getPrivateTagIds: vi.fn(),
   isTagVisible: (isPrivate: boolean, id: string, unlockedTagIds: Set<string>) =>
@@ -68,11 +73,17 @@ vi.mock('@/lib/context/TagsContext', () => ({
   useTagsContext: () => ({ tags: [], loading: false, refetchTags: mockRefetchTags }),
 }))
 
+// One key for the whole run, like the real VaultContext (a new object per render
+// would look like a vault change on every render).
+const { STABLE_DEK } = vi.hoisted(() => ({ STABLE_DEK: {} as CryptoKey }))
 vi.mock('@/lib/context/VaultContext', () => ({
-  useVault: () => ({ dek: {} as CryptoKey, isUnlocked: true, unlock: vi.fn(), changePassword: vi.fn(), lock: vi.fn() }),
+  useVault: () => ({ dek: STABLE_DEK, isUnlocked: true, unlock: vi.fn(), changePassword: vi.fn(), lock: vi.fn() }),
 }))
 
 import { getLinksPage, markLinkMovedToEnd } from '@/lib/services/links'
+import { getCollections, getMembershipsForLinks } from '@/lib/services/collections'
+const mockGetCollections = vi.mocked(getCollections)
+const mockGetMembershipsForLinks = vi.mocked(getMembershipsForLinks)
 import { getPrivateTagIds } from '@/lib/services/tags/tags'
 const mockGetLinksPage = vi.mocked(getLinksPage)
 const mockMarkLinkMovedToEnd = vi.mocked(markLinkMovedToEnd)
@@ -89,6 +100,8 @@ beforeEach(() => {
   vi.clearAllMocks()
   mockGetLinksPage.mockImplementation(async params => fakeSearchLinks(params))
   mockGetPrivateTagIds.mockResolvedValue([])
+  mockGetCollections.mockResolvedValue([])
+  mockGetMembershipsForLinks.mockResolvedValue([])
   mockUseUnlockedTags.mockReturnValue({ unlockedTagIds: new Set(), unlockTag: vi.fn(), lockTag: vi.fn(), lockAll: vi.fn() })
 })
 
@@ -715,5 +728,56 @@ describe('useLinkList (integration)', () => {
       expect(unlocked.lockTag).not.toHaveBeenCalled()
       expect(unlocked.unlockedTagIds).toEqual(new Set(['secret']))
     })
+  })
+})
+
+describe('useLinkList collection chips (SPEC 46)', () => {
+  const COLLECTION = {
+    id: 'c1', name: 'Learn Rust', emoji: '📚', description: null, user_id: 'user-1',
+    created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+  }
+
+  it('fetches memberships for the loaded links and resolves them per card', async () => {
+    mockGetCollections.mockResolvedValue([COLLECTION])
+    mockGetMembershipsForLinks.mockResolvedValue([{ collection_id: 'c1', link_id: '1', added_at: '2026-01-01T00:00:00Z' }])
+    const { result } = await renderLoaded()
+    await waitFor(() => expect(result.current.collectionsFor('1')).toEqual([{ id: 'c1', name: 'Learn Rust', emoji: '📚' }]))
+    expect(mockGetMembershipsForLinks).toHaveBeenCalledWith(['1', '2', '3'])
+    expect(result.current.collectionsFor('2')).toEqual([])
+  })
+
+  it('a picker tick (applyMembershipChange) updates the card chips', async () => {
+    mockGetCollections.mockResolvedValue([COLLECTION])
+    const { result } = await renderLoaded()
+    await waitFor(() => expect(mockGetCollections).toHaveBeenCalled())
+    await waitFor(() => expect(mockGetMembershipsForLinks).toHaveBeenCalled())
+
+    act(() => result.current.applyMembershipChange('2', 'c1', true, {
+      collection_id: 'c1', link_id: '2', position: 1, added_at: '2026-02-01T00:00:00Z',
+    }))
+    await waitFor(() => expect(result.current.collectionsFor('2').map(c => c.id)).toEqual(['c1']))
+
+    act(() => result.current.applyMembershipChange('2', 'c1', false))
+    expect(result.current.collectionsFor('2')).toEqual([])
+  })
+
+  it('handleEdit reloads the link\'s collections only when they changed', async () => {
+    const { result } = await renderLoaded()
+    await waitFor(() => expect(mockGetMembershipsForLinks).toHaveBeenCalledTimes(1))
+
+    act(() => result.current.handleEdit({ ...LINK_A, title: 'Same collections' }, null))
+    expect(mockGetMembershipsForLinks).toHaveBeenCalledTimes(1)
+
+    act(() => result.current.handleEdit({ ...LINK_A, title: 'New collections' }, ['c1']))
+    expect(mockGetMembershipsForLinks).toHaveBeenCalledTimes(2)
+    expect(mockGetMembershipsForLinks).toHaveBeenLastCalledWith(['1'])
+  })
+
+  it('handleCreate reloads the new link\'s collections', async () => {
+    const { result } = await renderLoaded()
+    await waitFor(() => expect(mockGetMembershipsForLinks).toHaveBeenCalledTimes(1))
+
+    act(() => result.current.handleCreate({ ...LINK_A, id: '99', title: 'Brand New' }))
+    await waitFor(() => expect(mockGetMembershipsForLinks).toHaveBeenCalledWith(['99']))
   })
 })
