@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, act, within } from '@testing-library/react'
+import { render, screen, fireEvent, act, within, waitFor } from '@testing-library/react'
 import CollectionDetail from '@/app/dashboard/organize/collections/[id]/CollectionDetail'
 import { COLLECTION, makeLink } from '../hooks/collections/fixtures'
 
@@ -119,7 +119,7 @@ describe('CollectionDetail', () => {
   it('shows the header, counts and the tab title', async () => {
     await renderPage()
     expect(screen.getByText('3 links · 1 done')).toBeTruthy()
-    expect(document.title).toBe('Learn Rust — Link Vault')
+    await waitFor(() => expect(document.title).toBe('Learn Rust — Link Vault'))
   })
 
   it('disables ▲ on the first row and ▼ on the last', async () => {

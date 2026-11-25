@@ -62,7 +62,7 @@ export default function CollectionDetail({ collectionId }: { collectionId: strin
   const searchInput = () => searchBoxRef.current?.querySelector<HTMLInputElement>('input') ?? null
 
   // The name is encrypted, so the server title is generic; swap in the real one.
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (collection) document.title = `${collection.name} — Link Vault`
   }, [collection])
 
