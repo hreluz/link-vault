@@ -877,9 +877,18 @@ describe('importLinks', () => {
       expect(onProgress.mock.calls.map(call => call[2])).toEqual([
         { url: 'https://example.com', status: 'imported', metaMissing: false, id: '1', isFavorite: false },
         { url: 'not-a-url', status: 'failed', reason: 'invalid_url' },
-        { url: 'https://dup.com', status: 'duplicate' },
+        { url: 'https://dup.com', status: 'duplicate', id: 'existing-id' },
         { url: 'https://github.com', status: 'failed', reason: 'save_error' },
       ])
+    })
+
+    it('reports the existing link id on a duplicate outcome', async () => {
+      mockDupCheck.mockResolvedValueOnce({ data: [{ id: 'existing-id' }] })
+      const onProgress = vi.fn()
+
+      await importLinks([{ url: 'https://dup.com' }], null, dek, { onProgress })
+
+      expect(onProgress.mock.calls[0][2]).toEqual({ url: 'https://dup.com', status: 'duplicate', id: 'existing-id' })
     })
 
     it('reports metaMissing on the imported outcome when the fetch comes back empty', async () => {

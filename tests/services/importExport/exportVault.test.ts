@@ -8,7 +8,10 @@ import type { CategoryDomain } from '@/lib/services/category-domains'
 const {
   mockGetLinks, mockGetCategories, mockGetAllCategoryDomains, mockGetTags,
   mockGetAutoFetchPreference, mockGetAccentColors, mockGetSurfaceFamily, mockGetThemeMode, mockGetMoveToEndDelay,
+  mockGetCollections, mockGetCollectionMemberships,
 } = vi.hoisted(() => ({
+  mockGetCollections: vi.fn(),
+  mockGetCollectionMemberships: vi.fn(),
   mockGetLinks: vi.fn(),
   mockGetCategories: vi.fn(),
   mockGetAllCategoryDomains: vi.fn(),
@@ -23,6 +26,10 @@ const {
 vi.mock('@/lib/supabase/client', () => ({ createClient: vi.fn(() => ({})) }))
 vi.mock('@/lib/services/links', () => ({ getLinks: mockGetLinks }))
 vi.mock('@/lib/services/categories', () => ({ getCategories: mockGetCategories }))
+vi.mock('@/lib/services/collections', () => ({
+  getCollections: mockGetCollections,
+  getCollectionMemberships: mockGetCollectionMemberships,
+}))
 vi.mock('@/lib/services/category-domains', () => ({ getAllCategoryDomains: mockGetAllCategoryDomains }))
 vi.mock('@/lib/services/userPreferences', () => ({
   getAutoFetchPreference: mockGetAutoFetchPreference,
@@ -69,6 +76,8 @@ beforeEach(() => {
   mockGetAccentColors.mockResolvedValue({ light: 'indigo', dark: 'violet' })
   mockGetSurfaceFamily.mockResolvedValue('slate')
   mockGetThemeMode.mockResolvedValue('dark')
+  mockGetCollections.mockResolvedValue([])
+  mockGetCollectionMemberships.mockResolvedValue([])
 })
 
 describe('buildVaultExport', () => {
@@ -203,6 +212,95 @@ describe('buildVaultExport', () => {
       const { data } = await buildVaultExport('everything', FAKE_DEK, new Set(['secret']), new Set(['secret']))
 
       expect(data.tags).toEqual([{ name: 'secret', color: null, is_private: true }])
+    })
+  })
+
+  describe('collections ("everything" mode)', () => {
+    function makeCollection(id: string, name: string, extra: Record<string, unknown> = {}) {
+      return { id, user_id: 'u1', name, emoji: null, description: null, created_at: '', updated_at: '', ...extra }
+    }
+    function membership(collectionId: string, linkId: string, position: number) {
+      return { collection_id: collectionId, link_id: linkId, position, added_at: '2026-01-01T00:00:00Z' }
+    }
+    function setMemberships(byCollection: Record<string, ReturnType<typeof membership>[]>) {
+      mockGetCollectionMemberships.mockImplementation(async (id: string) => byCollection[id] ?? [])
+    }
+    const LINKS = [
+      makeLink({ id: 'l1', url: 'https://one.example' }),
+      makeLink({ id: 'l2', url: 'https://two.example' }),
+      makeLink({ id: 'l3', url: 'https://three.example' }),
+    ]
+
+    it('lists every collection in getCollections order, with its style fields', async () => {
+      mockGetLinks.mockResolvedValue(LINKS)
+      mockGetCollections.mockResolvedValue([
+        makeCollection('c2', 'Newer', { emoji: '🦀', description: 'Systems' }),
+        makeCollection('c1', 'Older'),
+      ])
+      setMemberships({ c2: [membership('c2', 'l1', 1)], c1: [membership('c1', 'l2', 1)] })
+
+      const { data } = await buildVaultExport('everything', FAKE_DEK, new Set(), new Set())
+
+      expect(data.collections).toEqual([
+        { name: 'Newer', emoji: '🦀', description: 'Systems', links: ['https://one.example'] },
+        { name: 'Older', emoji: null, description: null, links: ['https://two.example'] },
+      ])
+    })
+
+    it('lists member URLs in the order getCollectionMemberships returns (position order)', async () => {
+      mockGetLinks.mockResolvedValue(LINKS)
+      mockGetCollections.mockResolvedValue([makeCollection('c1', 'Mixed')])
+      setMemberships({ c1: [membership('c1', 'l3', 1), membership('c1', 'l1', 2), membership('c1', 'l2', 3)] })
+
+      const { data } = await buildVaultExport('everything', FAKE_DEK, new Set(), new Set())
+
+      expect(data.collections?.[0].links).toEqual(['https://three.example', 'https://one.example', 'https://two.example'])
+    })
+
+    it('exports an empty collection with links: []', async () => {
+      mockGetCollections.mockResolvedValue([makeCollection('c1', 'Empty')])
+
+      const { data } = await buildVaultExport('everything', FAKE_DEK, new Set(), new Set())
+
+      expect(data.collections).toEqual([{ name: 'Empty', emoji: null, description: null, links: [] }])
+    })
+
+    it('leaves out a member that is in Trash (not returned by getLinks)', async () => {
+      mockGetLinks.mockResolvedValue([LINKS[0]])
+      mockGetCollections.mockResolvedValue([makeCollection('c1', 'Some')])
+      setMemberships({ c1: [membership('c1', 'l1', 1), membership('c1', 'trashed', 2)] })
+
+      const { data } = await buildVaultExport('everything', FAKE_DEK, new Set(), new Set())
+
+      expect(data.collections?.[0].links).toEqual(['https://one.example'])
+    })
+
+    it('leaves out a member with a locked private tag, and lists it once unlocked', async () => {
+      mockGetLinks.mockResolvedValue([LINKS[0], makeLink({ id: 'l2', url: 'https://two.example', tags: ['secret'] })])
+      mockGetCollections.mockResolvedValue([makeCollection('c1', 'Some')])
+      setMemberships({ c1: [membership('c1', 'l1', 1), membership('c1', 'l2', 2)] })
+
+      const locked = await buildVaultExport('everything', FAKE_DEK, new Set(), new Set(['secret']))
+      expect(locked.data.collections?.[0].links).toEqual(['https://one.example'])
+
+      const unlocked = await buildVaultExport('everything', FAKE_DEK, new Set(['secret']), new Set(['secret']))
+      expect(unlocked.data.collections?.[0].links).toEqual(['https://one.example', 'https://two.example'])
+    })
+
+    it('still exports a collection whose members are all left out, with links: []', async () => {
+      mockGetCollections.mockResolvedValue([makeCollection('c1', 'Hidden')])
+      setMemberships({ c1: [membership('c1', 'gone', 1)] })
+
+      const { data } = await buildVaultExport('everything', FAKE_DEK, new Set(), new Set())
+
+      expect(data.collections).toEqual([{ name: 'Hidden', emoji: null, description: null, links: [] }])
+    })
+
+    it('has no collections key in "links" mode and never loads collections', async () => {
+      const { data } = await buildVaultExport('links', FAKE_DEK, new Set(), new Set())
+
+      expect(data).not.toHaveProperty('collections')
+      expect(mockGetCollections).not.toHaveBeenCalled()
     })
   })
 })

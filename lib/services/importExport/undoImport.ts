@@ -25,6 +25,21 @@ export async function deleteImportedLinks(ids: string[]): Promise<number | null>
   return deleted
 }
 
+/** Hard-deletes the collections an import run created, in batches of 200, whether or not they
+ *  still hold links (their `collection_links` rows go through the FK cascade; the links stay).
+ *  Returns how many were deleted, or null on failure. Ids that are already gone count as 0,
+ *  so calling it again after a failure is safe. */
+export async function deleteImportedCollections(ids: string[]): Promise<number | null> {
+  const supabase = createClient()
+  let deleted = 0
+  for (const batch of batches(ids)) {
+    const { data, error } = await supabase.from('collections').delete().in('id', batch).select('id')
+    if (error) return null
+    deleted += data?.length ?? 0
+  }
+  return deleted
+}
+
 /** The subset of `ids` that `fetchBatch` still finds referenced; null on failure. */
 async function referencedIds(
   ids: string[],

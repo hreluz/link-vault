@@ -115,6 +115,12 @@ function btn(name: string) {
 
 describe('ImportExportClient', () => {
   describe('initial rendering', () => {
+    it('mentions collections in the Everything export description', () => {
+      render(<ImportExportClient />)
+
+      expect(screen.getByText(/tag colors and privacy, collections, and appearance settings/)).toBeTruthy()
+    })
+
     it('shows the Paste URLs tab as active by default', () => {
       render(<ImportExportClient />)
 

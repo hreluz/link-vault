@@ -24,6 +24,7 @@ const PHASE_TEXT: Record<VaultImportPhase, string> = {
   domains: 'Adding domain rules',
   tags: 'Creating tags',
   links: 'Importing links',
+  collections: 'Restoring collections',
   preferences: 'Applying appearance settings',
 }
 
@@ -184,9 +185,11 @@ const DANGER_BUTTON =
   'rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 disabled:cursor-not-allowed disabled:opacity-60'
 
 export interface ImportUndoProps {
-  /** Links this run saved; the section is hidden when 0. */
+  /** Links this run saved; with `collectionCount`, the section is hidden when both are 0. */
   linkCount: number
   favoriteCount: number
+  /** Collections this run created; Undo deletes them too. */
+  collectionCount: number
   state: ImportUndoState
   onRequest: () => void
   onCancel: () => void
@@ -197,15 +200,21 @@ export interface ImportUndoProps {
   onRetryCleanup: () => void
 }
 
-function removedText(tags: number, categories: number) {
+/** `a`, `a and b`, `a, b and c`. */
+function joinList(parts: string[]) {
+  return parts.length <= 1 ? parts.join('') : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`
+}
+
+function removedText(collections: number, tags: number, categories: number) {
   const parts: string[] = []
+  if (collections > 0) parts.push(plural(collections, 'collection'))
   if (tags > 0) parts.push(plural(tags, 'unused tag'))
   if (categories > 0) parts.push(plural(categories, 'unused category', 'unused categories'))
-  return parts.length > 0 ? `Removed ${parts.join(' and ')}.` : null
+  return parts.length > 0 ? `Removed ${joinList(parts)}.` : null
 }
 
 /** "Undo this import": a two-step, permanent delete of what the run saved, shown in the summary. */
-function ImportUndoSection({ linkCount, favoriteCount, state, onRequest, onCancel, onConfirm, onRetry, onRetryCleanup }: ImportUndoProps) {
+function ImportUndoSection({ linkCount, favoriteCount, collectionCount, state, onRequest, onCancel, onConfirm, onRetry, onRetryCleanup }: ImportUndoProps) {
   const keepRef = useRef<HTMLButtonElement>(null)
   // Keep takes focus, so a stray Enter on the confirm step never deletes.
   useEffect(() => {
@@ -224,9 +233,13 @@ function ImportUndoSection({ linkCount, favoriteCount, state, onRequest, onCance
         <section aria-labelledby="import-undo-heading" className="flex flex-col gap-3">
           <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
             <p id="import-undo-heading" className="font-medium">
-              Permanently delete {plural(linkCount, 'imported link')}? This can&apos;t be undone.
+              Permanently delete {linkCount > 0 ? plural(linkCount, 'imported link') : plural(collectionCount, 'imported collection')}?
+              {' '}This can&apos;t be undone.
             </p>
             {favoriteCount > 0 && <p className="mt-1">Includes {plural(favoriteCount, 'favorite')}.</p>}
+            {linkCount > 0 && collectionCount > 0 && (
+              <p className="mt-1">Also deletes {plural(collectionCount, 'collection')} it created.</p>
+            )}
           </div>
           <div className="flex gap-3">
             <button type="button" onClick={onConfirm} className={`flex-1 ${DANGER_BUTTON}`}>
@@ -245,10 +258,12 @@ function ImportUndoSection({ linkCount, favoriteCount, state, onRequest, onCance
         </button>
       )
     case 'done': {
-      const removed = removedText(state.tags, state.categories)
+      const removed = removedText(state.collections, state.tags, state.categories)
+      // A collections-only undo deleted no links, so it leads with what it removed.
+      const parts = [state.deleted > 0 ? `${plural(state.deleted, 'link')} deleted.` : null, removed].filter(Boolean)
       return (
         <p role="status" className="text-sm text-surface-600 dark:text-surface-300">
-          {plural(state.deleted, 'link')} deleted.{removed && <> {removed}</>}
+          {parts.join(' ')}
         </p>
       )
     }
@@ -413,9 +428,11 @@ export default function ImportProgressModal({
   if (result?.categoriesCreated) created.push(plural(result.categoriesCreated, 'category', 'categories'))
   if (result?.tagsCreated) created.push(plural(result.tagsCreated, 'tag'))
   if (result?.domainsCreated) created.push(plural(result.domainsCreated, 'domain rule'))
+  if (result?.collectionsCreated) created.push(plural(result.collectionsCreated, 'collection'))
 
   const notApplied: string[] = []
   if (result?.domainsFailed) notApplied.push(plural(result.domainsFailed, 'domain rule'))
+  if (result?.collectionsFailed) notApplied.push(plural(result.collectionsFailed, 'collection'))
   if (result?.preferencesFailed?.length) notApplied.push(plural(result.preferencesFailed.length, 'appearance setting'))
 
   async function copyUrls(urls: string[], errorMessage: string) {
@@ -591,7 +608,7 @@ export default function ImportProgressModal({
             </button>
           )}
 
-          {!running && undo && undo.linkCount > 0 && <ImportUndoSection {...undo} />}
+          {!running && undo && (undo.linkCount > 0 || undo.collectionCount > 0) && <ImportUndoSection {...undo} />}
 
           {!running && (
             <div className={stackCopyButtons ? 'flex flex-col gap-3' : 'flex gap-3'}>

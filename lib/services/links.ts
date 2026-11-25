@@ -429,13 +429,16 @@ export type ImportResult = {
   retryable: ImportLinkInput[]
 }
 
+/** What an import run can create besides links, reported through `onCreate` so Undo can remove it. */
+export type ImportCreateKind = 'tag' | 'category' | 'collection'
+
 export type ImportFailureReason = 'invalid_url' | 'save_error'
 export type ImportFailure = { url: string; reason: ImportFailureReason }
 
 /** What happened to a single import row, reported through `importLinks`'s `onProgress`. */
 export type ImportRowOutcome =
   | { url: string; status: 'imported'; metaMissing: boolean; id: string; isFavorite: boolean }
-  | { url: string; status: 'duplicate' }
+  | { url: string; status: 'duplicate'; id: string }
   | { url: string; status: 'failed'; reason: ImportFailureReason }
   | { url: string; status: 'skipped_generic' }
 
@@ -479,8 +482,9 @@ export type ImportLinksOptions = {
   onFetching?: (fetching: ImportFetching | null) => void
   /** Save the URL's path (or hostname) as the title when a row ends up with none. Off for v2 restores. */
   titleFromUrl?: boolean
-  /** Called once for each tag or category this run creates (not for existing matches). */
-  onCreate?: (kind: 'tag' | 'category', id: string) => void
+  /** Called once for each tag or category this run creates (not for existing matches).
+   *  `'collection'` is only reported by `importVaultExport`'s collections phase. */
+  onCreate?: (kind: ImportCreateKind, id: string) => void
   /** Set when re-running rows from a previous `retryable`: `metaTried` rows skip the fetch,
    *  and rows left unprocessed by a cancel go back into `retryable`. */
   retry?: boolean
@@ -623,7 +627,7 @@ export async function importLinks(
       const existingId = await findLinkIdByUrl(trimmedUrl, dek)
       if (existingId) {
         duplicates++
-        outcome = { url: trimmedUrl, status: 'duplicate' }
+        outcome = { url: trimmedUrl, status: 'duplicate', id: existingId }
         continue
       }
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { deleteImportedLinks, removeUnusedImportCreations } from '@/lib/services/importExport/undoImport'
+import { deleteImportedCollections, deleteImportedLinks, removeUnusedImportCreations } from '@/lib/services/importExport/undoImport'
 
 const { mockFrom, deleteCalls, selectCalls, deleteResult, selectResult } = vi.hoisted(() => {
   const deleteCalls: Array<{ table: string; ids: string[] }> = []
@@ -123,5 +123,29 @@ describe('removeUnusedImportCreations', () => {
     await removeUnusedImportCreations({ tagIds: ids(250, 't'), categoryIds: [] })
 
     expect(selectCalls.map(c => c.ids.length)).toEqual([200, 50])
+  })
+})
+
+describe('deleteImportedCollections', () => {
+  it('makes no request for an empty list and returns 0', async () => {
+    expect(await deleteImportedCollections([])).toBe(0)
+    expect(deleteCalls).toEqual([])
+  })
+
+  it('deletes the collections in batches of 200 and returns the summed count', async () => {
+    const result = await deleteImportedCollections(ids(450, 'c'))
+
+    expect(result).toBe(450)
+    expect(deleteCalls.map(c => [c.table, c.ids.length])).toEqual([['collections', 200], ['collections', 200], ['collections', 50]])
+  })
+
+  it('returns null when a batch fails', async () => {
+    deleteResult.fn = () => ({ data: null as unknown as { id: string }[], error: { message: 'boom' } })
+    expect(await deleteImportedCollections(['c1'])).toBeNull()
+  })
+
+  it('counts ids that are already gone as 0, not as an error', async () => {
+    deleteResult.fn = () => ({ data: [], error: null })
+    expect(await deleteImportedCollections(['gone'])).toBe(0)
   })
 })

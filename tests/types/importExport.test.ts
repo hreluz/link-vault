@@ -179,3 +179,61 @@ describe('getVaultExportValidationError', () => {
     expect(getVaultExportValidationError(data)).toMatch(/auto_fetch_enabled/i)
   })
 })
+
+describe('getVaultExportValidationError — collections', () => {
+  const COLLECTION = { name: 'Learn Rust', emoji: '🦀', description: 'Systems', links: ['https://example.com'] }
+  const withCollections = (collections: unknown) => makeExport({ mode: 'everything', collections })
+  const NAME_ERROR = 'Invalid export file: a collection has an invalid name.'
+  const FIELD_ERROR = 'Invalid export file: a collection has an invalid field.'
+  const LINKS_ERROR = 'Invalid export file: a collection has invalid links.'
+
+  it('accepts valid collections, with and without emoji/description, and with empty links', () => {
+    const data = withCollections([
+      COLLECTION,
+      { name: 'Plain', emoji: null, description: null, links: [] },
+    ])
+    expect(getVaultExportValidationError(data)).toBeNull()
+  })
+
+  it('accepts a v2 file without collections', () => {
+    expect(getVaultExportValidationError(makeExport({ mode: 'everything' }))).toBeNull()
+  })
+
+  it('rejects collections that is not a list', () => {
+    expect(getVaultExportValidationError(withCollections({}))).toBe('Invalid export file: "collections" must be a list.')
+  })
+
+  it.each([
+    ['not an object', 'Learn Rust'],
+    ['no name', { emoji: null, description: null, links: [] }],
+    ['a non-string name', { ...COLLECTION, name: 42 }],
+    ['a whitespace-only name', { ...COLLECTION, name: '   ' }],
+    ['a 61-character name', { ...COLLECTION, name: 'a'.repeat(61) }],
+  ])('rejects an entry with %s', (_label, entry) => {
+    expect(getVaultExportValidationError(withCollections([entry]))).toBe(NAME_ERROR)
+  })
+
+  it('accepts a 60-character name', () => {
+    expect(getVaultExportValidationError(withCollections([{ ...COLLECTION, name: 'a'.repeat(60) }]))).toBeNull()
+  })
+
+  it.each([
+    ['a non-string emoji', { ...COLLECTION, emoji: 1 }],
+    ['a non-string description', { ...COLLECTION, description: 1 }],
+    ['a 201-character description', { ...COLLECTION, description: 'a'.repeat(201) }],
+  ])('rejects an entry with %s', (_label, entry) => {
+    expect(getVaultExportValidationError(withCollections([entry]))).toBe(FIELD_ERROR)
+  })
+
+  it('accepts a 200-character description', () => {
+    expect(getVaultExportValidationError(withCollections([{ ...COLLECTION, description: 'a'.repeat(200) }]))).toBeNull()
+  })
+
+  it.each([
+    ['missing links', { name: 'X', emoji: null, description: null }],
+    ['links that is not a list', { ...COLLECTION, links: 'https://example.com' }],
+    ['links holding a non-string', { ...COLLECTION, links: ['https://example.com', 3] }],
+  ])('rejects an entry with %s', (_label, entry) => {
+    expect(getVaultExportValidationError(withCollections([entry]))).toBe(LINKS_ERROR)
+  })
+})
