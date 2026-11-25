@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 // SPEC 34: touch targets, focus ring and ARIA state on /dashboard controls.
 import React from 'react'
-import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, fireEvent, cleanup } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { StatusTabBar } from '@/app/dashboard/link/StatusTabBar'
 import FavoritesToggle from '@/app/dashboard/link/FavoritesToggle'
 import DashboardNav from '@/app/dashboard/DashboardNav'
@@ -30,8 +30,6 @@ vi.mock('next/link', () => ({
 vi.mock('@/lib/hooks/shared/useScrollToTop', () => ({
   useScrollToTop: () => vi.fn(),
 }))
-
-afterEach(cleanup)
 
 function expectTouchSized(el: HTMLElement) {
   expect(el.className).toContain('min-h-11')

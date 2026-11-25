@@ -3,7 +3,7 @@
 // nothing is deleted until that button is tapped.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, cleanup, fireEvent, act } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import SwipeableCard, { REVEAL_PX } from '@/components/SwipeableCard'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -50,7 +50,6 @@ function isClosed(inner: HTMLElement) {
 beforeEach(() => vi.useFakeTimers())
 afterEach(() => {
   vi.useRealTimers()
-  cleanup()
   delete (window as { matchMedia?: unknown }).matchMedia
 })
 

@@ -31,6 +31,7 @@ const PHASE_LABELS: Record<VaultImportPhase, string> = {
   domains: 'domain rules',
   tags: 'tags',
   links: 'links',
+  collections: 'collections',
   preferences: 'appearance settings',
 }
 
@@ -52,7 +53,7 @@ export default function ImportExportClient() {
     importModalState, importStats, lastImportedAt, importError, importRun, closeImportModal,
     cancelling, notProcessed, cancelImport,
     retryableCount, retryFailed, carried,
-    undoLinkCount, undoFavoriteCount, undoState, requestUndo, cancelUndo, confirmUndo, retryUndo, retryUndoCleanup,
+    undoLinkCount, undoFavoriteCount, undoCollectionCount, undoState, requestUndo, cancelUndo, confirmUndo, retryUndo, retryUndoCleanup,
     hostBlock, waitAndRetry, skipBlockedHost, leaveImport, retryWaitMs, emptyStreakLimit, slowHintMs, throttleWait, fetching,
     fileInputRef,
     hasImportContent,
@@ -131,7 +132,7 @@ export default function ImportExportClient() {
               {exporting?.mode === 'everything' ? 'Exporting…' : 'Export everything as JSON'}
             </button>
             <p className="mt-2 text-xs text-surface-400 dark:text-surface-500">
-              Also includes category colors/emoji, domain auto-assign rules, tag colors and privacy, and appearance settings — a full clone for a new account.
+              Also includes category colors/emoji, domain auto-assign rules, tag colors and privacy, collections, and appearance settings — a full clone for a new account.
             </p>
           </div>
         </div>
@@ -406,6 +407,7 @@ export default function ImportExportClient() {
         undo={{
           linkCount: undoLinkCount,
           favoriteCount: undoFavoriteCount,
+          collectionCount: undoCollectionCount,
           state: undoState,
           onRequest: requestUndo,
           onCancel: cancelUndo,

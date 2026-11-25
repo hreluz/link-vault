@@ -50,6 +50,14 @@ export type ExportedPreferences = {
   move_to_end_delay_seconds?: number
 }
 
+export type ExportedCollection = {
+  name: string
+  emoji: string | null
+  description: string | null
+  /** Member URLs in position order; only URLs present in the file's `links`. */
+  links: string[]
+}
+
 export type VaultExportV2 = {
   format: typeof EXPORT_FORMAT
   version: typeof EXPORT_VERSION
@@ -60,6 +68,8 @@ export type VaultExportV2 = {
   categoryDomains?: ExportedCategoryDomain[]
   tags?: ExportedTag[]
   preferences?: ExportedPreferences
+  /** "everything" only; optional, so files exported before collections still validate. */
+  collections?: ExportedCollection[]
 }
 
 /** Sniffs a parsed JSON value for the v2 full-vault export shape, as opposed to a legacy bare-array export. */
@@ -72,6 +82,11 @@ export function isVaultExportV2(data: unknown): data is VaultExportV2 {
     Array.isArray(record.links)
   )
 }
+
+// Same limits as COLLECTION_NAME_MAX / COLLECTION_DESCRIPTION_MAX in lib/services/collections.ts,
+// inlined so this types file doesn't pull the browser Supabase client into its importers.
+const COLLECTION_NAME_MAX = 60
+const COLLECTION_DESCRIPTION_MAX = 200
 
 const LINK_STATUSES = ['unread', 'watching', 'read', 'archived'] as const
 const THEME_MODES = ['light', 'dark', 'system'] as const
@@ -144,6 +159,23 @@ export function getVaultExportValidationError(data: VaultExportV2): string | nul
       if (!isNullableString(t.color) || !isBoolean(t.is_private)) {
         return 'Invalid export file: a tag has an invalid field.'
       }
+    }
+  }
+
+  if (data.collections !== undefined) {
+    if (!Array.isArray(data.collections)) return 'Invalid export file: "collections" must be a list.'
+    for (const c of data.collections) {
+      if (!isPlainObject(c) || !isString(c.name)) return 'Invalid export file: a collection has an invalid name.'
+      const name = c.name.trim()
+      if (!name || name.length > COLLECTION_NAME_MAX) return 'Invalid export file: a collection has an invalid name.'
+      if (
+        !isNullableString(c.emoji)
+        || !isNullableString(c.description)
+        || (c.description !== null && c.description.length > COLLECTION_DESCRIPTION_MAX)
+      ) {
+        return 'Invalid export file: a collection has an invalid field.'
+      }
+      if (!isStringArray(c.links)) return 'Invalid export file: a collection has invalid links.'
     }
   }
 

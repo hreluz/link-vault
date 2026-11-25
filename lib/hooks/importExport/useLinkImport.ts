@@ -66,7 +66,11 @@ function applyOutcome(stats: ImportStats, outcome: ImportRowOutcome): ImportStat
 }
 
 export type ImportLastResult = { imported: number; skipped: number; duplicates: number; metaMissing?: number } & Partial<
-  Pick<VaultImportResult, 'categoriesCreated' | 'domainsCreated' | 'domainsFailed' | 'tagsCreated' | 'preferencesFailed'>
+  Pick<
+    VaultImportResult,
+    'categoriesCreated' | 'domainsCreated' | 'domainsFailed' | 'tagsCreated' | 'preferencesFailed'
+    | 'collectionsCreated' | 'collectionsUpdated' | 'collectionsFailed'
+  >
 >
 
 async function readFileText(file: File): Promise<string> {
@@ -626,7 +630,7 @@ export function useLinkImport() {
     importModalState, importStats, lastImportedAt, importError, importRun, closeImportModal,
     cancelling, notProcessed, cancelImport,
     retryableCount, retryFailed, carried,
-    undoLinkCount: undo.undoLinkCount, undoFavoriteCount: undo.undoFavoriteCount, undoState: undo.undoState,
+    undoLinkCount: undo.undoLinkCount, undoFavoriteCount: undo.undoFavoriteCount, undoCollectionCount: undo.undoCollectionCount, undoState: undo.undoState,
     requestUndo: undo.requestUndo, cancelUndo: undo.cancelUndo, confirmUndo: undo.confirmUndo,
     retryUndo: undo.retryUndo, retryUndoCleanup: undo.retryUndoCleanup,
     hostBlock, waitAndRetry, skipBlockedHost, leaveImport,

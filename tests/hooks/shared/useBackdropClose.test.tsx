@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, fireEvent, cleanup } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
+import { render, fireEvent } from '@testing-library/react'
 import { useBackdropClose } from '@/lib/hooks/shared/useBackdropClose'
 
 function Harness({ onClose }: { onClose: () => void }) {
@@ -20,7 +20,6 @@ function setup() {
 }
 
 describe('useBackdropClose', () => {
-  afterEach(cleanup)
 
   it('closes when the press and release both land on the backdrop', () => {
     const { onClose, backdrop } = setup()

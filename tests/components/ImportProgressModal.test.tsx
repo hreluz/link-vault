@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, cleanup, act } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import ImportProgressModal, { formatTimeAgo } from '@/app/dashboard/config/import-export/ImportProgressModal'
 import type { ImportStats } from '@/lib/hooks/importExport/useLinkImport'
 
@@ -54,8 +54,6 @@ beforeEach(() => {
   writeText.mockResolvedValue(undefined)
   Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
 })
-
-afterEach(cleanup)
 
 describe('ImportProgressModal', () => {
   it('renders nothing when closed', () => {
@@ -130,6 +128,14 @@ describe('ImportProgressModal', () => {
       })
       expect(screen.getByText('Creating tags')).toBeTruthy()
       expect(screen.getByText('1 of 3')).toBeTruthy()
+    })
+
+    it('shows Restoring collections during the collections phase of a v2 restore', () => {
+      renderModal({
+        run: { isVault: true, withMetadata: false },
+        progress: { phase: 'collections', done: 0, total: 2 },
+      })
+      expect(screen.getByText('Restoring collections')).toBeTruthy()
     })
   })
 
@@ -282,6 +288,31 @@ describe('ImportProgressModal', () => {
         result: { imported: 2, skipped: 0, duplicates: 0, domainsFailed: 1, preferencesFailed: ['theme', 'surface'] },
       })
       expect(screen.getByText(/1 domain rule and 2 appearance settings couldn.t be applied/)).toBeTruthy()
+    })
+
+    function finishedVault(result: Props['result']) {
+      renderModal({ state: 'finished', progress: null, run: { isVault: true, withMetadata: false }, result })
+    }
+
+    it('lists created collections in the created line', () => {
+      finishedVault({ imported: 2, skipped: 0, duplicates: 0, categoriesCreated: 1, collectionsCreated: 2 })
+      expect(screen.getByText('Also created 1 category, 2 collections.')).toBeTruthy()
+    })
+
+    it('uses the singular for one created collection', () => {
+      finishedVault({ imported: 2, skipped: 0, duplicates: 0, collectionsCreated: 1 })
+      expect(screen.getByText('Also created 1 collection.')).toBeTruthy()
+    })
+
+    it('lists failed collections in the not-applied line', () => {
+      finishedVault({ imported: 2, skipped: 0, duplicates: 0, collectionsFailed: 1 })
+      expect(screen.getByText(/^1 collection couldn.t be applied/)).toBeTruthy()
+    })
+
+    it('reads as before when no collection counts are set', () => {
+      finishedVault({ imported: 2, skipped: 0, duplicates: 0, categoriesCreated: 2, collectionsCreated: 0, collectionsFailed: 0 })
+      expect(screen.getByText('Also created 2 categories.')).toBeTruthy()
+      expect(screen.queryByText(/collection/)).toBeNull()
     })
   })
 
@@ -715,7 +746,7 @@ describe('ImportProgressModal undo', () => {
 
   function makeUndo(overrides: Partial<UndoProps> = {}): UndoProps {
     return {
-      linkCount: 3, favoriteCount: 0, state: { phase: 'idle' },
+      linkCount: 3, favoriteCount: 0, collectionCount: 0, state: { phase: 'idle' },
       onRequest: vi.fn(), onCancel: vi.fn(), onConfirm: vi.fn(), onRetry: vi.fn(), onRetryCleanup: vi.fn(),
       ...overrides,
     }
@@ -779,14 +810,49 @@ describe('ImportProgressModal undo', () => {
   })
 
   it('shows the result and hides the button once done', () => {
-    renderModal({ state: 'finished', undo: makeUndo({ state: { phase: 'done', deleted: 3, tags: 2, categories: 1 } }) })
+    renderModal({ state: 'finished', undo: makeUndo({ state: { phase: 'done', deleted: 3, collections: 0, tags: 2, categories: 1 } }) })
 
     expect(screen.getByText('3 links deleted. Removed 2 unused tags and 1 unused category.')).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Undo this import' })).toBeNull()
   })
 
+  it('mentions the created collections in the confirm when links were saved too', () => {
+    renderModal({ state: 'finished', undo: makeUndo({ collectionCount: 2, state: { phase: 'confirming' } }) })
+
+    expect(screen.getByText(/Permanently delete 3 imported links\?/)).toBeTruthy()
+    expect(screen.getByText('Also deletes 2 collections it created.')).toBeTruthy()
+  })
+
+  it('asks about collections only when the run saved no links', () => {
+    renderModal({ state: 'finished', undo: makeUndo({ linkCount: 0, collectionCount: 2, state: { phase: 'confirming' } }) })
+
+    expect(screen.getByText(/^Permanently delete 2 imported collections\? This can.t be undone\.$/)).toBeTruthy()
+    expect(screen.queryByText(/Also deletes/)).toBeNull()
+  })
+
+  it('offers Undo when the run saved no links but created collections', () => {
+    renderModal({ state: 'finished', undo: makeUndo({ linkCount: 0, collectionCount: 1 }) })
+    expect(screen.getByRole('button', { name: 'Undo this import' })).toBeTruthy()
+  })
+
+  it('offers no Undo when the run saved no links and created no collections', () => {
+    renderModal({ state: 'finished', undo: makeUndo({ linkCount: 0, collectionCount: 0 }) })
+    expect(screen.queryByRole('button', { name: 'Undo this import' })).toBeNull()
+  })
+
+  it('lists removed collections first in the done line', () => {
+    renderModal({ state: 'finished', undo: makeUndo({ state: { phase: 'done', deleted: 3, collections: 2, tags: 3, categories: 1 } }) })
+    expect(screen.getByRole('status').textContent)
+      .toBe('3 links deleted. Removed 2 collections, 3 unused tags and 1 unused category.')
+  })
+
+  it('leads with the removed collections when no links were deleted', () => {
+    renderModal({ state: 'finished', undo: makeUndo({ linkCount: 0, collectionCount: 2, state: { phase: 'done', deleted: 0, collections: 2, tags: 0, categories: 0 } }) })
+    expect(screen.getByRole('status').textContent).toBe('Removed 2 collections.')
+  })
+
   it('leaves out the removed line when nothing was removed', () => {
-    renderModal({ state: 'finished', undo: makeUndo({ state: { phase: 'done', deleted: 1, tags: 0, categories: 0 } }) })
+    renderModal({ state: 'finished', undo: makeUndo({ state: { phase: 'done', deleted: 1, collections: 0, tags: 0, categories: 0 } }) })
     expect(screen.getByRole('status').textContent).toBe('1 link deleted.')
   })
 
@@ -817,7 +883,7 @@ describe('ImportProgressModal retry failed (SPEC 32)', () => {
     genericSkipped: [],
   }
   const IDLE_UNDO = {
-    linkCount: 3, favoriteCount: 0, state: { phase: 'idle' as const },
+    linkCount: 3, favoriteCount: 0, collectionCount: 0, state: { phase: 'idle' as const },
     onRequest: vi.fn(), onCancel: vi.fn(), onConfirm: vi.fn(), onRetry: vi.fn(), onRetryCleanup: vi.fn(),
   }
 
@@ -861,7 +927,7 @@ describe('ImportProgressModal retry failed (SPEC 32)', () => {
       rerender(<ImportProgressModal {...props} undo={{ ...IDLE_UNDO, state: { phase } }} />)
       expect(screen.queryByRole('button', { name: 'Retry 2 failed' })).toBeNull()
     }
-    rerender(<ImportProgressModal {...props} undo={{ ...IDLE_UNDO, state: { phase: 'done', deleted: 3, tags: 0, categories: 0 } }} />)
+    rerender(<ImportProgressModal {...props} undo={{ ...IDLE_UNDO, state: { phase: 'done', deleted: 3, collections: 0, tags: 0, categories: 0 } }} />)
     expect(screen.queryByRole('button', { name: 'Retry 2 failed' })).toBeNull()
   })
 

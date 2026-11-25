@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React, { useState } from 'react'
-import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
-import { render, screen, fireEvent, cleanup, act } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import EditLinkModal from '@/app/dashboard/link/EditLinkModal'
 import type { LinkWithTags } from '@/lib/services/links'
 import { makeLink } from '../hooks/collections/fixtures'
@@ -16,7 +16,6 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn() } }))
 beforeEach(() => {
   if (!globalThis.CSS?.escape) (globalThis as { CSS?: unknown }).CSS = { escape: (s: string) => s }
 })
-afterEach(cleanup)
 
 /** A card with an Edit button that can be unmounted while the modal is open, plus a fallback input. */
 function Harness({ withFallback }: { withFallback: boolean }) {

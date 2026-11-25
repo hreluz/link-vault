@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from 'react'
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, cleanup } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, fireEvent } from '@testing-library/react'
 import LinkListHeader from '@/app/dashboard/link/LinkListHeader'
 
 const mockUseLinkListContext = vi.fn()
@@ -30,8 +30,6 @@ beforeEach(() => {
   vi.clearAllMocks()
   setContext()
 })
-
-afterEach(() => cleanup())
 
 describe('LinkListHeader count', () => {
   it('shows the link count with the unread count in parentheses', () => {
@@ -96,9 +94,9 @@ describe('LinkListHeader refresh button', () => {
 describe('LinkListHeader undo button', () => {
   // Undo lives in the top bar now (HeaderUndoButton, SPEC 36).
   it('renders no Undo, with or without a move to undo', () => {
-    render(<LinkListHeader />)
+    const { unmount } = render(<LinkListHeader />)
     expect(screen.queryByRole('button', { name: 'Undo last move' })).toBeNull()
-    cleanup()
+    unmount()
 
     setContext({ lastMovedLink: { id: '1', title: 'Alpha Article', url: 'https://alpha.com' } })
     render(<LinkListHeader />)

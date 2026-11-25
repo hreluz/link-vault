@@ -8,8 +8,8 @@
 // reflect the hook's state). The modal itself is covered by ImportProgressModal.test.tsx.
 
 import React from 'react'
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, cleanup, within } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import ImportExportClient from '@/app/dashboard/config/import-export/ImportExportClient'
 
 const MOCK_CATEGORIES = [
@@ -100,10 +100,6 @@ beforeEach(() => {
   mockImportLinks.mockResolvedValue({ imported: 2, retryable: [], skipped: 0, duplicates: 0 })
 })
 
-afterEach(() => {
-  cleanup()
-})
-
 /** The URLs/JSON textarea (the import tags field is a textbox too). */
 function importBox() {
   return document.querySelector('textarea') as HTMLTextAreaElement
@@ -115,6 +111,12 @@ function btn(name: string) {
 
 describe('ImportExportClient', () => {
   describe('initial rendering', () => {
+    it('mentions collections in the Everything export description', () => {
+      render(<ImportExportClient />)
+
+      expect(screen.getByText(/tag colors and privacy, collections, and appearance settings/)).toBeTruthy()
+    })
+
     it('shows the Paste URLs tab as active by default', () => {
       render(<ImportExportClient />)
 

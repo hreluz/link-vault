@@ -1,11 +1,12 @@
 import { createClient } from '@/lib/supabase/client'
-import { importLinks, type ImportLinkInput, type ImportResult, type ImportRowOutcome } from '@/lib/services/links'
+import { importLinks, type ImportCreateKind, type ImportLinkInput, type ImportResult, type ImportRowOutcome } from '@/lib/services/links'
 import { getCategories, getOrCreateCategoryByName } from '@/lib/services/categories'
 import { addCategoryDomain } from '@/lib/services/category-domains'
 import { getTags, syncTagDefinitions, toKebabCase } from '@/lib/services/tags/tags'
+import { addLinksToCollection, createCollection, getCollectionMemberships, getCollections } from '@/lib/services/collections'
 import { setThemeMode, setAccentColor, setSurfaceFamily, setAutoFetchPreference, setMoveToEndDelay } from '@/lib/services/userPreferences'
 import type { ToggleResult } from '@/lib/hooks/shared/useAsyncToggle'
-import { getVaultExportValidationError, type VaultExportV2 } from '@/lib/types/importExport'
+import { getVaultExportValidationError, type ExportedCollection, type VaultExportV2 } from '@/lib/types/importExport'
 
 export type VaultImportResult = ImportResult & {
   categoriesCreated: number
@@ -13,9 +14,15 @@ export type VaultImportResult = ImportResult & {
   domainsFailed: number
   tagsCreated: number
   preferencesFailed: string[]
+  /** Collections this run created (and filled without error). */
+  collectionsCreated: number
+  /** Existing same-named collections that got at least one new link. */
+  collectionsUpdated: number
+  /** Collections whose create or append failed; the import carried on. */
+  collectionsFailed: number
 }
 
-export type VaultImportPhase = 'categories' | 'domains' | 'tags' | 'links' | 'preferences'
+export type VaultImportPhase = 'categories' | 'domains' | 'tags' | 'links' | 'collections' | 'preferences'
 export type VaultImportProgress = {
   phase: VaultImportPhase
   done: number
@@ -31,11 +38,37 @@ export type VaultImportOptions = {
   onProgress?: (progress: VaultImportProgress) => void
   /** Checked before each phase, and passed through to `importLinks` (checked before each link row). */
   signal?: AbortSignal
-  /** Called once for each tag or category this restore creates (not for existing matches). */
-  onCreate?: (kind: 'tag' | 'category', id: string) => void
+  /** Called once for each tag, category or collection this restore creates (not for existing matches). */
+  onCreate?: (kind: ImportCreateKind, id: string) => void
 }
 
-/** Imports a full v2 vault export: categories (styled) -> domain rules -> tags (colored/private) -> links -> preferences.
+type CollectionGroup = {
+  name: string
+  emoji: string | null
+  description: string | null
+  links: string[]
+}
+
+/** Merges same-named entries (trimmed, case-insensitive) at their first entry's place: the first
+ *  entry's name/emoji/description win, and the links run in file order across the merged entries. */
+function groupCollections(entries: ExportedCollection[]): CollectionGroup[] {
+  const groups: CollectionGroup[] = []
+  const byKey = new Map<string, CollectionGroup>()
+  for (const entry of entries) {
+    const name = entry.name.trim()
+    const key = name.toLowerCase()
+    let group = byKey.get(key)
+    if (!group) {
+      group = { name, emoji: entry.emoji, description: entry.description, links: [] }
+      byKey.set(key, group)
+      groups.push(group)
+    }
+    group.links.push(...entry.links)
+  }
+  return groups
+}
+
+/** Imports a full v2 vault export: categories (styled) -> domain rules -> tags (colored/private) -> links -> collections -> preferences.
  *  Categories/tags are resolved by name and never overwrite a same-named match already in the destination account. */
 export async function importVaultExport(
   data: VaultExportV2,
@@ -59,6 +92,7 @@ export async function importVaultExport(
     imported: 0, skipped: 0, duplicates: 0, failures: [],
     cancelled: true, notProcessed: data.links.map(l => l.url.trim()), retryable: [],
     categoriesCreated, domainsCreated, domainsFailed, tagsCreated, preferencesFailed: [],
+    collectionsCreated: 0, collectionsUpdated: 0, collectionsFailed: 0,
   })
 
   if (signal?.aborted) return cancelledBeforeLinks()
@@ -149,14 +183,89 @@ export async function importVaultExport(
     category_id: l.category ? categoryIdByName.get(l.category) : undefined,
   }))
 
+  // Saved and already-existing rows both carry an id, so the collections phase can place them.
+  const linkIdByUrl = new Map<string, string>()
   const linkResult = await importLinks(
     inputs, options.defaultCategoryId, dek,
     {
-      onProgress: (done, total, outcome) => options.onProgress?.({ phase: 'links', done, total, outcome }),
+      onProgress: (done, total, outcome) => {
+        if (outcome && (outcome.status === 'imported' || outcome.status === 'duplicate')) {
+          linkIdByUrl.set(outcome.url.trim(), outcome.id)
+        }
+        options.onProgress?.({ phase: 'links', done, total, outcome })
+      },
       signal,
       onCreate,
     },
   )
+
+  // ── collections ("everything" only) ─────────────────────────────────────
+  // Skipped entirely after any cancel, like preferences. Processed bottom-up: the file is
+  // recently-updated-first and every create/append bumps updated_at (migration 0024 triggers),
+  // so the destination list ends up in the source order.
+  let collectionsCreated = 0
+  let collectionsUpdated = 0
+  let collectionsFailed = 0
+  let collectionsCancelled = false
+  const collectionGroups = groupCollections(data.collections ?? [])
+  // Like preferences: skipping them after a cancel (even one after the last link row) is a cancel.
+  if (collectionGroups.length > 0 && signal?.aborted) collectionsCancelled = true
+  if (collectionGroups.length > 0 && !signal?.aborted) {
+    const total = collectionGroups.length
+    let done = 0
+    options.onProgress?.({ phase: 'collections', done, total })
+    // Names aren't unique: the first match in list order (recently updated first) is reused.
+    let existingIdByName: Map<string, string> | null = new Map()
+    try {
+      for (const c of await getCollections(dek)) {
+        const key = c.name.trim().toLowerCase()
+        if (!existingIdByName.has(key)) existingIdByName.set(key, c.id)
+      }
+    } catch (error) {
+      console.error('[importVaultExport] loading collections failed:', error)
+      existingIdByName = null
+      collectionsFailed = total
+    }
+
+    if (existingIdByName) {
+      for (const group of [...collectionGroups].reverse()) {
+        if (signal?.aborted) {
+          collectionsCancelled = true
+          break
+        }
+        const linkIds = [...new Set(group.links.flatMap(url => {
+          const id = linkIdByUrl.get(url.trim())
+          return id ? [id] : []
+        }))]
+        let collectionId = existingIdByName.get(group.name.toLowerCase())
+        const reused = !!collectionId
+        try {
+          if (!collectionId) {
+            const created = await createCollection(
+              { name: group.name, emoji: group.emoji, description: group.description }, dek,
+            )
+            if (!created.data) throw new Error(created.error)
+            collectionId = created.data.id
+            onCreate?.('collection', collectionId)
+          }
+          const members = reused
+            ? new Set((await getCollectionMemberships(collectionId)).map(m => m.link_id))
+            : new Set<string>()
+          const toAdd = linkIds.filter(id => !members.has(id))
+          if (toAdd.length > 0) {
+            const added = await addLinksToCollection(collectionId, toAdd)
+            if (!added) throw new Error('append failed')
+          }
+          if (!reused) collectionsCreated++
+          else if (toAdd.length > 0) collectionsUpdated++
+        } catch (error) {
+          collectionsFailed++
+          console.error(`[importVaultExport] collection "${group.name}" failed:`, error)
+        }
+        options.onProgress?.({ phase: 'collections', done: ++done, total })
+      }
+    }
+  }
 
   // ── preferences ("everything" only, opt-in) ─────────────────────────────
   // Never applied after a cancel -- even one that landed after the last link row.
@@ -190,7 +299,8 @@ export async function importVaultExport(
 
   return {
     ...linkResult,
-    cancelled: linkResult.cancelled || preferencesSkipped,
+    cancelled: linkResult.cancelled || collectionsCancelled || preferencesSkipped,
     categoriesCreated, domainsCreated, domainsFailed, tagsCreated, preferencesFailed,
+    collectionsCreated, collectionsUpdated, collectionsFailed,
   }
 }

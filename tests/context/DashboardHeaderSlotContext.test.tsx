@@ -1,14 +1,12 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen } from '@testing-library/react'
 import { DashboardHeaderSlotProvider, useDashboardHeaderSlot } from '@/lib/context/DashboardHeaderSlotContext'
 import DashboardHeader from '@/app/dashboard/DashboardHeader'
 
 vi.mock('next/navigation', () => ({ usePathname: () => '/dashboard' }))
 vi.mock('@/app/dashboard/ThemeToggleButton', () => ({ default: () => <button aria-label="Switch to dark mode" /> }))
 vi.mock('@/app/dashboard/LogoutButton', () => ({ default: () => <button>Sign out</button> }))
-
-afterEach(() => cleanup())
 
 function SlotProbe() {
   const { slot } = useDashboardHeaderSlot()

@@ -949,7 +949,7 @@ describe('useLinkImport', () => {
       emitOutcomes([
         { url: 'https://a.com', status: 'imported', metaMissing: false },
         { url: 'https://b.com', status: 'imported', metaMissing: true },
-        { url: 'https://dup.com', status: 'duplicate' },
+        { url: 'https://dup.com', status: 'duplicate', id: 'dup-id' },
         { url: 'bad', status: 'failed', reason: 'invalid_url' },
         { url: 'https://c.com', status: 'failed', reason: 'save_error' },
       ])
@@ -1568,7 +1568,7 @@ describe('useLinkImport', () => {
       emit({ url: 'https://a.com', status: 'imported', metaMissing: false })
 
       vi.setSystemTime(1_005_000)
-      emit({ url: 'https://dup.com', status: 'duplicate' })
+      emit({ url: 'https://dup.com', status: 'duplicate', id: 'dup-id' })
       emit({ url: 'bad', status: 'failed', reason: 'invalid_url' })
       emit({ url: 'https://instagram.com/p/1', status: 'skipped_generic' })
 

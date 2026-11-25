@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from 'react'
-import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen } from '@testing-library/react'
 import SearchBar from '@/components/SearchBar'
 
 function mockMatchMedia(matches: boolean) {
@@ -11,10 +11,6 @@ function mockMatchMedia(matches: boolean) {
     addListener: vi.fn(), removeListener: vi.fn(), dispatchEvent: vi.fn(),
   })) as unknown as typeof window.matchMedia
 }
-
-afterEach(() => {
-  cleanup()
-})
 
 describe('SearchBar', () => {
   it('keeps the dashboard label and the full placeholder from sm up by default', () => {

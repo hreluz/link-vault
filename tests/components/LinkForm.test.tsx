@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import LinkForm from '@/app/dashboard/link/LinkForm'
 import { useDialog } from '@/lib/hooks/shared/useDialog'
 import { LinkFormContext } from '@/app/dashboard/link/LinkFormContext'
@@ -16,10 +16,6 @@ vi.mock('@/lib/services/collections', async importOriginal => ({
   ...(await importOriginal<typeof import('@/lib/services/collections')>()),
   getCollections: vi.fn(async () => []),
 }))
-
-afterEach(() => {
-  cleanup()
-})
 
 function makeContext(overrides: Partial<LinkFormContextValue> = {}): LinkFormContextValue {
   return {

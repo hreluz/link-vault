@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from 'react'
-import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
-import { render, screen, fireEvent, cleanup, act, within } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, fireEvent, act, within, waitFor } from '@testing-library/react'
 import CollectionDetail from '@/app/dashboard/organize/collections/[id]/CollectionDetail'
 import { COLLECTION, makeLink } from '../hooks/collections/fixtures'
 
@@ -104,11 +104,11 @@ beforeEach(() => {
   })) as unknown as typeof window.matchMedia
   if (!globalThis.CSS?.escape) (globalThis as { CSS?: unknown }).CSS = { escape: (s: string) => s }
 })
-afterEach(cleanup)
 
 async function renderPage() {
-  render(<CollectionDetail collectionId="c1" />)
+  const view = render(<CollectionDetail collectionId="c1" />)
   await screen.findByRole('heading', { name: /Learn Rust/ })
+  return view
 }
 
 const row = (id: string) => document.querySelector<HTMLElement>(`[data-collection-row="${id}"]`)!
@@ -119,7 +119,7 @@ describe('CollectionDetail', () => {
   it('shows the header, counts and the tab title', async () => {
     await renderPage()
     expect(screen.getByText('3 links · 1 done')).toBeTruthy()
-    expect(document.title).toBe('Learn Rust — Link Vault')
+    await waitFor(() => expect(document.title).toBe('Learn Rust — Link Vault'))
   })
 
   it('disables ▲ on the first row and ▼ on the last', async () => {
@@ -282,22 +282,22 @@ describe('CollectionDetail search', () => {
 
   it('is absent on an empty collection, while loading, on errors and on not found', async () => {
     vi.mocked(getCollectionMemberships).mockResolvedValue([])
-    await renderPage()
+    const empty = await renderPage()
     expect(screen.getByText('No links in this collection yet.')).toBeTruthy()
     expect(screen.queryByLabelText('Search this collection')).toBeNull()
-    cleanup()
+    empty.unmount()
 
     vi.mocked(getCollection).mockReturnValue(new Promise(() => {}))
-    render(<CollectionDetail collectionId="c1" />)
+    const loading = render(<CollectionDetail collectionId="c1" />)
     expect(screen.getByText('Loading collection…')).toBeTruthy()
     expect(screen.queryByLabelText('Search this collection')).toBeNull()
-    cleanup()
+    loading.unmount()
 
     vi.mocked(getCollection).mockRejectedValueOnce(new Error('x'))
-    render(<CollectionDetail collectionId="c1" />)
+    const failed = render(<CollectionDetail collectionId="c1" />)
     await screen.findByText("Couldn't load this collection.")
     expect(screen.queryByLabelText('Search this collection')).toBeNull()
-    cleanup()
+    failed.unmount()
 
     vi.mocked(getCollection).mockResolvedValue(null)
     render(<CollectionDetail collectionId="nope" />)
@@ -447,9 +447,9 @@ describe('CollectionDetail search', () => {
   })
 
   it('starts with an empty box when the page is mounted again', async () => {
-    await renderPage()
+    const first = await renderPage()
     type('rust')
-    cleanup()
+    first.unmount()
     await renderPage()
     expect(searchBox().value).toBe('')
   })

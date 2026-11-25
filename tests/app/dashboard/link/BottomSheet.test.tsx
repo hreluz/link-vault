@@ -1,11 +1,9 @@
 // @vitest-environment jsdom
 
-import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen } from '@testing-library/react'
 import BottomSheet from '@/app/dashboard/link/BottomSheet'
 import type { LinkWithTags } from '@/lib/services/links'
-
-afterEach(cleanup)
 
 const LINK: LinkWithTags = {
   id: '1', user_id: 'user-1', url: 'https://alpha.com', title: 'Alpha Article',

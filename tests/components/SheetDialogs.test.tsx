@@ -3,7 +3,7 @@
 // (named by their heading, Escape closes, Tab is trapped, focus goes back).
 import React, { useState } from 'react'
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, fireEvent, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import BottomSheet from '@/app/dashboard/link/BottomSheet'
 import FilterSheet from '@/app/dashboard/link/FilterSheet'
 import UnlockTagModal from '@/components/UnlockTagModal'
@@ -18,7 +18,6 @@ vi.mock('@/lib/services/tags/privateTagSecurity', () => ({
 }))
 
 afterEach(() => {
-  cleanup()
   delete (window as { matchMedia?: unknown }).matchMedia
 })
 

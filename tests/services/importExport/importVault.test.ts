@@ -9,7 +9,12 @@ const {
   mockGetTags, mockSyncTagDefinitions,
   mockImportLinks,
   mockSetThemeMode, mockSetAccentColor, mockSetSurfaceFamily, mockSetAutoFetchPreference, mockSetMoveToEndDelay,
+  mockGetCollections, mockCreateCollection, mockGetCollectionMemberships, mockAddLinksToCollection,
 } = vi.hoisted(() => ({
+  mockGetCollections: vi.fn(),
+  mockCreateCollection: vi.fn(),
+  mockGetCollectionMemberships: vi.fn(),
+  mockAddLinksToCollection: vi.fn(),
   mockGetCategories: vi.fn(),
   mockGetOrCreateCategoryByName: vi.fn(),
   mockAddCategoryDomain: vi.fn(),
@@ -28,6 +33,12 @@ vi.mock('@/lib/services/links', () => ({ importLinks: mockImportLinks }))
 vi.mock('@/lib/services/categories', () => ({
   getCategories: mockGetCategories,
   getOrCreateCategoryByName: mockGetOrCreateCategoryByName,
+}))
+vi.mock('@/lib/services/collections', () => ({
+  getCollections: mockGetCollections,
+  createCollection: mockCreateCollection,
+  getCollectionMemberships: mockGetCollectionMemberships,
+  addLinksToCollection: mockAddLinksToCollection,
 }))
 vi.mock('@/lib/services/category-domains', () => ({ addCategoryDomain: mockAddCategoryDomain }))
 vi.mock('@/lib/services/userPreferences', () => ({
@@ -79,6 +90,12 @@ beforeEach(() => {
   mockSetSurfaceFamily.mockResolvedValue({ success: true })
   mockSetAutoFetchPreference.mockResolvedValue({ success: true })
   mockSetMoveToEndDelay.mockResolvedValue({ success: true })
+  mockGetCollections.mockResolvedValue([])
+  mockCreateCollection.mockImplementation(async (input: { name: string }) => ({
+    data: { id: `col-${input.name}`, name: input.name }, error: null,
+  }))
+  mockGetCollectionMemberships.mockResolvedValue([])
+  mockAddLinksToCollection.mockImplementation(async (_id: string, ids: string[]) => ids.map(() => ({})))
 })
 
 describe('importVaultExport', () => {
@@ -552,6 +569,242 @@ describe('importVaultExport', () => {
         imported: 1, cancelled: true, notProcessed: ['https://b.com'],
         categoriesCreated: 1, domainsCreated: 1, tagsCreated: 1, preferencesFailed: [],
       })
+    })
+  })
+
+  describe('collections', () => {
+    type Outcome =
+      | { url: string; status: 'imported'; metaMissing: false; id: string; isFavorite: false }
+      | { url: string; status: 'duplicate'; id: string }
+      | { url: string; status: 'failed'; reason: 'invalid_url' | 'save_error' }
+      | { url: string; status: 'skipped_generic' }
+    const imported = (url: string, id: string): Outcome => ({ url, status: 'imported', metaMissing: false, id, isFavorite: false })
+    const duplicate = (url: string, id: string): Outcome => ({ url, status: 'duplicate', id })
+
+    /** importLinks reports each outcome through onProgress, then resolves. */
+    function linksPhase(outcomes: Outcome[], beforeReturn?: () => void) {
+      mockImportLinks.mockImplementation(async (_inputs: unknown, _cat: unknown, _dek: unknown,
+        opts: { onProgress?: (done: number, total: number, outcome: Outcome) => void }) => {
+        outcomes.forEach((outcome, i) => opts.onProgress?.(i + 1, outcomes.length, outcome))
+        beforeReturn?.()
+        return { imported: 0, skipped: 0, duplicates: 0, failures: [], cancelled: false, notProcessed: [], retryable: [] }
+      })
+    }
+    const entry = (name: string, links: string[], extra: Partial<{ emoji: string | null; description: string | null }> = {}) =>
+      ({ name, emoji: null, description: null, links, ...extra })
+    const withCollections = (collections: ReturnType<typeof entry>[]) => makeExport({ collections })
+    const run = (data: VaultExportV2, extra: Record<string, unknown> = {}) =>
+      importVaultExport(data, { defaultCategoryId: null, applyPreferences: false, ...extra }, FAKE_DEK)
+    const existing = (id: string, name: string) => ({ id, name, emoji: '⭐', description: 'mine' })
+
+    it('never runs the phase for a file without collections or with an empty list', async () => {
+      const onProgress = vi.fn()
+      for (const data of [makeExport(), withCollections([])]) {
+        const result = await run(data, { onProgress })
+        expect(result).toMatchObject({ collectionsCreated: 0, collectionsUpdated: 0, collectionsFailed: 0 })
+      }
+      expect(onProgress.mock.calls.some(([p]) => p.phase === 'collections')).toBe(false)
+      expect(mockGetCollections).not.toHaveBeenCalled()
+      expect(mockCreateCollection).not.toHaveBeenCalled()
+    })
+
+    it('creates each collection with its style, appends links in file order and reports onCreate', async () => {
+      linksPhase([imported('https://a.com', 'la'), imported('https://b.com', 'lb')])
+      const onCreate = vi.fn()
+
+      const result = await run(withCollections([
+        entry('Rust', ['https://b.com', 'https://a.com'], { emoji: '🦀', description: 'Systems' }),
+      ]), { onCreate })
+
+      expect(mockCreateCollection).toHaveBeenCalledWith({ name: 'Rust', emoji: '🦀', description: 'Systems' }, FAKE_DEK)
+      expect(mockGetCollectionMemberships).not.toHaveBeenCalled()
+      expect(mockAddLinksToCollection).toHaveBeenCalledWith('col-Rust', ['lb', 'la'])
+      expect(onCreate).toHaveBeenCalledWith('collection', 'col-Rust')
+      expect(result).toMatchObject({ collectionsCreated: 1, collectionsUpdated: 0, collectionsFailed: 0 })
+    })
+
+    it('processes collections in reverse file order', async () => {
+      await run(withCollections([entry('A', []), entry('B', []), entry('C', [])]))
+
+      expect(mockCreateCollection.mock.calls.map(([input]) => input.name)).toEqual(['C', 'B', 'A'])
+    })
+
+    it('reuses a same-named collection (any case) without restyling it and appends only missing links', async () => {
+      linksPhase([imported('https://a.com', 'la'), imported('https://b.com', 'lb')])
+      mockGetCollections.mockResolvedValue([existing('mine', 'learn rust')])
+      mockGetCollectionMemberships.mockResolvedValue([{ collection_id: 'mine', link_id: 'la', position: 1, added_at: '' }])
+
+      const result = await run(withCollections([entry('Learn Rust', ['https://a.com', 'https://b.com'])]))
+
+      expect(mockCreateCollection).not.toHaveBeenCalled()
+      expect(mockGetCollectionMemberships).toHaveBeenCalledWith('mine')
+      expect(mockAddLinksToCollection).toHaveBeenCalledWith('mine', ['lb'])
+      expect(result).toMatchObject({ collectionsCreated: 0, collectionsUpdated: 1 })
+    })
+
+    it('does not append or count an update when every link is already a member', async () => {
+      linksPhase([imported('https://a.com', 'la')])
+      mockGetCollections.mockResolvedValue([existing('mine', 'Rust')])
+      mockGetCollectionMemberships.mockResolvedValue([{ collection_id: 'mine', link_id: 'la', position: 1, added_at: '' }])
+
+      const result = await run(withCollections([entry('Rust', ['https://a.com'])]))
+
+      expect(mockAddLinksToCollection).not.toHaveBeenCalled()
+      expect(result.collectionsUpdated).toBe(0)
+    })
+
+    it('reuses the first match in list order when the destination has two same-named collections', async () => {
+      linksPhase([imported('https://a.com', 'la')])
+      mockGetCollections.mockResolvedValue([existing('newer', 'Rust'), existing('older', 'rust')])
+
+      await run(withCollections([entry('Rust', ['https://a.com'])]))
+
+      expect(mockAddLinksToCollection).toHaveBeenCalledWith('newer', ['la'])
+    })
+
+    it('merges same-named entries in the file into one collection, first entry wins', async () => {
+      linksPhase([imported('https://a.com', 'la'), imported('https://b.com', 'lb'), imported('https://c.com', 'lc')])
+
+      await run(withCollections([
+        entry('Rust', ['https://a.com', 'https://b.com'], { emoji: '🦀', description: 'first' }),
+        entry('rust', ['https://b.com', 'https://c.com'], { emoji: '⚙️', description: 'second' }),
+      ]))
+
+      expect(mockCreateCollection).toHaveBeenCalledTimes(1)
+      expect(mockCreateCollection).toHaveBeenCalledWith({ name: 'Rust', emoji: '🦀', description: 'first' }, FAKE_DEK)
+      expect(mockAddLinksToCollection).toHaveBeenCalledWith('col-Rust', ['la', 'lb', 'lc'])
+    })
+
+    it('appends a link that already existed in the destination', async () => {
+      linksPhase([duplicate('https://a.com', 'old-a'), imported('https://b.com', 'lb')])
+
+      await run(withCollections([entry('Rust', ['https://a.com', 'https://b.com'])]))
+
+      expect(mockAddLinksToCollection).toHaveBeenCalledWith('col-Rust', ['old-a', 'lb'])
+    })
+
+    it('silently drops URLs that failed, were skipped as generic or are not in the file', async () => {
+      linksPhase([
+        imported('https://a.com', 'la'),
+        { url: 'bad', status: 'failed', reason: 'invalid_url' },
+        { url: 'https://x.com', status: 'failed', reason: 'save_error' },
+        { url: 'https://g.com', status: 'skipped_generic' },
+        imported('https://b.com', 'lb'),
+      ])
+
+      await run(withCollections([
+        entry('Rust', ['https://a.com', 'bad', 'https://x.com', 'https://g.com', 'https://nowhere.com', 'https://b.com']),
+      ]))
+
+      expect(mockAddLinksToCollection).toHaveBeenCalledWith('col-Rust', ['la', 'lb'])
+    })
+
+    it('appends a URL listed twice in one entry only once', async () => {
+      linksPhase([imported('https://a.com', 'la')])
+
+      await run(withCollections([entry('Rust', ['https://a.com', 'https://a.com'])]))
+
+      expect(mockAddLinksToCollection).toHaveBeenCalledWith('col-Rust', ['la'])
+    })
+
+    it('resolves a collection URL with surrounding spaces', async () => {
+      linksPhase([imported('https://a.com', 'la')])
+
+      await run(withCollections([entry('Rust', ['  https://a.com  '])]))
+
+      expect(mockAddLinksToCollection).toHaveBeenCalledWith('col-Rust', ['la'])
+    })
+
+    it('counts a failed create, logs it and moves on to the next collection', async () => {
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+      mockCreateCollection
+        .mockResolvedValueOnce({ data: null, error: 'db_error' })
+        .mockResolvedValueOnce({ data: { id: 'col-A', name: 'A' }, error: null })
+
+      const result = await run(withCollections([entry('A', []), entry('B', [])]))
+
+      expect(mockCreateCollection).toHaveBeenCalledTimes(2)
+      expect(result).toMatchObject({ collectionsCreated: 1, collectionsFailed: 1 })
+      expect(consoleError).toHaveBeenCalled()
+      consoleError.mockRestore()
+    })
+
+    it('counts a failed append as failed, still reports the created collection and moves on', async () => {
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+      linksPhase([imported('https://a.com', 'la')])
+      mockAddLinksToCollection.mockResolvedValueOnce(null)
+      const onCreate = vi.fn()
+
+      const result = await run(withCollections([entry('A', []), entry('B', ['https://a.com'])]), { onCreate })
+
+      expect(onCreate).toHaveBeenCalledWith('collection', 'col-B')
+      expect(onCreate).toHaveBeenCalledWith('collection', 'col-A')
+      expect(result).toMatchObject({ collectionsCreated: 1, collectionsFailed: 1 })
+      consoleError.mockRestore()
+    })
+
+    it('reports the collections phase between links and preferences, done counting up to the groups', async () => {
+      linksPhase([imported('https://example.com', 'l1')])
+      const phases: VaultImportProgress[] = []
+
+      await importVaultExport(
+        makeExport({
+          collections: [entry('A', []), entry('a', []), entry('B', [])],
+          preferences: {
+            theme_mode: 'dark', accent_color_light: 'indigo', accent_color_dark: 'violet',
+            surface_family: 'slate', auto_fetch_enabled: true,
+          },
+        }),
+        { defaultCategoryId: null, applyPreferences: true, onProgress: p => phases.push(p) },
+        FAKE_DEK,
+      )
+
+      const collections = phases.filter(p => p.phase === 'collections')
+      expect(collections.map(p => [p.done, p.total])).toEqual([[0, 2], [1, 2], [2, 2]])
+      const order = phases.map(p => p.phase)
+      expect(order.lastIndexOf('links')).toBeLessThan(order.indexOf('collections'))
+      expect(order.lastIndexOf('collections')).toBeLessThan(order.indexOf('preferences'))
+    })
+
+    it('skips the whole phase and preferences when cancelled during links', async () => {
+      const controller = new AbortController()
+      linksPhase([imported('https://example.com', 'l1')], () => controller.abort())
+
+      const result = await importVaultExport(
+        withCollections([entry('A', ['https://example.com'])]),
+        { defaultCategoryId: null, applyPreferences: true, signal: controller.signal },
+        FAKE_DEK,
+      )
+
+      expect(mockGetCollections).not.toHaveBeenCalled()
+      expect(mockCreateCollection).not.toHaveBeenCalled()
+      expect(mockAddLinksToCollection).not.toHaveBeenCalled()
+      expect(mockSetThemeMode).not.toHaveBeenCalled()
+      expect(result.cancelled).toBe(true)
+    })
+
+    it('stops after the current collection when cancelled during the phase, keeping what was written', async () => {
+      const controller = new AbortController()
+      mockCreateCollection.mockImplementation(async (input: { name: string }) => {
+        controller.abort()
+        return { data: { id: `col-${input.name}`, name: input.name }, error: null }
+      })
+
+      const result = await importVaultExport(
+        makeExport({
+          collections: [entry('A', []), entry('B', [])],
+          preferences: {
+            theme_mode: 'dark', accent_color_light: 'indigo', accent_color_dark: 'violet',
+            surface_family: 'slate', auto_fetch_enabled: true,
+          },
+        }),
+        { defaultCategoryId: null, applyPreferences: true, signal: controller.signal },
+        FAKE_DEK,
+      )
+
+      expect(mockCreateCollection.mock.calls.map(([input]) => input.name)).toEqual(['B'])
+      expect(mockSetThemeMode).not.toHaveBeenCalled()
+      expect(result).toMatchObject({ cancelled: true, collectionsCreated: 1 })
     })
   })
 })
