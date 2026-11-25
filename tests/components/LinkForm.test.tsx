@@ -12,6 +12,11 @@ vi.mock('@/lib/hooks/tags/useAvailableTags', () => ({
   useAvailableTags: () => [],
 }))
 
+vi.mock('@/lib/services/collections', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/lib/services/collections')>()),
+  getCollections: vi.fn(async () => []),
+}))
+
 afterEach(() => {
   cleanup()
 })
@@ -38,6 +43,10 @@ function makeContext(overrides: Partial<LinkFormContextValue> = {}): LinkFormCon
     setTags: vi.fn(),
     notes: '',
     setNotes: vi.fn(),
+    collectionIds: [],
+    setCollectionIds: vi.fn(),
+    newCollectionNames: [],
+    setNewCollectionNames: vi.fn(),
     submitting: false,
     error: null,
     categories: [{ id: 'cat-1', name: 'YouTube', emoticon: '📺' } as Category],
@@ -66,6 +75,7 @@ describe('LinkForm labels', () => {
     ['Tags', 'INPUT'],
     ['Duration', 'INPUT'],
     ['Notes', 'TEXTAREA'],
+    ['Collections', 'INPUT'],
   ])('connects the %s label to its field in edit mode', (label, tagName) => {
     renderForm()
     expect(screen.getByLabelText(label).tagName).toBe(tagName)
@@ -96,6 +106,21 @@ describe('LinkForm Tags placement', () => {
     expect(screen.getAllByLabelText('Tags')).toHaveLength(1)
     expect(screen.getAllByLabelText('Title')).toHaveLength(1)
     expect(comesBefore(screen.getByLabelText('Tags'), screen.getByLabelText('Title'))).toBe(true)
+  })
+
+  it('shows Collections right after Title in the collapsed add form, without More options', () => {
+    renderForm({ mode: 'add', url: '' }, true)
+    const collections = screen.getByLabelText('Collections')
+    expect(collections.getAttribute('role')).toBe('combobox')
+    expect(comesBefore(screen.getByLabelText('Title'), collections)).toBe(true)
+    expect(comesBefore(collections, screen.getByRole('button', { name: 'More options' }))).toBe(true)
+  })
+
+  it('places Collections after Title and before Description in the expanded edit form', () => {
+    renderForm()
+    const collections = screen.getByLabelText('Collections')
+    expect(comesBefore(screen.getByLabelText('Title'), collections)).toBe(true)
+    expect(comesBefore(collections, screen.getByLabelText('Description'))).toBe(true)
   })
 
   it('places Tags between URL and Title in the edit form', () => {

@@ -39,10 +39,13 @@ The DEK is generated once and never changes. It's stored, wrapped under your cur
 | `tags` | `name, color` | `id, user_id, is_private, created_at` |
 | `categories` | `name, description, color, emoticon` | `id, user_id, created_at, updated_at` |
 | `category_domains` | `domain` | `id, category_id, user_id, created_at` |
+| `collections` | `name, emoji, description` | `id, user_id, created_at, updated_at` |
 
 Structural columns (ids, foreign keys, timestamps, status/favorite flags) stay plaintext because the database still needs them to do ordinary filtering, sorting, and joins — none of them reveal what a link is *about*.
 
 `links.url_fingerprint` is an HMAC-SHA256 of the normalized URL, keyed by the DEK. It's a **blind index**: a deterministic, opaque token that lets the database check "does a link with this exact URL already exist for this user" (used by duplicate detection on import) without ever learning the URL itself.
+
+`collection_links` (SPEC 40) is structural only — `collection_id, link_id, user_id, position, added_at`, no encrypted columns. Collection names don't have to be unique, so there is no name check and no blind index for them; the form field and the ··· picker match names client-side against the decrypted list (`lib/utils/collectionSearch.ts`).
 
 Tag, category, and category-domain name/uniqueness checks (e.g. "does a tag with this name already exist?") don't use blind indexes — those tables are always small and already fetched-and-cached in full client-side (`TagsContext`, `useCategoryList`), so uniqueness is checked by decrypting the cached list and comparing in JS, which is simpler than adding fingerprint columns for tables this size.
 

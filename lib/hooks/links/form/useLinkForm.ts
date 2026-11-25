@@ -18,6 +18,8 @@ type Fields = {
   status: LinkStatus
   tags: string
   notes: string
+  collectionIds: string[]        // saved collections the link should be in
+  newCollectionNames: string[]   // pending "Create" picks, trimmed, created on Save
 }
 
 export const DEFAULT_FIELDS: Fields = {
@@ -30,6 +32,8 @@ export const DEFAULT_FIELDS: Fields = {
   status: 'unread',
   tags: '',
   notes: '',
+  collectionIds: [],
+  newCollectionNames: [],
 }
 
 export function useLinkForm(initial: Fields = DEFAULT_FIELDS) {
@@ -85,6 +89,8 @@ export function useLinkForm(initial: Fields = DEFAULT_FIELDS) {
     status: form.status, setStatus: setField('status'),
     tags: form.tags, setTags: setField('tags'),
     notes: form.notes, setNotes: setField('notes'),
+    collectionIds: form.collectionIds, setCollectionIds: setField('collectionIds'),
+    newCollectionNames: form.newCollectionNames, setNewCollectionNames: setField('newCollectionNames'),
     submitting, setSubmitting,
     fetchingMeta, setFetchingMeta,
     error: form.error, setError: (error: string) => setForm(f => ({ ...f, error })),

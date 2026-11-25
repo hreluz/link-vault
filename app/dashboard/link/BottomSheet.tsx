@@ -19,9 +19,11 @@ interface Props {
   link: LinkWithTags | null
   onStatusChange: (id: string, status: LinkStatus) => void
   onClose: () => void
+  /** When given, shows an "Add to collection…" row that calls it (the caller opens CollectionPickerSheet). */
+  onAddToCollection?: (link: LinkWithTags) => void
 }
 
-export default function BottomSheet({ link, onStatusChange, onClose }: Props) {
+export default function BottomSheet({ link, onStatusChange, onClose, onAddToCollection }: Props) {
   const backdrop = useBackdropClose(onClose)
   const dialog = useDialog({ isOpen: link !== null, onClose })
 
@@ -81,6 +83,20 @@ export default function BottomSheet({ link, onStatusChange, onClose }: Props) {
             })}
           </div>
         </div>
+
+        {onAddToCollection && (
+          <div className="border-t border-surface-100 px-4 py-3 dark:border-surface-800">
+            <button
+              type="button"
+              aria-haspopup="dialog"
+              onClick={() => onAddToCollection(link)}
+              className="focus-ring flex min-h-11 w-full items-center justify-between rounded-xl px-3 text-sm font-medium text-surface-700 transition hover:bg-surface-100 dark:text-surface-200 dark:hover:bg-surface-800"
+            >
+              Add to collection…
+              <span aria-hidden="true" className="text-surface-400 dark:text-surface-500">›</span>
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )

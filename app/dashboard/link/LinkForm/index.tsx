@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { FormEvent, KeyboardEvent } from 'react'
 import { canSubmitLinkForm, useLinkFormContext } from '../LinkFormContext'
 import CategoryStatusRow from './CategoryStatusRow'
+import CollectionsField from './CollectionsField'
 import DescriptionField from './DescriptionField'
 import DurationField from './DurationField'
 import ExpandToggle from './ExpandToggle'
@@ -89,6 +90,7 @@ export default function LinkForm({ scrollable = false, collapsible = false }: Pr
 
         <TagsField />
         <TitleField />
+        <CollectionsField />
 
         {expanded && (
           <>

@@ -5,6 +5,7 @@ import Picker from "@emoji-mart/react"
 import data from "@emoji-mart/data"
 import { useCategoriesContext } from "./CategoriesContext"
 import { COLORS, colorFor as colorForCategory, ColorPicker } from "@/components/ColorPicker"
+import { useTheme } from "@/components/ThemeProvider"
 import CategoryDomainsModal from "./CategoryDomainsModal"
 
 export { colorForCategory, COLORS as CATEGORY_COLORS }
@@ -38,6 +39,7 @@ export default function CategoryForm({ mode }: Props) {
   const title = isAdd ? 'New category' : undefined
   const error = isAdd ? addError : editError
 
+  const { theme } = useTheme()
   const [open, setOpen] = useState(false)
   const pickerRef = useRef<HTMLDivElement>(null)
 
@@ -73,7 +75,7 @@ export default function CategoryForm({ mode }: Props) {
                   onIconChange(e.native)
                   setOpen(false)
                 }}
-                theme="light"
+                theme={theme}
                 previewPosition="none"
                 skinTonePosition="none"
               />

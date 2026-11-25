@@ -12,11 +12,14 @@ import LinkForm from './LinkForm'
 
 interface Props {
   link: LinkWithTags | null
-  onSave: (updated: LinkWithTags) => void
+  /** collectionIds: the link's collections after the save, or null when they didn't change. */
+  onSave: (updated: LinkWithTags, collectionIds: string[] | null) => void
   onClose: () => void
+  /** Where focus goes on close when the card's Edit button is gone (e.g. the card left a search's results). */
+  fallbackFocus?: () => HTMLElement | null
 }
 
-export default function EditLinkModal({ link, onSave, onClose }: Props) {
+export default function EditLinkModal({ link, onSave, onClose, fallbackFocus }: Props) {
   const form = useEditLinkForm(link)
   const { categories } = useCategoryList()
   const guard = useDiscardGuard(form.hasChanges, onClose)
@@ -26,8 +29,11 @@ export default function EditLinkModal({ link, onSave, onClose }: Props) {
   const dialog = useDialog({
     isOpen: link !== null,
     onClose: form.submitting ? () => {} : guard.confirming ? guard.keepEditing : guard.requestClose,
-    // Edit opens from the card's pencil button; send focus back to it on close.
-    returnFocus: () => link && document.querySelector<HTMLElement>(`[data-link-edit="${CSS.escape(link.id)}"]`),
+    // Edit opens from the card's pencil button; send focus back to it on close,
+    // or to the caller's fallback when that card is no longer rendered.
+    returnFocus: () =>
+      (link && document.querySelector<HTMLElement>(`[data-link-edit="${CSS.escape(link.id)}"]`)) ??
+      fallbackFocus?.() ?? null,
   })
 
   if (!link) return null
@@ -39,7 +45,7 @@ export default function EditLinkModal({ link, onSave, onClose }: Props) {
   async function handleSave() {
     const updated = await form.handleSubmit()
     if (updated) {
-      onSave(updated)
+      onSave(updated, form.savedCollectionIds())
       onClose()
       toast.success('Link updated')
     }

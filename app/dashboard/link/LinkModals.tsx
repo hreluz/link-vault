@@ -1,5 +1,8 @@
 'use client'
 
+import { useState } from 'react'
+import type { LinkWithTags } from '@/lib/services/links'
+import CollectionPickerSheet from '@/components/CollectionPickerSheet'
 import { useCategoryList } from '@/lib/hooks/categories/useCategoryList'
 import { useAvailableTagsWithIds } from '@/lib/hooks/tags/useAvailableTags'
 import { useLinkListContext } from './LinkListContext'
@@ -29,6 +32,7 @@ export default function LinkModals() {
     pendingCapture, setPendingCapture,
     autoFetchDefault,
   } = useLinkListContext()
+  const [pickerLink, setPickerLink] = useState<LinkWithTags | null>(null)
 
   return (
     <>
@@ -70,6 +74,13 @@ export default function LinkModals() {
         link={activeLink}
         onStatusChange={handleStatusChange}
         onClose={() => setActiveLink(null)}
+        onAddToCollection={link => { setActiveLink(null); setPickerLink(link) }}
+      />
+
+      <CollectionPickerSheet
+        link={pickerLink}
+        onClose={() => setPickerLink(null)}
+        returnFocus={() => pickerLink && document.querySelector<HTMLElement>(`[data-link-id="${CSS.escape(pickerLink.id)}"] button[aria-label="Link options"]`)}
       />
     </>
   )
